@@ -117,14 +117,6 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  String _mapSignupErrorMessage(String message) {
-    final lower = message.toLowerCase();
-    if (lower.contains('already') && lower.contains('registered')) {
-      return 'This email is already registered. Please sign in instead.';
-    }
-    return message;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

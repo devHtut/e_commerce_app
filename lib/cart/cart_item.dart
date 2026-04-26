@@ -24,16 +24,22 @@ class CartItem {
   double get subtotal => product.price * quantity;
 
   CartItem copyWith({
+    String? id,
+    ProductModel? product,
+    String? size,
+    String? colorName,
+    int? colorValue,
+    String? imageUrl,
     int? quantity,
     bool? isSelected,
   }) {
     return CartItem(
-      id: id,
-      product: product,
-      size: size,
-      colorName: colorName,
-      colorValue: colorValue,
-      imageUrl: imageUrl,
+      id: id ?? this.id,
+      product: product ?? this.product,
+      size: size ?? this.size,
+      colorName: colorName ?? this.colorName,
+      colorValue: colorValue ?? this.colorValue,
+      imageUrl: imageUrl ?? this.imageUrl,
       quantity: quantity ?? this.quantity,
       isSelected: isSelected ?? this.isSelected,
     );

@@ -64,6 +64,45 @@ class CartService {
     itemsNotifier.value = items;
   }
 
+  void updateItemVariant({
+    required String itemId,
+    required String size,
+    required String colorName,
+    required int colorValue,
+    required String imageUrl,
+    required int quantity,
+  }) {
+    final items = List<CartItem>.from(itemsNotifier.value);
+    final index = items.indexWhere((item) => item.id == itemId);
+    if (index == -1) return;
+
+    final current = items[index];
+    final updatedId = '${current.product.id}_${size}_$colorName';
+    final existingIndex = items.indexWhere(
+      (item) => item.id == updatedId && item.id != itemId,
+    );
+
+    if (existingIndex != -1) {
+      final existing = items[existingIndex];
+      items[existingIndex] = existing.copyWith(
+        quantity: existing.quantity + quantity,
+        isSelected: existing.isSelected || current.isSelected,
+      );
+      items.removeAt(index);
+    } else {
+      items[index] = current.copyWith(
+        id: updatedId,
+        size: size,
+        colorName: colorName,
+        colorValue: colorValue,
+        imageUrl: imageUrl,
+        quantity: quantity,
+      );
+    }
+
+    itemsNotifier.value = items;
+  }
+
   double totalSelectedPrice(List<CartItem> items) {
     return items
         .where((item) => item.isSelected)

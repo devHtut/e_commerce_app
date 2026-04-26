@@ -7,12 +7,14 @@ class ProductCard extends StatelessWidget {
   final ProductModel product;
   final VoidCallback onTap;
   final VoidCallback? onWishlistTap;
+  final bool isWishlisted;
 
   const ProductCard({
     super.key,
     required this.product,
     required this.onTap,
     this.onWishlistTap,
+    this.isWishlisted = false,
   });
 
   @override
@@ -70,8 +72,12 @@ class ProductCard extends StatelessWidget {
                       shape: const CircleBorder(),
                       child: IconButton(
                         onPressed: onWishlistTap,
-                        icon: const Icon(Icons.favorite_border, color: Colors.white),
-                        tooltip: 'Add to wishlist',
+                        icon: Icon(
+                          isWishlisted ? Icons.favorite : Icons.favorite_border,
+                          color: isWishlisted ? Colors.red : Colors.white,
+                        ),
+                        tooltip:
+                            isWishlisted ? 'Remove from wishlist' : 'Add to wishlist',
                       ),
                     ),
                   ),

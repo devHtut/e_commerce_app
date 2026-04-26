@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../cart/cart_item.dart';
+import '../cart/checkout_screen.dart';
 import '../cart/cart_service.dart';
 import 'product_model.dart';
 import '../theme_config.dart';
@@ -384,108 +386,81 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     const SizedBox(height: 10),
                     Divider(color: Colors.grey.shade200, height: 1),
                     const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(999),
-                            onTap: () {
-                              setState(() {
-                                _selectedSizeIndex = sheetSelectedSize;
-                                _selectedColorIndex = sheetSelectedColor;
-                                _currentImageIndex = sheetSelectedColor;
-                              });
-                              _imagePageController.animateToPage(
-                                sheetSelectedColor,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                              Navigator.pop(context);
-                            },
-                            child: Container(
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE3ECE6),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Text(
-                                'Buy Now',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primaryGreen,
-                                  fontFamily: AppFonts.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(999),
-                            onTap: () async {
-                              setState(() {
-                                _selectedSizeIndex = sheetSelectedSize;
-                                _selectedColorIndex = sheetSelectedColor;
-                                _currentImageIndex = sheetSelectedColor;
-                              });
-                              _imagePageController.animateToPage(
-                                sheetSelectedColor,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                              Navigator.pop(context);
-                              if (isBuyNow) {
-                                await showCustomPopup(
-                                  context,
-                                  title: 'Checkout',
-                                  message:
-                                      'Buy Now flow is ready for checkout integration.',
-                                  type: PopupType.success,
-                                );
-                                return;
-                              }
+                    SizedBox(
+                      width: double.infinity,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: () async {
+                          setState(() {
+                            _selectedSizeIndex = sheetSelectedSize;
+                            _selectedColorIndex = sheetSelectedColor;
+                            _currentImageIndex = sheetSelectedColor;
+                          });
+                          _imagePageController.animateToPage(
+                            sheetSelectedColor,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
 
-                              final selectedVariant =
-                                  _colorVariants[sheetSelectedColor];
-                              CartService.instance.addItem(
-                                product: widget.product,
-                                size: _sizes[sheetSelectedSize],
-                                colorName: selectedVariant.name,
-                                colorValue: selectedVariant.color.toARGB32(),
-                                imageUrl: selectedVariant.imageUrl,
-                                quantity: quantity,
-                              );
-                              await showCustomPopup(
-                                context,
-                                title: 'Added to cart',
-                                message:
-                                    '${widget.product.name} was added to your cart.',
-                                type: PopupType.success,
-                              );
-                            },
-                            child: Container(
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryGreen,
-                                borderRadius: BorderRadius.circular(999),
+                          final selectedVariant = _colorVariants[sheetSelectedColor];
+                          final selectedSize = _sizes[sheetSelectedSize];
+                          Navigator.pop(context);
+
+                          if (isBuyNow) {
+                            final buyNowItem = CartItem(
+                              id:
+                                  'buy_now_${widget.product.id}_${DateTime.now().microsecondsSinceEpoch}',
+                              product: widget.product,
+                              size: selectedSize,
+                              colorName: selectedVariant.name,
+                              colorValue: selectedVariant.color.toARGB32(),
+                              imageUrl: selectedVariant.imageUrl,
+                              quantity: quantity,
+                            );
+                            if (!mounted) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CheckoutScreen(items: [buyNowItem]),
                               ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                isBuyNow ? 'Buy Now' : 'Add to Cart',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  fontFamily: AppFonts.primary,
-                                ),
-                              ),
+                            );
+                            return;
+                          }
+
+                          CartService.instance.addItem(
+                            product: widget.product,
+                            size: selectedSize,
+                            colorName: selectedVariant.name,
+                            colorValue: selectedVariant.color.toARGB32(),
+                            imageUrl: selectedVariant.imageUrl,
+                            quantity: quantity,
+                          );
+                          if (!mounted) return;
+                          await showCustomPopup(
+                            context,
+                            title: 'Added to cart',
+                            message: '${widget.product.name} was added to your cart.',
+                            type: PopupType.success,
+                          );
+                        },
+                        child: Container(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            isBuyNow ? 'Buy Now' : 'Add to Cart',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              fontFamily: AppFonts.primary,
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                     SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
                   ],
