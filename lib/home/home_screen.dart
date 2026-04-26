@@ -114,6 +114,72 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
+  List<ProductModel> get _newArrivalProducts => _products.take(4).toList();
+  List<ProductModel> get _hotDealProducts => _products.reversed.take(4).toList();
+
+  Widget _buildHorizontalProductSection({
+    required String title,
+    required List<ProductModel> products,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.darkText,
+            fontFamily: AppFonts.primary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 290,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: products.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return SizedBox(
+                width: 180,
+                child: ProductCard(
+                  product: product,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProductDetailScreen(product: product),
+                      ),
+                    );
+                  },
+                  onWishlistTap: () async {
+                    if (!_isLoggedIn) {
+                      await showCustomPopup(
+                        context,
+                        title: 'Sign in required',
+                        message: 'Please sign in to save products to wishlist.',
+                        type: PopupType.error,
+                      );
+                      return;
+                    }
+                    await showCustomPopup(
+                      context,
+                      title: 'Saved',
+                      message: '${product.name} added to wishlist.',
+                      type: PopupType.success,
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _logout() async {
     await Supabase.instance.client.auth.signOut();
     if (!mounted) return;
@@ -162,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCurrentPage() {
     switch (_currentIndex) {
       case 0:
-        return Padding(
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [
@@ -177,6 +243,16 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               AutoBannerSlider(banners: _banners),
               const SizedBox(height: 12),
+              _buildHorizontalProductSection(
+                title: 'New Arrival',
+                products: _newArrivalProducts,
+              ),
+              const SizedBox(height: 14),
+              _buildHorizontalProductSection(
+                title: 'Hot Deals for this week',
+                products: _hotDealProducts,
+              ),
+              const SizedBox(height: 14),
               SizedBox(
                 height: 44,
                 child: ListView.separated(
@@ -215,47 +291,47 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Expanded(
-                child: GridView.builder(
-                  itemCount: _filteredProducts.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.58,
-                  ),
-                  itemBuilder: (context, index) {
-                    final product = _filteredProducts[index];
-                    return ProductCard(
-                      product: product,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProductDetailScreen(product: product),
-                          ),
-                        );
-                      },
-                      onWishlistTap: () async {
-                        if (!_isLoggedIn) {
-                          await showCustomPopup(
-                            context,
-                            title: 'Sign in required',
-                            message: 'Please sign in to save products to wishlist.',
-                            type: PopupType.error,
-                          );
-                          return;
-                        }
+              GridView.builder(
+                itemCount: _filteredProducts.length,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.58,
+                ),
+                itemBuilder: (context, index) {
+                  final product = _filteredProducts[index];
+                  return ProductCard(
+                    product: product,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductDetailScreen(product: product),
+                        ),
+                      );
+                    },
+                    onWishlistTap: () async {
+                      if (!_isLoggedIn) {
                         await showCustomPopup(
                           context,
-                          title: 'Saved',
-                          message: '${product.name} added to wishlist.',
-                          type: PopupType.success,
+                          title: 'Sign in required',
+                          message: 'Please sign in to save products to wishlist.',
+                          type: PopupType.error,
                         );
-                      },
-                    );
-                  },
-                ),
+                        return;
+                      }
+                      await showCustomPopup(
+                        context,
+                        title: 'Saved',
+                        message: '${product.name} added to wishlist.',
+                        type: PopupType.success,
+                      );
+                    },
+                  );
+                },
               ),
             ],
           ),
