@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 
+import 'auth_user_service.dart';
 import 'signin_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
@@ -23,6 +24,7 @@ class _OtpScreenState extends State<OtpScreen> {
   int _secondsRemaining = 60;
   Timer? _timer;
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -41,47 +43,40 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Future<void> _verifyOtp() async {
-    if (!_formKey.currentState!.validate()) {
-      await showCustomPopup(
-        context,
-        title: "Validation failed",
-        message: "OTP must be exactly 6 digits.",
-        type: PopupType.error,
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
 
     try {
-      // OTP Verify လုပ်ပါမယ်
       final response = await Supabase.instance.client.auth.verifyOTP(
         type: OtpType.signup,
-        token: _otpController.text,
-        email: widget.email,
+        token: _otpController.text.trim(),
+        email: widget.email.trim(),
       );
 
-      // Verify အောင်မြင်ရင် updateUser လုပ်စရာမလိုတော့ဘဲ တိုက်ရိုက် Sign In ကို သွားနိုင်ပါပြီ
       if (response.user != null) {
-        if (!mounted) return;
-        await showCustomPopup(
-          context,
-          title: "Verification success",
-          message: "Your OTP has been verified.",
-          type: PopupType.success,
+        await AuthUserService.createUserProfile(
+          response.user!.id,
+          widget.email,
         );
+
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const SignInScreen()),
         );
       }
-    } catch (e) {
+    } on AuthException catch (e) {
+      debugPrint("Supabase Auth Error: ${e.message}");
       if (!mounted) return;
       await showCustomPopup(
         context,
         title: "Verification failed",
-        message: "Invalid or expired code",
+        message: e.message,
         type: PopupType.error,
       );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -109,98 +104,103 @@ class _OtpScreenState extends State<OtpScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              const Text(
-                "Enter OTP Code 🔐", 
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.darkText,
-                  fontFamily: AppFonts.primary,
+                const Text(
+                  "Enter OTP Code 🔐",
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "Please check your email. Verification code sent to ${widget.email}",
-                style: AppTextStyles.body,
-              ),
-              const SizedBox(height: 40),
-              
-              // Using your CustomTextField for consistent web/mobile design
-              CustomTextField(
-                controller: _otpController,
-                hintText: "Enter 6-digit code",
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "OTP is required.";
-                  }
-                  if (!RegExp(r'^\d{6}$').hasMatch(value.trim())) {
-                    return "Enter exactly 6 digits.";
-                  }
-                  return null;
-                },
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Using your CustomButton
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: CustomButton(
-                  text: "Verify", 
-                  onPressed: _verifyOtp
+                const SizedBox(height: 16),
+                Text(
+                  "Please check your email. Verification code sent to ${widget.email}",
+                  style: AppTextStyles.body,
                 ),
-              ),
-              
-              const SizedBox(height: 24),
-              Center(
-                child: TextButton(
-                  onPressed: _secondsRemaining == 0 ? () async {
-                    // Resend OTP Logic အလုပ်လုပ်အောင် ထည့်သွင်းထားပါတယ်
-                    setState(() => _secondsRemaining = 60);
-                    _startTimer();
-                    try {
-                      await Supabase.instance.client.auth.resend(
-                        type: OtpType.signup,
-                        email: widget.email,
-                      );
-                      if (!mounted) return;
-                      await showCustomPopup(
-                        context,
-                        title: "OTP Resent",
-                        message: "A new verification code has been sent.",
-                        type: PopupType.success,
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-                      await showCustomPopup(
-                        context,
-                        title: "Failed to resend",
-                        message: "Could not resend OTP. Please try again later.",
-                        type: PopupType.error,
-                      );
+                const SizedBox(height: 40),
+
+                // Using your CustomTextField for consistent web/mobile design
+                CustomTextField(
+                  controller: _otpController,
+                  hintText: "Enter 6-digit code",
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return "OTP is required.";
                     }
-                  } : null,
-                  child: Text(
-                    _secondsRemaining > 0 
-                      ? "You can resend in $_secondsRemaining seconds" 
-                      : "Resend code",
-                    style: TextStyle(
-                      color: _secondsRemaining == 0
-                          ? AppColors.primaryGreen
-                          : Colors.grey,
-                      fontFamily: AppFonts.primary,
+                    if (!RegExp(r'^\d{6}$').hasMatch(value.trim())) {
+                      return "Enter exactly 6 digits.";
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 32),
+
+                // Using your CustomButton
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : CustomButton(
+                          text: "Verify",
+                          onPressed:
+                              _verifyOtp, // This now works safely with _isLoading
+                        ),
+                ),
+
+                const SizedBox(height: 24),
+                Center(
+                  child: TextButton(
+                    onPressed: _secondsRemaining == 0
+                        ? () async {
+                            // Resend OTP Logic အလုပ်လုပ်အောင် ထည့်သွင်းထားပါတယ်
+                            setState(() => _secondsRemaining = 60);
+                            _startTimer();
+                            try {
+                              await Supabase.instance.client.auth.resend(
+                                type: OtpType.signup,
+                                email: widget.email,
+                              );
+                              if (!mounted) return;
+                              await showCustomPopup(
+                                context,
+                                title: "OTP Resent",
+                                message:
+                                    "A new verification code has been sent.",
+                                type: PopupType.success,
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              await showCustomPopup(
+                                context,
+                                title: "Failed to resend",
+                                message:
+                                    "Could not resend OTP. Please try again later.",
+                                type: PopupType.error,
+                              );
+                            }
+                          }
+                        : null,
+                    child: Text(
+                      _secondsRemaining > 0
+                          ? "You can resend in $_secondsRemaining seconds"
+                          : "Resend code",
+                      style: TextStyle(
+                        color: _secondsRemaining == 0
+                            ? AppColors.primaryGreen
+                            : Colors.grey,
+                        fontFamily: AppFonts.primary,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),

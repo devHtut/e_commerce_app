@@ -20,7 +20,8 @@ class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   bool _isLoading = false;
   bool _agreedToTerms = false;
   bool _obscurePassword = true;
@@ -36,7 +37,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
   // 2. SUPABASE AUTH FUNCTION (OTP Flow)
   Future<void> _signUpWithEmail() async {
-    // Basic UI validations
     if (!_formKey.currentState!.validate()) return;
     if (!_agreedToTerms) {
       await _showErrorPopup("Please agree to the Terms & Conditions.");
@@ -46,34 +46,36 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final normalizedEmail = _emailController.text.trim();
-      final exists = await AuthUserService.emailExistsInUsers(normalizedEmail);
-      if (exists) {
-        await _showErrorPopup(
-          "This email is already registered. Please sign in instead.",
-        );
-        return;
-      }
+      final normalizedEmail = _emailController.text.trim().toLowerCase();
 
-      // signInWithOtp အစား signUp ကိုပြောင်းသုံးပြီး Password ပါတစ်ခါတည်းထည့်ပါမယ်
-      await Supabase.instance.client.auth.signUp(
+      // 1. Attempt Sign Up
+      final response = await Supabase.instance.client.auth.signUp(
         email: normalizedEmail,
-        password: _passwordController.text, 
+        password: _passwordController.text,
       );
 
-      if (!mounted) return;
-      await _showSuccessPopup("A 6-digit verification code has been sent to your email.");
+      // 2. Only proceed if user creation was successful
+      if (response.user != null) {
+        if (!mounted) return;
+        await _showSuccessPopup(
+          "A 6-digit verification code has been sent to your email.",
+        );
 
-      // Navigate to the OTP Verification Screen
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OtpScreen(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtpScreen(
+              email: normalizedEmail,
+              password: _passwordController.text,
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        // This happens if email confirmation is enabled and user is created but unverified
+        await _showErrorPopup(
+          "Please check your email to verify your account.",
+        );
+      }
     } on AuthException catch (e) {
       final message = _mapSignupErrorMessage(e.message);
       if (!mounted) return;
@@ -84,6 +86,17 @@ class _SignupScreenState extends State<SignupScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String _mapSignupErrorMessage(String message) {
+    final lower = message.toLowerCase();
+    if (lower.contains('already registered') ||
+        lower.contains('user already exists')) {
+      return 'This email is already registered. Please sign in instead.';
+    } else if (lower.contains('weak password')) {
+      return 'Password is too weak. Please use at least 6 characters.';
+    }
+    return message;
   }
 
   Future<void> _showErrorPopup(String message) {
@@ -133,10 +146,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 16),
                 const Row(
                   children: [
-                    Text(
-                      "Join Trendify Today",
-                      style: AppTextStyles.header,
-                    ),
+                    Text("Join Trendify Today", style: AppTextStyles.header),
                     SizedBox(width: 8),
                     Icon(Icons.person, size: 36, color: Color(0xFF6C89A2)),
                   ],
@@ -162,7 +172,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 CustomTextField(
                   controller: _emailController,
                   hintText: "example@gmail.com",
-                  prefixIcon: const Icon(Icons.email_outlined, color: Colors.black45),
+                  prefixIcon: const Icon(
+                    Icons.email_outlined,
+                    color: Colors.black45,
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return "Email is required.";
@@ -190,10 +203,15 @@ class _SignupScreenState extends State<SignupScreen> {
                   controller: _passwordController,
                   hintText: "Enter your password",
                   isPassword: _obscurePassword,
-                  prefixIcon: const Icon(Icons.lock_outline, color: Colors.black45),
+                  prefixIcon: const Icon(
+                    Icons.lock_outline,
+                    color: Colors.black45,
+                  ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: Colors.black45,
                     ),
                     onPressed: () {
@@ -227,10 +245,15 @@ class _SignupScreenState extends State<SignupScreen> {
                   controller: _confirmPasswordController,
                   hintText: "Re-enter your password",
                   isPassword: _obscureConfirmPassword,
-                  prefixIcon: const Icon(Icons.lock_outline, color: Colors.black45),
+                  prefixIcon: const Icon(
+                    Icons.lock_outline,
+                    color: Colors.black45,
+                  ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                      _obscureConfirmPassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: Colors.black45,
                     ),
                     onPressed: () {
@@ -263,7 +286,10 @@ class _SignupScreenState extends State<SignupScreen> {
                         });
                       },
                     ),
-                    const Text("I agree to Trendify ", style: AppTextStyles.body),
+                    const Text(
+                      "I agree to Trendify ",
+                      style: AppTextStyles.body,
+                    ),
                     GestureDetector(
                       onTap: () {
                         // Implement navigation to T&C
@@ -283,12 +309,17 @@ class _SignupScreenState extends State<SignupScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Already have an account? ", style: AppTextStyles.body),
+                    const Text(
+                      "Already have an account? ",
+                      style: AppTextStyles.body,
+                    ),
                     GestureDetector(
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const SignInScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const SignInScreen(),
+                          ),
                         );
                       },
                       child: const Text(

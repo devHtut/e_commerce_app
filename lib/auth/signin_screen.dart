@@ -33,56 +33,77 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _signInWithEmail() async {
-    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
-      // Validation error ...
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty) {
+      await showCustomPopup(
+        context,
+        title: "Validation failed",
+        message: "Email and password are required.",
+        type: PopupType.error,
+      );
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      final normalizedEmail = _emailController.text.trim();
-      
-      // 1. AuthUserService ကို အသုံးမပြုဘဲ တိုက်ရိုက် Login ဝင်ကြည့်ပါ
-      final authResponse = await Supabase.instance.client.auth.signInWithPassword(
-        email: normalizedEmail,
-        password: _passwordController.text,
-      );
+      final normalizedEmail = _emailController.text.trim().toLowerCase();
 
-      final user = authResponse.user;
+      // 1. Let Supabase handle the authentication FIRST
+      final authResponse = await Supabase.instance.client.auth
+          .signInWithPassword(
+            email: normalizedEmail,
+            password: _passwordController.text,
+          );
+
+      final user =
+          authResponse.user ?? Supabase.instance.client.auth.currentUser;
+      String userType = 'customer';
+
       if (user != null) {
-        // User ဝင်လို့ရသွားပြီဆိုမှ User Type စစ်ပါ
-        String userType = await AuthUserService.resolveUserType(
+        // 2. Now check your public users table. If they are missing (e.g., OTP interrupted), create them now.
+        final exists = await AuthUserService.emailExistsInUsers(
+          normalizedEmail,
+        );
+        if (!exists) {
+          await AuthUserService.createUserProfile(user.id, normalizedEmail);
+        }
+
+        // 3. Resolve their user type
+        userType = await AuthUserService.resolveUserType(
           userId: user.id,
           email: user.email,
         );
+      }
 
-        final isVendor = userType.toLowerCase() == 'vendor';
-        if (!mounted) return;
-        
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => isVendor ? const VendorDashboard() : const HomeScreen(),
-          ),
-        );
-      }
+      final isVendor = userType.toLowerCase() == 'vendor';
+      if (!mounted) return;
+
+      await showCustomPopup(
+        context,
+        title: "Sign in success",
+        message: isVendor ? "Welcome to Vendor Dashboard!" : "Welcome back!",
+        type: PopupType.success,
+      );
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              isVendor ? const VendorDashboard() : const HomeScreen(),
+        ),
+      );
     } on AuthException catch (e) {
-      // 2. Error ကို သေချာဖတ်ပြီးမှ message ပြပါ
-      String message = e.message;
-      if (e.message.contains("Invalid login credentials")) {
-        message = "Incorrect email or password.";
-      } else if (e.message.contains("Email not confirmed")) {
-        message = "Please verify your email via the OTP sent to you.";
-      }
-      
+      final message =
+          e.message.toLowerCase().contains('invalid login credentials')
+          ? 'Invalid credentials. If you signed up with OTP, please complete verification or reset your password.'
+          : e.message;
       await showCustomPopup(
         context,
         title: "Sign in failed",
         message: message,
         type: PopupType.error,
       );
-    } catch (e) {
-      await showCustomPopup(context, title: "Error", message: e.toString(), type: PopupType.error);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -105,7 +126,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 style: AppTextStyles.body,
               ),
               const SizedBox(height: 32),
-              
+
               CustomTextField(hintText: "Email", controller: _emailController),
               const SizedBox(height: 16),
               CustomTextField(
@@ -124,7 +145,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   },
                 ),
               ),
-              
+
               Row(
                 children: [
                   Checkbox(
@@ -153,21 +174,27 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : CustomButton(text: "Sign in", onPressed: _signInWithEmail),
+                    : CustomButton(
+                        text: "Sign in",
+                        onPressed: _signInWithEmail,
+                      ),
               ),
 
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Don't have an account? ", style: AppTextStyles.body),
+                  const Text(
+                    "Don't have an account? ",
+                    style: AppTextStyles.body,
+                  ),
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -186,7 +213,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 ],
               ),
-              
+
               // Add "or" divider and Social login buttons here...
             ],
           ),
