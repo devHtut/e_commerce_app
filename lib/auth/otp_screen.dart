@@ -52,17 +52,15 @@ class _OtpScreenState extends State<OtpScreen> {
     }
 
     try {
+      // OTP Verify လုပ်ပါမယ်
       final response = await Supabase.instance.client.auth.verifyOTP(
         type: OtpType.signup,
         token: _otpController.text,
         email: widget.email,
       );
 
-      if (response.session != null) {
-        await Supabase.instance.client.auth.updateUser(
-          UserAttributes(password: widget.password),
-        );
-        // Navigate to sign in after successful verification
+      // Verify အောင်မြင်ရင် updateUser လုပ်စရာမလိုတော့ဘဲ တိုက်ရိုက် Sign In ကို သွားနိုင်ပါပြီ
+      if (response.user != null) {
         if (!mounted) return;
         await showCustomPopup(
           context,
@@ -162,10 +160,31 @@ class _OtpScreenState extends State<OtpScreen> {
               const SizedBox(height: 24),
               Center(
                 child: TextButton(
-                  onPressed: _secondsRemaining == 0 ? () {
-                    // Logic to resend OTP
+                  onPressed: _secondsRemaining == 0 ? () async {
+                    // Resend OTP Logic အလုပ်လုပ်အောင် ထည့်သွင်းထားပါတယ်
                     setState(() => _secondsRemaining = 60);
                     _startTimer();
+                    try {
+                      await Supabase.instance.client.auth.resend(
+                        type: OtpType.signup,
+                        email: widget.email,
+                      );
+                      if (!mounted) return;
+                      await showCustomPopup(
+                        context,
+                        title: "OTP Resent",
+                        message: "A new verification code has been sent.",
+                        type: PopupType.success,
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      await showCustomPopup(
+                        context,
+                        title: "Failed to resend",
+                        message: "Could not resend OTP. Please try again later.",
+                        type: PopupType.error,
+                      );
+                    }
                   } : null,
                   child: Text(
                     _secondsRemaining > 0 

@@ -55,20 +55,16 @@ class _SignupScreenState extends State<SignupScreen> {
         return;
       }
 
-      // Send the OTP to the email.
-      // We don't send the password here. Passwords are set *after* email verification 
-      // in standard Supabase OTP flows, usually on a separate screen or by 
-      // providing a separate confirmation password. For this implementation, we will
-      // continue assuming standard OTP logic where verification comes first.
-      await Supabase.instance.client.auth.signInWithOtp(
+      // signInWithOtp အစား signUp ကိုပြောင်းသုံးပြီး Password ပါတစ်ခါတည်းထည့်ပါမယ်
+      await Supabase.instance.client.auth.signUp(
         email: normalizedEmail,
-        shouldCreateUser: true,
+        password: _passwordController.text, 
       );
 
       if (!mounted) return;
       await _showSuccessPopup("A 6-digit verification code has been sent to your email.");
 
-      // Navigate to the OTP Verification Screen, passing the email
+      // Navigate to the OTP Verification Screen
       Navigator.push(
         context,
         MaterialPageRoute(

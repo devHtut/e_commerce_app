@@ -34,68 +34,55 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _signInWithEmail() async {
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
-      await showCustomPopup(
-        context,
-        title: "Validation failed",
-        message: "Email and password are required.",
-        type: PopupType.error,
-      );
+      // Validation error ...
       return;
     }
 
     setState(() => _isLoading = true);
     try {
       final normalizedEmail = _emailController.text.trim();
-      final exists = await AuthUserService.emailExistsInUsers(normalizedEmail);
-      if (!exists) {
-        await showCustomPopup(
-          context,
-          title: "Sign in failed",
-          message: "This email is not registered. Please sign up first.",
-          type: PopupType.error,
-        );
-        return;
-      }
-
+      
+      // 1. AuthUserService ကို အသုံးမပြုဘဲ တိုက်ရိုက် Login ဝင်ကြည့်ပါ
       final authResponse = await Supabase.instance.client.auth.signInWithPassword(
         email: normalizedEmail,
         password: _passwordController.text,
       );
-      final user = authResponse.user ?? Supabase.instance.client.auth.currentUser;
-      String userType = 'customer';
 
+      final user = authResponse.user;
       if (user != null) {
-        userType = await AuthUserService.resolveUserType(
+        // User ဝင်လို့ရသွားပြီဆိုမှ User Type စစ်ပါ
+        String userType = await AuthUserService.resolveUserType(
           userId: user.id,
           email: user.email,
         );
-      }
 
-      final isVendor = userType.toLowerCase() == 'vendor';
-      if (!mounted) return;
-      await showCustomPopup(
-        context,
-        title: "Sign in success",
-        message: isVendor ? "Welcome to Vendor Dashboard!" : "Welcome back!",
-        type: PopupType.success,
-      );
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => isVendor ? const VendorDashboard() : const HomeScreen(),
-        ),
-      );
+        final isVendor = userType.toLowerCase() == 'vendor';
+        if (!mounted) return;
+        
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => isVendor ? const VendorDashboard() : const HomeScreen(),
+          ),
+        );
+      }
     } on AuthException catch (e) {
-      final message = e.message.toLowerCase().contains('invalid login credentials')
-          ? 'Invalid credentials. If you signed up with OTP, please complete verification or reset your password.'
-          : e.message;
+      // 2. Error ကို သေချာဖတ်ပြီးမှ message ပြပါ
+      String message = e.message;
+      if (e.message.contains("Invalid login credentials")) {
+        message = "Incorrect email or password.";
+      } else if (e.message.contains("Email not confirmed")) {
+        message = "Please verify your email via the OTP sent to you.";
+      }
+      
       await showCustomPopup(
         context,
         title: "Sign in failed",
         message: message,
         type: PopupType.error,
       );
+    } catch (e) {
+      await showCustomPopup(context, title: "Error", message: e.toString(), type: PopupType.error);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

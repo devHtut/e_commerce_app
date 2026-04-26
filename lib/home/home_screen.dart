@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../cart/cart_item.dart';
+import '../cart/cart_service.dart';
 import '../auth/signin_screen.dart';
 import '../auth/signup_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -205,6 +207,17 @@ class _HomeScreenState extends State<HomeScreen> {
     'Account',
   ];
 
+  String _appBarTitle() {
+    if (_currentIndex == 2) {
+      final count = CartService.instance.itemsNotifier.value.length;
+      return 'Cart ($count)';
+    }
+    if (_currentIndex == 0) {
+      return 'Trendify';
+    }
+    return _titles[_currentIndex];
+  }
+
   Future<void> _handleTabTap(int index) async {
     // Guests can browse Home freely; protected tabs require auth.
     if (!_isLoggedIn && [1, 2, 3].contains(index)) {
@@ -223,6 +236,217 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _currentIndex = index;
     });
+  }
+
+  Widget _buildCartPage() {
+    return ValueListenableBuilder<List<CartItem>>(
+      valueListenable: CartService.instance.itemsNotifier,
+      builder: (context, items, _) {
+        if (items.isEmpty) {
+          return const Center(
+            child: Text('Your cart is empty.', style: AppTextStyles.body),
+          );
+        }
+
+        final selectedCount = CartService.instance.selectedCount(items);
+        final selectedTotal = CartService.instance.totalSelectedPrice(items);
+
+        return Stack(
+          children: [
+            ListView.separated(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.network(
+                              item.imageUrl,
+                              width: 110,
+                              height: 138,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 110,
+                                height: 138,
+                                color: Colors.grey.shade300,
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.image_not_supported),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 8,
+                            top: 8,
+                            child: InkWell(
+                              onTap: () =>
+                                  CartService.instance.toggleSelection(item.id),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: item.isSelected
+                                      ? AppColors.primaryGreen
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: item.isSelected
+                                        ? AppColors.primaryGreen
+                                        : Colors.grey.shade300,
+                                  ),
+                                ),
+                                child: item.isSelected
+                                    ? const Icon(
+                                        Icons.check,
+                                        size: 16,
+                                        color: Colors.white,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.product.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.darkText,
+                                fontFamily: AppFonts.primary,
+                                height: 1.25,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Size: ${item.size}',
+                              style: TextStyle(
+                                fontFamily: AppFonts.primary,
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  'Color: ${item.colorName} ',
+                                  style: TextStyle(
+                                    fontFamily: AppFonts.primary,
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: Color(item.colorValue),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Qty: ${item.quantity}',
+                              style: TextStyle(
+                                fontFamily: AppFonts.primary,
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '\$${item.subtotal.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 34,
+                                color: AppColors.primaryGreen,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: AppFonts.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.edit_outlined,
+                              color: AppColors.darkText,
+                            ),
+                            onPressed: () {},
+                            tooltip: 'Edit',
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Color(0xFFDC9696),
+                            ),
+                            onPressed: () {
+                              CartService.instance.removeItem(item.id);
+                            },
+                            tooltip: 'Remove',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: SafeArea(
+                top: false,
+                child: Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Checkout ($selectedCount) - \$${selectedTotal.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: AppFonts.primary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildCurrentPage() {
@@ -339,7 +563,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return const Center(child: Text('Your wishlist will appear here.', style: AppTextStyles.body));
       case 2:
-        return const Center(child: Text('Your cart will appear here.', style: AppTextStyles.body));
+        return _buildCartPage();
       case 3:
         return const Center(child: Text('Your orders will appear here.', style: AppTextStyles.body));
       case 4:
@@ -423,14 +647,28 @@ class _HomeScreenState extends State<HomeScreen> {
         leadingWidth: _currentIndex == 0 ? 52 : null,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(
-          _currentIndex == 0 ? 'Trendify' : _titles[_currentIndex],
-          style: TextStyle(
-            fontFamily: AppFonts.primary,
-            color: AppColors.darkText,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: _currentIndex == 2
+            ? ValueListenableBuilder<List<CartItem>>(
+                valueListenable: CartService.instance.itemsNotifier,
+                builder: (context, items, _) {
+                  return Text(
+                    'Cart (${items.length})',
+                    style: TextStyle(
+                      fontFamily: AppFonts.primary,
+                      color: AppColors.darkText,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                },
+              )
+            : Text(
+                _appBarTitle(),
+                style: TextStyle(
+                  fontFamily: AppFonts.primary,
+                  color: AppColors.darkText,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
         centerTitle: _currentIndex == 0,
         actions: _isLoggedIn
             ? [
