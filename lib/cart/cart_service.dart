@@ -33,8 +33,7 @@ class CartService {
     if (existingIndex != -1) {
       final existing = items[existingIndex];
       final nextQty = existing.quantity + quantity;
-      items[existingIndex] =
-          existing.copyWith(quantity: nextQty);
+      items[existingIndex] = existing.copyWith(quantity: nextQty);
       await _upsertItem(
         variantId: variantId,
         quantity: nextQty,
@@ -63,9 +62,11 @@ class CartService {
 
   void toggleSelection(String id) {
     final items = itemsNotifier.value
-        .map((item) => item.id == id
-            ? item.copyWith(isSelected: !item.isSelected)
-            : item)
+        .map(
+          (item) => item.id == id
+              ? item.copyWith(isSelected: !item.isSelected)
+              : item,
+        )
         .toList();
     itemsNotifier.value = items;
   }
@@ -87,6 +88,7 @@ class CartService {
     required String colorName,
     required int colorValue,
     required String imageUrl,
+    required double selectedPrice,
     required int quantity,
   }) async {
     final items = List<CartItem>.from(itemsNotifier.value);
@@ -94,8 +96,7 @@ class CartService {
     if (index == -1) return;
 
     final current = items[index];
-    final updatedId =
-        '${current.product.id}_${variantId}_${size}_$colorName';
+    final updatedId = '${current.product.id}_${variantId}_${size}_$colorName';
     final existingIndex = items.indexWhere(
       (item) => item.id == updatedId && item.id != itemId,
     );
@@ -105,6 +106,7 @@ class CartService {
       final mergedQty = existing.quantity + quantity;
       items[existingIndex] = existing.copyWith(
         quantity: mergedQty,
+        product: existing.product.copyWith(price: selectedPrice),
         isSelected: existing.isSelected || current.isSelected,
       );
       await _upsertItem(
@@ -124,6 +126,7 @@ class CartService {
         id: updatedId,
         dbId: dbId,
         variantId: variantId,
+        product: current.product.copyWith(price: selectedPrice),
         size: size,
         colorName: colorName,
         colorValue: colorValue,

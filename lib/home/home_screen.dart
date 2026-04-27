@@ -20,10 +20,7 @@ import '../theme_config.dart';
 class HomeScreen extends StatefulWidget {
   final int initialIndex;
 
-  const HomeScreen({
-    super.key,
-    this.initialIndex = 0,
-  });
+  const HomeScreen({super.key, this.initialIndex = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -93,12 +90,13 @@ class _HomeScreenState extends State<HomeScreen> {
           .cast<Map<String, dynamic>>()
           .map(ProductModel.fromSupabaseRow)
           .toList();
-      final categoryNames = products
-          .map((p) => p.category.trim())
-          .where((c) => c.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+      final categoryNames =
+          products
+              .map((p) => p.category.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
       if (!mounted) return;
       setState(() {
         _products = products;
@@ -126,9 +124,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final selectedCategory = _categories[safeIndex];
     return _products.where((product) {
       final categoryMatch =
-          selectedCategory == 'Discover' || product.category == selectedCategory;
+          selectedCategory == 'Discover' ||
+          product.category == selectedCategory;
       final query = _searchQuery.trim().toLowerCase();
-      final searchMatch = query.isEmpty ||
+      final searchMatch =
+          query.isEmpty ||
           product.name.toLowerCase().contains(query) ||
           product.brand.toLowerCase().contains(query);
       return categoryMatch && searchMatch;
@@ -136,7 +136,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<ProductModel> get _newArrivalProducts => _products.take(4).toList();
-  List<ProductModel> get _hotDealProducts => _products.reversed.take(4).toList();
+  List<ProductModel> get _hotDealProducts =>
+      _products.reversed.take(4).toList();
 
   Widget _buildHorizontalProductSection({
     required String title,
@@ -167,7 +168,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 180,
                 child: ProductCard(
                   product: product,
-                  isWishlisted: WishlistService.instance.isWishlisted(product.id),
+                  isWishlisted: WishlistService.instance.isWishlisted(
+                    product.id,
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -431,7 +434,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(height: 12),
                               Container(
                                 height: 42,
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(999),
@@ -516,7 +521,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                               setModalState(() {
                                 selectedVariant = variants.indexOf(
-                                  sameSize[matchedColor == -1 ? 0 : matchedColor],
+                                  sameSize[matchedColor == -1
+                                      ? 0
+                                      : matchedColor],
                                 );
                                 quantity = quantity.clamp(
                                   1,
@@ -530,8 +537,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               height: 48,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color:
-                                    isSelected ? AppColors.primaryGreen : Colors.white,
+                                color: isSelected
+                                    ? AppColors.primaryGreen
+                                    : Colors.white,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: isSelected
@@ -615,7 +623,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ? Icon(
                                           Icons.check,
                                           size: 18,
-                                          color: _colorFromName(colorName).computeLuminance() > 0.8
+                                          color:
+                                              _colorFromName(
+                                                    colorName,
+                                                  ).computeLuminance() >
+                                                  0.8
                                               ? AppColors.darkText
                                               : Colors.white,
                                         )
@@ -677,10 +689,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   variantId: selected.id,
                                   size: selected.size,
                                   colorName: selected.color,
-                                  colorValue: _colorFromName(selected.color).toARGB32(),
+                                  colorValue: _colorFromName(
+                                    selected.color,
+                                  ).toARGB32(),
                                   imageUrl: selected.imageUrl.isEmpty
                                       ? item.imageUrl
                                       : selected.imageUrl,
+                                  selectedPrice: selected.price,
                                   quantity: quantity,
                                 );
                                 if (!context.mounted) return;
@@ -717,7 +732,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<List<_CartVariantOption>> _loadProductVariants(String productId) async {
+  Future<List<_CartVariantOption>> _loadProductVariants(
+    String productId,
+  ) async {
     final rows = await Supabase.instance.client
         .from('product_variants')
         .select(
@@ -840,9 +857,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (checkoutItems.isEmpty) return;
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => CheckoutScreen(items: checkoutItems),
-      ),
+      MaterialPageRoute(builder: (_) => CheckoutScreen(items: checkoutItems)),
     );
   }
 
@@ -1033,7 +1048,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: selectedCount > 0 ? () => _goToCheckout(items) : null,
+                    onTap: selectedCount > 0
+                        ? () => _goToCheckout(items)
+                        : null,
                     borderRadius: BorderRadius.circular(999),
                     child: Container(
                       height: 56,
@@ -1119,7 +1136,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final d = DateTime(date.year, date.month, date.day);
-    if (d == today) return 'Today, ${months[date.month - 1]} ${date.day}, ${date.year}';
+    if (d == today)
+      return 'Today, ${months[date.month - 1]} ${date.day}, ${date.year}';
     if (d == today.subtract(const Duration(days: 1))) {
       return 'Yesterday, ${months[date.month - 1]} ${date.day}, ${date.year}';
     }
@@ -1200,10 +1218,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return ValueListenableBuilder<List<OrderModel>>(
       valueListenable: OrderService.instance.ordersNotifier,
       builder: (context, orders, _) {
-        final active = orders.where((o) => o.status == OrderStatus.active).toList();
-        final completed =
-            orders.where((o) => o.status == OrderStatus.completed).toList();
-        final canceled = orders.where((o) => o.status == OrderStatus.canceled).toList();
+        final active = orders
+            .where((o) => o.status == OrderStatus.active)
+            .toList();
+        final completed = orders
+            .where((o) => o.status == OrderStatus.completed)
+            .toList();
+        final canceled = orders
+            .where((o) => o.status == OrderStatus.canceled)
+            .toList();
         final tabs = <(String, int)>[
           ('Active', active.length),
           ('Completed', completed.length),
@@ -1284,7 +1307,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   if (order.status == OrderStatus.active)
                                     PopupMenuButton<String>(
-                                      onSelected: (_) => _showCancelOrderDialog(order),
+                                      onSelected: (_) =>
+                                          _showCancelOrderDialog(order),
                                       itemBuilder: (_) => const [
                                         PopupMenuItem(
                                           value: 'cancel',
@@ -1310,7 +1334,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           leadItem.product.name,
@@ -1324,7 +1349,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                         if (extraCount > 0)
                                           Padding(
-                                            padding: const EdgeInsets.only(top: 2),
+                                            padding: const EdgeInsets.only(
+                                              top: 2,
+                                            ),
                                             child: Text(
                                               '+$extraCount other products',
                                               style: TextStyle(
@@ -1357,13 +1384,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                               context,
                                               MaterialPageRoute(
                                                 builder: (_) =>
-                                                    OrderDetailScreen(order: order),
+                                                    OrderDetailScreen(
+                                                      order: order,
+                                                    ),
                                               ),
                                             );
                                           },
                                           style: OutlinedButton.styleFrom(
                                             side: const BorderSide(
-                                                color: AppColors.primaryGreen),
+                                              color: AppColors.primaryGreen,
+                                            ),
                                           ),
                                           child: const Text(
                                             'View Order',
@@ -1462,13 +1492,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       selectedColor: AppColors.primaryGreen,
                       backgroundColor: Colors.transparent,
                       side: BorderSide(
-                        color: isSelected ? AppColors.primaryGreen : Colors.black26,
+                        color: isSelected
+                            ? AppColors.primaryGreen
+                            : Colors.black26,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
                       showCheckmark: false,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                     );
                   },
                 ),
@@ -1488,7 +1523,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   final product = _filteredProducts[index];
                   return ProductCard(
                     product: product,
-                    isWishlisted: WishlistService.instance.isWishlisted(product.id),
+                    isWishlisted: WishlistService.instance.isWishlisted(
+                      product.id,
+                    ),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -1632,17 +1669,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ]
             : _currentIndex == 0
-                ? [
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.notifications_none_rounded,
-                        color: AppColors.darkText,
-                      ),
-                      tooltip: 'Notifications',
-                    ),
-                  ]
-                : null,
+            ? [
+                IconButton(
+                  onPressed: () {},
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppColors.darkText,
+                  ),
+                  tooltip: 'Notifications',
+                ),
+              ]
+            : null,
       ),
       body: _buildCurrentPage(),
       bottomNavigationBar: BottomNavigationBar(

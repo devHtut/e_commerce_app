@@ -40,8 +40,10 @@ class ProductModel {
         .toList();
 
     final basePrice = (row['base_price'] as num?)?.toDouble() ?? 0;
-    final category = ((row['categories'] as Map?)?['name']?.toString()) ?? 'General';
-    final brand = ((row['brands'] as Map?)?['brand_name']?.toString()) ?? 'Unknown Brand';
+    final category =
+        ((row['categories'] as Map?)?['name']?.toString()) ?? 'General';
+    final brand =
+        ((row['brands'] as Map?)?['brand_name']?.toString()) ?? 'Unknown Brand';
 
     return ProductModel(
       id: row['id'].toString(),
@@ -58,6 +60,36 @@ class ProductModel {
           ? 'https://via.placeholder.com/600x800?text=No+Image'
           : imageUrls.first,
       imageUrls: imageUrls,
+    );
+  }
+
+  ProductModel copyWith({
+    String? id,
+    String? name,
+    String? category,
+    String? categoryId,
+    String? brand,
+    String? brandId,
+    String? brandLogoUrl,
+    String? description,
+    double? price,
+    double? rating,
+    String? imageUrl,
+    List<String>? imageUrls,
+  }) {
+    return ProductModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
+      brand: brand ?? this.brand,
+      brandId: brandId ?? this.brandId,
+      brandLogoUrl: brandLogoUrl ?? this.brandLogoUrl,
+      description: description ?? this.description,
+      price: price ?? this.price,
+      rating: rating ?? this.rating,
+      imageUrl: imageUrl ?? this.imageUrl,
+      imageUrls: imageUrls ?? this.imageUrls,
     );
   }
 }

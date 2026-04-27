@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../address/delivery_address_screen.dart';
 import '../home/home_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
@@ -10,62 +10,98 @@ import 'cart_service.dart';
 class CheckoutScreen extends StatefulWidget {
   final List<CartItem> items;
 
-  const CheckoutScreen({
-    super.key,
-    required this.items,
-  });
+  const CheckoutScreen({super.key, required this.items});
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  late List<DeliveryAddress> _addresses;
+  late List<_DeliveryAddress> _addresses;
   late String _selectedAddressId;
   bool _isPlacingOrder = false;
+  bool _loadingAddresses = true;
 
   @override
   void initState() {
     super.initState();
-    _addresses = [
-      DeliveryAddress(
-        id: 'addr_home',
-        label: 'Home',
-        recipientName: 'Andrew Ainsley',
-        phone: '+1 111 467 378 399',
-        streetAddress: '701 7th Ave, New York, NY 10036, USA',
-        note: 'Pinpoint already',
-        isPrimary: true,
-      ),
-      DeliveryAddress(
-        id: 'addr_apartment',
-        label: 'Apartment',
-        recipientName: 'Andrew Ainsley',
-        phone: '+1 111 684 049 365',
-        streetAddress: 'Liberty Island, New York, NY 10004, USA',
-        note: 'Pinpoint already',
-      ),
-      DeliveryAddress(
-        id: 'addr_mom',
-        label: "Mom's House",
-        recipientName: 'Jenny Ainsley',
-        phone: '+1 111 684 049 365',
-        streetAddress: 'Central Park, New York, NY 10022, USA',
-        note: 'Pinpoint already',
-      ),
-    ];
-    _selectedAddressId = _addresses.first.id;
+    _addresses = [];
+    _selectedAddressId = '';
+    _loadDeliveryAddresses();
   }
 
-  DeliveryAddress get _selectedAddress {
-    return _addresses.firstWhere((address) => address.id == _selectedAddressId);
+  _DeliveryAddress get _selectedAddress {
+    return _addresses.firstWhere(
+      (address) => address.id == _selectedAddressId,
+      orElse: () => _addresses.first,
+    );
   }
 
-  void _openChooseDeliveryAddress() async {
-    final result = await Navigator.push<DeliveryAddressResult>(
+  Future<void> _loadDeliveryAddresses() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      setState(() => _loadingAddresses = false);
+      return;
+    }
+    try {
+      final rows = await Supabase.instance.client
+          .from('user_addresses')
+          .select('id,label,phone_number,address_line,city,is_default')
+          .eq('user_id', user.id)
+          .order('is_default', ascending: false);
+      final addresses = (rows as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((row) {
+            final street = row['address_line']?.toString() ?? '';
+            final city = row['city']?.toString() ?? '';
+            return _DeliveryAddress(
+              id:
+                  row['id']?.toString() ??
+                  DateTime.now().microsecondsSinceEpoch.toString(),
+              label: row['label']?.toString() ?? 'Home',
+              recipientName: '',
+              phone: row['phone_number']?.toString() ?? '',
+              streetAddress: '$street${city.isNotEmpty ? ', $city' : ''}',
+              city: city,
+              note: 'Pinpoint already',
+              isPrimary: (row['is_default'] as bool?) ?? false,
+            );
+          })
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _addresses = addresses;
+        if (_addresses.isNotEmpty) {
+          _selectedAddressId = _addresses.first.id;
+        }
+        _loadingAddresses = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingAddresses = false);
+    }
+  }
+
+  Future<void> _openChooseDeliveryAddress() async {
+    if (_addresses.isEmpty) {
+      final newAddress = await Navigator.push<_DeliveryAddress>(
+        context,
+        MaterialPageRoute(builder: (_) => const _AddressDetailsScreen()),
+      );
+      if (newAddress == null || !mounted) return;
+      final saved = await _saveAddressToDatabase(newAddress);
+      if (!mounted || saved == null) return;
+      setState(() {
+        _addresses = [saved];
+        _selectedAddressId = saved.id;
+      });
+      return;
+    }
+
+    final result = await Navigator.push<_AddressFlowResult>(
       context,
       MaterialPageRoute(
-        builder: (_) => DeliveryAddressScreen(
+        builder: (_) => _ChooseDeliveryAddressScreen(
           initialAddresses: _addresses,
           selectedAddressId: _selectedAddressId,
         ),
@@ -76,6 +112,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _addresses = result.addresses;
       _selectedAddressId = result.selectedAddressId;
     });
+  }
+
+  Future<_DeliveryAddress?> _saveAddressToDatabase(
+    _DeliveryAddress address,
+  ) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return null;
+    final payload = {
+      'user_id': user.id,
+      'label': address.label,
+      'phone_number': address.phone,
+      'address_line': address.streetAddress,
+      'city': address.city,
+      'is_default': address.isPrimary,
+    };
+    try {
+      final inserted = await Supabase.instance.client
+          .from('user_addresses')
+          .insert(payload)
+          .select('id')
+          .single();
+      final id = inserted['id']?.toString() ?? address.id;
+      return address.copyWith(id: id);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _confirmOrder() async {
@@ -103,7 +165,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       barrierDismissible: false,
       builder: (_) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
@@ -141,7 +205,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       barrierDismissible: false,
       builder: (_) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             child: Column(
@@ -150,11 +216,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    Icon(Icons.auto_awesome, color: Color(0xFFFFD54F), size: 16),
+                    Icon(
+                      Icons.auto_awesome,
+                      color: Color(0xFFFFD54F),
+                      size: 16,
+                    ),
                     SizedBox(width: 8),
-                    Icon(Icons.auto_awesome, color: Color(0xFF29B6F6), size: 14),
+                    Icon(
+                      Icons.auto_awesome,
+                      color: Color(0xFF29B6F6),
+                      size: 14,
+                    ),
                     SizedBox(width: 8),
-                    Icon(Icons.auto_awesome, color: Color(0xFFF06292), size: 16),
+                    Icon(
+                      Icons.auto_awesome,
+                      color: Color(0xFFF06292),
+                      size: 16,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -264,9 +342,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final items = widget.items;
     final subtotal = items.fold<double>(0, (sum, item) => sum + item.subtotal);
-    const serviceFee = 1.50;
-    const tax = 3.50;
-    final totalPayment = subtotal + serviceFee + tax;
+    const promo = '-';
+    final totalPayment = subtotal;
 
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
@@ -297,18 +374,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                 children: [
-                  _SelectedDeliveryAddressTile(
-                    address: _selectedAddress,
-                    onTap: _openChooseDeliveryAddress,
-                  ),
+                  if (_loadingAddresses)
+                    const SizedBox(
+                      height: 120,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryGreen,
+                        ),
+                      ),
+                    )
+                  else if (_addresses.isEmpty)
+                    _EmptyDeliveryAddressCard(onTap: _openChooseDeliveryAddress)
+                  else
+                    _SelectedDeliveryAddressTile(
+                      address: _selectedAddress,
+                      onTap: _openChooseDeliveryAddress,
+                    ),
                   const SizedBox(height: 12),
                   _OrderSection(items: items),
                   const SizedBox(height: 12),
                   _ReviewSummaryCard(
                     itemCount: items.length,
                     subtotal: subtotal,
-                    serviceFee: serviceFee,
-                    tax: tax,
+                    promo: promo,
                     totalPayment: totalPayment,
                   ),
                 ],
@@ -322,7 +410,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: _addresses.isNotEmpty && !_isPlacingOrder
+                    onPressed: _selectedAddressId.isNotEmpty && !_isPlacingOrder
                         ? _confirmOrder
                         : null,
                     style: ElevatedButton.styleFrom(
@@ -358,6 +446,7 @@ class _DeliveryAddress {
   final String recipientName;
   final String phone;
   final String streetAddress;
+  final String city;
   final String note;
   final bool isPrimary;
 
@@ -367,6 +456,7 @@ class _DeliveryAddress {
     required this.recipientName,
     required this.phone,
     required this.streetAddress,
+    required this.city,
     required this.note,
     this.isPrimary = false,
   });
@@ -377,6 +467,7 @@ class _DeliveryAddress {
     String? recipientName,
     String? phone,
     String? streetAddress,
+    String? city,
     String? note,
     bool? isPrimary,
   }) {
@@ -386,6 +477,7 @@ class _DeliveryAddress {
       recipientName: recipientName ?? this.recipientName,
       phone: phone ?? this.phone,
       streetAddress: streetAddress ?? this.streetAddress,
+      city: city ?? this.city,
       note: note ?? this.note,
       isPrimary: isPrimary ?? this.isPrimary,
     );
@@ -403,7 +495,7 @@ class _AddressFlowResult {
 }
 
 class _SelectedDeliveryAddressTile extends StatelessWidget {
-  final DeliveryAddress address;
+  final _DeliveryAddress address;
   final VoidCallback onTap;
 
   const _SelectedDeliveryAddressTile({
@@ -426,7 +518,11 @@ class _SelectedDeliveryAddressTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             child: const Row(
               children: [
-                Icon(Icons.location_on_outlined, color: AppColors.primaryGreen, size: 20),
+                Icon(
+                  Icons.location_on_outlined,
+                  color: AppColors.primaryGreen,
+                  size: 20,
+                ),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -500,6 +596,82 @@ class _SelectedDeliveryAddressTile extends StatelessWidget {
   }
 }
 
+class _EmptyDeliveryAddressCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _EmptyDeliveryAddressCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(
+                  Icons.location_on_outlined,
+                  color: AppColors.primaryGreen,
+                  size: 20,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Choose Delivery Address',
+                    style: TextStyle(
+                      fontFamily: AppFonts.primary,
+                      color: AppColors.darkText,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Colors.black45),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'No delivery address found. Tap to add your address now.',
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontFamily: AppFonts.primary,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withAlpha(26),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Add Address',
+                style: TextStyle(
+                  color: AppColors.primaryGreen,
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ChooseDeliveryAddressScreen extends StatefulWidget {
   final List<_DeliveryAddress> initialAddresses;
   final String selectedAddressId;
@@ -514,7 +686,8 @@ class _ChooseDeliveryAddressScreen extends StatefulWidget {
       _ChooseDeliveryAddressScreenState();
 }
 
-class _ChooseDeliveryAddressScreenState extends State<_ChooseDeliveryAddressScreen> {
+class _ChooseDeliveryAddressScreenState
+    extends State<_ChooseDeliveryAddressScreen> {
   late List<_DeliveryAddress> _addresses;
   late String _selectedAddressId;
 
@@ -532,9 +705,7 @@ class _ChooseDeliveryAddressScreenState extends State<_ChooseDeliveryAddressScre
     final updatedAddresses = await Navigator.push<List<_DeliveryAddress>>(
       context,
       MaterialPageRoute(
-        builder: (_) => _ManageAddressesScreen(
-          initialAddresses: _addresses,
-        ),
+        builder: (_) => _ManageAddressesScreen(initialAddresses: _addresses),
       ),
     );
     if (updatedAddresses == null || !mounted) return;
@@ -690,7 +861,10 @@ class _ChooseAddressCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   if (address.isPrimary)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: AppColors.primaryGreen),
                         borderRadius: BorderRadius.circular(6),
@@ -706,7 +880,11 @@ class _ChooseAddressCard extends StatelessWidget {
                       ),
                     ),
                   const Spacer(),
-                  const Icon(Icons.share_outlined, color: AppColors.darkText, size: 20),
+                  const Icon(
+                    Icons.share_outlined,
+                    color: AppColors.darkText,
+                    size: 20,
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -741,7 +919,11 @@ class _ChooseAddressCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.location_on_outlined, color: Colors.grey.shade600, size: 16),
+                  Icon(
+                    Icons.location_on_outlined,
+                    color: Colors.grey.shade600,
+                    size: 16,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     address.note,
@@ -763,9 +945,7 @@ class _ChooseAddressCard extends StatelessWidget {
 class _ManageAddressesScreen extends StatefulWidget {
   final List<_DeliveryAddress> initialAddresses;
 
-  const _ManageAddressesScreen({
-    required this.initialAddresses,
-  });
+  const _ManageAddressesScreen({required this.initialAddresses});
 
   @override
   State<_ManageAddressesScreen> createState() => _ManageAddressesScreenState();
@@ -791,8 +971,9 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
   void _deleteAddress(String id) {
     if (_addresses.length <= 1) return;
     setState(() {
-      final deletedWasPrimary =
-          _addresses.any((address) => address.id == id && address.isPrimary);
+      final deletedWasPrimary = _addresses.any(
+        (address) => address.id == id && address.isPrimary,
+      );
       _addresses = _addresses.where((address) => address.id != id).toList();
       if (deletedWasPrimary && _addresses.isNotEmpty) {
         _addresses[0] = _addresses[0].copyWith(isPrimary: true);
@@ -804,8 +985,9 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
     setState(() {
       final index = _addresses.indexWhere((item) => item.id == address.id);
       if (address.isPrimary) {
-        _addresses =
-            _addresses.map((item) => item.copyWith(isPrimary: false)).toList();
+        _addresses = _addresses
+            .map((item) => item.copyWith(isPrimary: false))
+            .toList();
       }
       if (index == -1) {
         _addresses.insert(0, address);
@@ -821,9 +1003,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
   Future<void> _openAddAddress() async {
     final created = await Navigator.push<_DeliveryAddress>(
       context,
-      MaterialPageRoute(
-        builder: (_) => const _AddressDetailsScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const _AddressDetailsScreen()),
     );
     if (created == null || !mounted) return;
     _upsertAddress(created);
@@ -958,7 +1138,10 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                     const SizedBox(width: 8),
                     if (address.isPrimary)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.primaryGreen),
                           borderRadius: BorderRadius.circular(6),
@@ -974,7 +1157,11 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                         ),
                       ),
                     const Spacer(),
-                    const Icon(Icons.share_outlined, color: AppColors.darkText, size: 20),
+                    const Icon(
+                      Icons.share_outlined,
+                      color: AppColors.darkText,
+                      size: 20,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1001,7 +1188,11 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.location_on_outlined, color: Colors.grey.shade600, size: 16),
+                    Icon(
+                      Icons.location_on_outlined,
+                      color: Colors.grey.shade600,
+                      size: 16,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       address.note,
@@ -1062,9 +1253,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
 class _AddressDetailsScreen extends StatefulWidget {
   final _DeliveryAddress? initialAddress;
 
-  const _AddressDetailsScreen({
-    this.initialAddress,
-  });
+  const _AddressDetailsScreen({this.initialAddress});
 
   @override
   State<_AddressDetailsScreen> createState() => _AddressDetailsScreenState();
@@ -1075,6 +1264,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
+  late final TextEditingController _cityController;
   late final TextEditingController _noteController;
   late bool _isPrimary;
 
@@ -1084,11 +1274,19 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   void initState() {
     super.initState();
     final initial = widget.initialAddress;
-    _labelController = TextEditingController(text: initial?.label ?? 'Work Office');
-    _nameController = TextEditingController(text: initial?.recipientName ?? 'Andrew Ainsley');
-    _phoneController = TextEditingController(text: initial?.phone ?? '+1 111 467 378 399');
-    _addressController =
-        TextEditingController(text: initial?.streetAddress ?? '75 9th Ave, New York, NY 10011, USA');
+    _labelController = TextEditingController(
+      text: initial?.label ?? 'Work Office',
+    );
+    _nameController = TextEditingController(
+      text: initial?.recipientName ?? 'Andrew Ainsley',
+    );
+    _phoneController = TextEditingController(
+      text: initial?.phone ?? '+1 111 467 378 399',
+    );
+    _addressController = TextEditingController(
+      text: initial?.streetAddress ?? '75 9th Ave, New York, NY 10011, USA',
+    );
+    _cityController = TextEditingController(text: initial?.city ?? 'New York');
     _noteController = TextEditingController(text: initial?.note ?? '');
     _isPrimary = initial?.isPrimary ?? true;
   }
@@ -1099,6 +1297,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _cityController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -1108,10 +1307,20 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final street = _addressController.text.trim();
-    final note = _noteController.text.trim().isEmpty ? 'Pinpoint already' : _noteController.text.trim();
-    if (label.isEmpty || name.isEmpty || phone.isEmpty || street.isEmpty) return;
+    final city = _cityController.text.trim();
+    final note = _noteController.text.trim().isEmpty
+        ? 'Pinpoint already'
+        : _noteController.text.trim();
+    if (label.isEmpty ||
+        name.isEmpty ||
+        phone.isEmpty ||
+        street.isEmpty ||
+        city.isEmpty) {
+      return;
+    }
 
-    final id = widget.initialAddress?.id ??
+    final id =
+        widget.initialAddress?.id ??
         'addr_${DateTime.now().microsecondsSinceEpoch.toString()}';
     Navigator.pop(
       context,
@@ -1121,6 +1330,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
         recipientName: name,
         phone: phone,
         streetAddress: street,
+        city: city,
         note: note,
         isPrimary: _isPrimary,
       ),
@@ -1159,21 +1369,33 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                 children: [
                   _FieldLabel(label: 'Address Labels'),
-                  _InputBox(controller: _labelController, hintText: 'Home / Work Office'),
+                  _InputBox(
+                    controller: _labelController,
+                    hintText: 'Home / Work Office',
+                  ),
                   const SizedBox(height: 14),
                   _FieldLabel(label: 'Note to Courier (optional)'),
                   _InputBox(controller: _noteController, hintText: 'Note'),
                   const SizedBox(height: 14),
                   _FieldLabel(label: "Recipient's Name"),
-                  _InputBox(controller: _nameController, hintText: 'Recipient name'),
+                  _InputBox(
+                    controller: _nameController,
+                    hintText: 'Recipient name',
+                  ),
                   const SizedBox(height: 14),
                   _FieldLabel(label: "Recipient's Phone Number"),
-                  _InputBox(controller: _phoneController, hintText: 'Phone number'),
+                  _InputBox(
+                    controller: _phoneController,
+                    hintText: 'Phone number',
+                  ),
+                  const SizedBox(height: 14),
+                  _FieldLabel(label: 'City'),
+                  _InputBox(controller: _cityController, hintText: 'City'),
                   const SizedBox(height: 14),
                   _FieldLabel(label: 'Address'),
                   _InputBox(
                     controller: _addressController,
-                    hintText: 'Street, City, ZIP',
+                    hintText: 'Street, ZIP',
                     maxLines: 2,
                   ),
                   const SizedBox(height: 14),
@@ -1217,7 +1439,9 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
                       ),
                     ),
                     child: Text(
-                      _isEditMode ? 'Save' : 'Select Location & Continue Fill Address',
+                      _isEditMode
+                          ? 'Save'
+                          : 'Select Location & Continue Fill Address',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
@@ -1288,7 +1512,10 @@ class _InputBox extends StatelessWidget {
         ),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -1341,9 +1568,7 @@ class _OrderSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Divider(height: 1),
-          ...items.map(
-            (item) => _OrderItemTile(item: item),
-          ),
+          ...items.map((item) => _OrderItemTile(item: item)),
         ],
       ),
     );
@@ -1457,15 +1682,13 @@ class _OrderItemTile extends StatelessWidget {
 class _ReviewSummaryCard extends StatelessWidget {
   final int itemCount;
   final double subtotal;
-  final double serviceFee;
-  final double tax;
+  final String promo;
   final double totalPayment;
 
   const _ReviewSummaryCard({
     required this.itemCount,
     required this.subtotal,
-    required this.serviceFee,
-    required this.tax,
+    required this.promo,
     required this.totalPayment,
   });
 
@@ -1482,7 +1705,11 @@ class _ReviewSummaryCard extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(Icons.receipt_long_outlined, color: AppColors.primaryGreen, size: 20),
+              Icon(
+                Icons.receipt_long_outlined,
+                color: AppColors.primaryGreen,
+                size: 20,
+              ),
               SizedBox(width: 10),
               Text(
                 'Review Summary',
@@ -1503,15 +1730,7 @@ class _ReviewSummaryCard extends StatelessWidget {
             value: '\$${subtotal.toStringAsFixed(2)}',
           ),
           const SizedBox(height: 8),
-          _SummaryRow(
-            label: 'Service Fee',
-            value: '\$${serviceFee.toStringAsFixed(2)}',
-          ),
-          const SizedBox(height: 8),
-          _SummaryRow(
-            label: 'Tax',
-            value: '\$${tax.toStringAsFixed(2)}',
-          ),
+          _SummaryRow(label: 'Promo', value: promo),
           const SizedBox(height: 10),
           const Divider(height: 1),
           const SizedBox(height: 10),
