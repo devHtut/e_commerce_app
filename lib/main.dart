@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth/auth_user_service.dart';
 import 'home/home_screen.dart';
 import 'home/vendor_dashboard.dart';
+import 'home/vendor_info_screen.dart';
 import 'theme_config.dart';
 
 Future<void> main() async {
@@ -12,7 +13,8 @@ Future<void> main() async {
   // Initialize Supabase
   await Supabase.initialize(
     url: 'https://syceqprtekughgmbrzel.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5Y2VxcHJ0ZWt1Z2hnbWJyemVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjM2OTIsImV4cCI6MjA5MjY5OTY5Mn0.GnyFmjN42D7UTLfJzQ1n_dzBgrXdlGHFxQ-4fCQHIZ0',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5Y2VxcHJ0ZWt1Z2hnbWJyemVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjM2OTIsImV4cCI6MjA5MjY5OTY5Mn0.GnyFmjN42D7UTLfJzQ1n_dzBgrXdlGHFxQ-4fCQHIZ0',
   );
 
   runApp(const MyApp());
@@ -35,7 +37,8 @@ class MyApp extends StatelessWidget {
     );
 
     if (userType.toLowerCase() == 'vendor') {
-      return const VendorDashboard();
+      final hasVendorInfo = await AuthUserService.vendorHasBrandInfo(user.id);
+      return hasVendorInfo ? const VendorDashboard() : const VendorInfoScreen();
     }
     return const HomeScreen();
   }

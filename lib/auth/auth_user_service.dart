@@ -66,4 +66,29 @@ class AuthUserService {
 
     return 'customer';
   }
+
+  static Future<bool> vendorHasBrandInfo(String userId) async {
+    final client = Supabase.instance.client;
+    final row = await client
+        .from('brands')
+        .select('id')
+        .eq('owner_id', userId)
+        .maybeSingle();
+    return row != null;
+  }
+
+  static Future<void> createVendorBrandProfile(
+    String ownerId,
+    String brandName,
+    String description,
+    String logoUrl,
+  ) async {
+    final client = Supabase.instance.client;
+    await client.from('brands').insert({
+      'owner_id': ownerId,
+      'brand_name': brandName,
+      'description': description,
+      'logo_url': logoUrl,
+    });
+  }
 }

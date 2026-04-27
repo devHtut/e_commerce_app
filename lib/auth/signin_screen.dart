@@ -7,6 +7,7 @@ import 'signup_screen.dart';
 import '../theme_config.dart';
 import '../home/home_screen.dart';
 import '../home/vendor_dashboard.dart';
+import '../home/vendor_info_screen.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
@@ -45,63 +46,89 @@ class _SignInScreenState extends State<SignInScreen> {
     }
 
     setState(() => _isLoading = true);
+
     try {
       final normalizedEmail = _emailController.text.trim().toLowerCase();
 
-      // 1. Let Supabase handle the authentication FIRST
+      // ၁။ Email အရင်စစ်ဆေးခြင်း
+      final emailExists = await AuthUserService.emailExistsInUsers(
+        normalizedEmail,
+      );
+      if (!emailExists) {
+        if (!mounted) return;
+        await showCustomPopup(
+          context,
+          title: "Sign in failed",
+          message: "Email not registered. Please sign up first.",
+          type: PopupType.error,
+        );
+        return; // အကောင့်မရှိရင် ဒီမှာတင် ရပ်လိုက်ပါ
+      }
+
+      // ၂။ Email ရှိမှ Password နဲ့ ဝင်ခြင်း
       final authResponse = await Supabase.instance.client.auth
           .signInWithPassword(
             email: normalizedEmail,
             password: _passwordController.text,
           );
 
-      final user =
-          authResponse.user ?? Supabase.instance.client.auth.currentUser;
-      String userType = 'customer';
+      final user = authResponse.user;
 
       if (user != null) {
-        // 2. Now check your public users table. If they are missing (e.g., OTP interrupted), create them now.
-        final exists = await AuthUserService.emailExistsInUsers(
-          normalizedEmail,
-        );
-        if (!exists) {
-          await AuthUserService.createUserProfile(user.id, normalizedEmail);
-        }
-
-        // 3. Resolve their user type
-        userType = await AuthUserService.resolveUserType(
+        // ၃။ Profile Check & User Type Resolve
+        final userType = await AuthUserService.resolveUserType(
           userId: user.id,
           email: user.email,
         );
+
+        final isVendor = userType.toLowerCase() == 'vendor';
+        final vendorHasInfo = isVendor
+            ? await AuthUserService.vendorHasBrandInfo(user.id)
+            : false;
+        final destination = isVendor
+            ? (vendorHasInfo
+                  ? const VendorDashboard()
+                  : const VendorInfoScreen())
+            : const HomeScreen();
+
+        if (!mounted) return;
+        await showCustomPopup(
+          context,
+          title: "Sign in success",
+          message: isVendor
+              ? (vendorHasInfo
+                    ? "Welcome to Vendor Dashboard!"
+                    : "Welcome! Please complete your vendor profile.")
+              : "Welcome back!",
+          type: PopupType.success,
+        );
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => destination),
+        );
       }
-
-      final isVendor = userType.toLowerCase() == 'vendor';
-      if (!mounted) return;
-
-      await showCustomPopup(
-        context,
-        title: "Sign in success",
-        message: isVendor ? "Welcome to Vendor Dashboard!" : "Welcome back!",
-        type: PopupType.success,
-      );
-
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              isVendor ? const VendorDashboard() : const HomeScreen(),
-        ),
-      );
     } on AuthException catch (e) {
+      // ၄။ Password မှားယွင်းခြင်းကို တိကျစွာ ဖမ်းခြင်း
       final message =
           e.message.toLowerCase().contains('invalid login credentials')
-          ? 'Invalid credentials. If you signed up with OTP, please complete verification or reset your password.'
+          ? 'Incorrect password. Please try again.'
           : e.message;
+
+      if (!mounted) return;
       await showCustomPopup(
         context,
         title: "Sign in failed",
         message: message,
+        type: PopupType.error,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: "Error",
+        message: "An unexpected error occurred.",
         type: PopupType.error,
       );
     } finally {

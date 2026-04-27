@@ -48,14 +48,37 @@ class _SignupScreenState extends State<SignupScreen> {
     try {
       final normalizedEmail = _emailController.text.trim().toLowerCase();
 
-      // 1. Attempt Sign Up
+      // NEW: 1. Check if email already exists in 'users' table
+      final isEmailTaken = await AuthUserService.emailExistsInUsers(
+        normalizedEmail,
+      );
+      if (isEmailTaken) {
+        if (!mounted) return;
+        await _showErrorPopup(
+          'This email is already registered. Please sign in instead.',
+        );
+        return; // Stop the sign up process
+      }
+
+      // 2. Attempt Sign Up with Supabase
       final response = await Supabase.instance.client.auth.signUp(
         email: normalizedEmail,
         password: _passwordController.text,
       );
 
-      // 2. Only proceed if user creation was successful
+      // 3. Only proceed if user creation was successful
       if (response.user != null) {
+        // NEW: Check if identities array is empty
+        // (Supabase returns empty identities for existing users to prevent enumeration)
+        if (response.user!.identities != null &&
+            response.user!.identities!.isEmpty) {
+          if (!mounted) return;
+          await _showErrorPopup(
+            'This email is already registered. Please sign in instead.',
+          );
+          return;
+        }
+
         if (!mounted) return;
         await _showSuccessPopup(
           "A 6-digit verification code has been sent to your email.",
