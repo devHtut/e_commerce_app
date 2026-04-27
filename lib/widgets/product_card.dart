@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 import '../product/product_model.dart';
 import '../theme_config.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final ProductModel product;
   final VoidCallback onTap;
   final VoidCallback? onWishlistTap;
@@ -18,9 +19,53 @@ class ProductCard extends StatelessWidget {
   });
 
   @override
+  State<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
+  Timer? _timer;
+  int _imageIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSliderIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.product.id != widget.product.id ||
+        oldWidget.product.imageUrls != widget.product.imageUrls) {
+      _imageIndex = 0;
+      _startSliderIfNeeded();
+    }
+  }
+
+  void _startSliderIfNeeded() {
+    _timer?.cancel();
+    final images = widget.product.galleryImages;
+    if (images.length <= 1) return;
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted) return;
+      setState(() {
+        _imageIndex = (_imageIndex + 1) % images.length;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final images = widget.product.galleryImages;
+    final imageUrl = images[_imageIndex.clamp(0, images.length - 1)];
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       borderRadius: BorderRadius.circular(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -32,7 +77,7 @@ class ProductCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   Image.network(
-                    product.imageUrl,
+                    imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: Colors.grey.shade300,
@@ -54,7 +99,7 @@ class ProductCard extends StatelessWidget {
                           const Icon(Icons.star, color: Colors.amber, size: 16),
                           const SizedBox(width: 4),
                           Text(
-                            product.rating.toStringAsFixed(1),
+                            widget.product.rating.toStringAsFixed(1),
                             style: const TextStyle(
                               fontFamily: AppFonts.primary,
                               fontWeight: FontWeight.w600,
@@ -71,13 +116,13 @@ class ProductCard extends StatelessWidget {
                       color: Colors.black87,
                       shape: const CircleBorder(),
                       child: IconButton(
-                        onPressed: onWishlistTap,
+                        onPressed: widget.onWishlistTap,
                         icon: Icon(
-                          isWishlisted ? Icons.favorite : Icons.favorite_border,
-                          color: isWishlisted ? Colors.red : Colors.white,
+                          widget.isWishlisted ? Icons.favorite : Icons.favorite_border,
+                          color: widget.isWishlisted ? Colors.red : Colors.white,
                         ),
                         tooltip:
-                            isWishlisted ? 'Remove from wishlist' : 'Add to wishlist',
+                            widget.isWishlisted ? 'Remove from wishlist' : 'Add to wishlist',
                       ),
                     ),
                   ),
@@ -87,7 +132,7 @@ class ProductCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            product.name,
+            widget.product.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -99,7 +144,7 @@ class ProductCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '\$${product.price.toStringAsFixed(2)}',
+            '\$${widget.product.price.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 18,
               color: AppColors.primaryGreen,
@@ -109,7 +154,7 @@ class ProductCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            product.brand,
+            widget.product.brand,
             style: const TextStyle(
               fontSize: 14,
               color: AppColors.subtleText,

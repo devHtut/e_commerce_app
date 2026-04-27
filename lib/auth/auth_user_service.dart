@@ -77,6 +77,15 @@ class AuthUserService {
     return row != null;
   }
 
+  static Future<Map<String, dynamic>?> getVendorBrand(String ownerId) async {
+    final client = Supabase.instance.client;
+    return client
+        .from('brands')
+        .select('id, brand_name, logo_url, description')
+        .eq('owner_id', ownerId)
+        .maybeSingle();
+  }
+
   static Future<void> createVendorBrandProfile(
     String ownerId,
     String brandName,

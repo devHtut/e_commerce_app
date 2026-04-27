@@ -22,7 +22,6 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _brandNameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _logoUrlController = TextEditingController();
   PlatformFile? _selectedLogo;
   Uint8List? _logoPreviewBytes;
   bool _isSaving = false;
@@ -31,12 +30,11 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
   void dispose() {
     _brandNameController.dispose();
     _descriptionController.dispose();
-    _logoUrlController.dispose();
     super.dispose();
   }
 
   Future<void> _pickLogo() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: false,
       withData: true,
@@ -46,7 +44,6 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
     setState(() {
       _selectedLogo = selected;
       _logoPreviewBytes = selected.bytes;
-      _logoUrlController.text = '';
     });
   }
 
@@ -55,7 +52,6 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
 
     final brandName = _brandNameController.text.trim();
     final description = _descriptionController.text.trim();
-    final manualLogoUrl = _logoUrlController.text.trim();
     final currentUser = Supabase.instance.client.auth.currentUser;
 
     if (currentUser == null) {
@@ -63,31 +59,43 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
       return;
     }
 
-    if (_selectedLogo == null && manualLogoUrl.isEmpty) {
-      await _showErrorPopup('Please select a logo image or enter a logo URL.');
+    if (_selectedLogo == null) {
+      await _showErrorPopup('Please select a brand logo image.');
       return;
     }
 
     setState(() => _isSaving = true);
 
     try {
-      String logoUrl = manualLogoUrl;
-      if (_selectedLogo != null) {
-        final filename =
-            '${DateTime.now().millisecondsSinceEpoch}_${_selectedLogo!.name}';
-        final uploadPath = '${currentUser.id}/$filename';
-        final logoData = _selectedLogo!.bytes;
-        if (logoData == null) {
-          await _showErrorPopup('Unable to read the selected logo file.');
-          return;
-        }
-        await Supabase.instance.client.storage
-            .from('brand_logos')
-            .uploadBinary(uploadPath, logoData);
-        logoUrl = Supabase.instance.client.storage
-            .from('brand_logos')
-            .getPublicUrl(uploadPath);
+      final filename =
+          '${DateTime.now().millisecondsSinceEpoch}_${_selectedLogo!.name}';
+      final uploadPath = 'brand logos/${currentUser.id}/$filename';
+      final logoData = _selectedLogo!.bytes;
+      if (logoData == null) {
+        await _showErrorPopup('Unable to read the selected logo file.');
+        return;
       }
+
+      final ext = (_selectedLogo!.extension ?? '').toLowerCase();
+      final String? contentType = switch (ext) {
+        'png' => 'image/png',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        'bmp' => 'image/bmp',
+        _ => null,
+      };
+
+      await Supabase.instance.client.storage.from('media').uploadBinary(
+            uploadPath,
+            logoData,
+            fileOptions: FileOptions(
+              upsert: true,
+              contentType: contentType,
+            ),
+          );
+      final logoUrl =
+          Supabase.instance.client.storage.from('media').getPublicUrl(uploadPath);
 
       await AuthUserService.createVendorBrandProfile(
         currentUser.id,
@@ -166,58 +174,78 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                   style: AppTextStyles.body,
                 ),
                 const SizedBox(height: 24),
-                Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: _pickLogo,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 18,
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.upload_file,
-                            color: AppColors.primaryGreen,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _selectedLogo?.name ?? 'Upload brand logo',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontFamily: AppFonts.primary,
+                Center(
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _pickLogo,
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              width: 124,
+                              height: 124,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 1.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.06),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: _logoPreviewBytes == null
+                                    ? Container(
+                                        color: Colors.grey.shade100,
+                                        alignment: Alignment.center,
+                                        child: const Icon(
+                                          Icons.storefront_outlined,
+                                          size: 40,
+                                          color: AppColors.subtleText,
+                                        ),
+                                      )
+                                    : Image.memory(
+                                        _logoPreviewBytes!,
+                                        fit: BoxFit.cover,
+                                      ),
                               ),
                             ),
-                          ),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                            color: Colors.black38,
-                          ),
-                        ],
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.primaryGreen,
+                                border: Border.all(color: Colors.white, width: 3),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_outlined,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _selectedLogo == null ? 'Tap to upload logo' : 'Tap to change logo',
+                        style: const TextStyle(
+                          fontFamily: AppFonts.primary,
+                          color: AppColors.subtleText,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                if (_logoPreviewBytes != null) ...[
-                  const SizedBox(height: 14),
-                  Center(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.memory(
-                        _logoPreviewBytes!,
-                        width: 140,
-                        height: 140,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 24),
                 const Text(
                   'Brand Name',
@@ -256,28 +284,6 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Description is required.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Logo URL (optional)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppFonts.primary,
-                    color: AppColors.darkText,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                CustomTextField(
-                  controller: _logoUrlController,
-                  hintText: 'Enter logo URL if you do not want to upload',
-                  keyboardType: TextInputType.url,
-                  validator: (value) {
-                    if ((_selectedLogo == null || _logoPreviewBytes == null) &&
-                        (value == null || value.trim().isEmpty)) {
-                      return 'Please upload a logo or provide a logo URL.';
                     }
                     return null;
                   },

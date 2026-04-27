@@ -34,14 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedCategoryIndex = 0;
   int _orderTabIndex = 0;
   String _searchQuery = '';
+  bool _isLoadingProducts = true;
+  String? _productsError;
+  List<ProductModel> _products = [];
+  List<String> _categories = const ['Discover'];
   bool get _isLoggedIn => Supabase.instance.client.auth.currentUser != null;
-  static const List<String> _categories = [
-    'Discover',
-    'Women',
-    'Men',
-    'Shoes',
-    'Accessories',
-  ];
   static const List<String> _cartSizes = ['XS', 'S', 'M', 'L', 'XL'];
   static const List<_CartColorVariant> _cartColorVariants = [
     _CartColorVariant(name: 'Black', color: Color(0xFF1C1C1C)),
@@ -56,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _loadProducts();
   }
 
   final List<BannerItem> _banners = const [
@@ -85,51 +83,56 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   ];
 
-  final List<ProductModel> _products = const [
-    ProductModel(
-      id: 'p1',
-      name: 'Urban Blend Long Sleeve',
-      category: 'Women',
-      brand: 'Trendify Studio',
-      price: 185,
-      rating: 4.8,
-      imageUrl:
-          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80',
-    ),
-    ProductModel(
-      id: 'p2',
-      name: 'Classic Denim Jacket',
-      category: 'Men',
-      brand: 'BlueMark',
-      price: 219,
-      rating: 4.6,
-      imageUrl:
-          'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=900&q=80',
-    ),
-    ProductModel(
-      id: 'p3',
-      name: 'Minimal Linen Shirt',
-      category: 'Women',
-      brand: 'North Thread',
-      price: 149,
-      rating: 4.7,
-      imageUrl:
-          'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80',
-    ),
-    ProductModel(
-      id: 'p4',
-      name: 'Signature Straight Jeans',
-      category: 'Men',
-      brand: 'Rawline',
-      price: 199,
-      rating: 4.5,
-      imageUrl:
-          'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=900&q=80',
-    ),
-  ];
+  Future<void> _loadProducts() async {
+    setState(() {
+      _isLoadingProducts = true;
+      _productsError = null;
+    });
+    try {
+      final rows = await Supabase.instance.client
+          .from('products')
+          .select(
+            'id, title, description, base_price, '
+            'categories(name), brands(brand_name), '
+            'product_variants(image_url)',
+          )
+          .order('created_at', ascending: false);
+
+      final products = (rows as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map(ProductModel.fromSupabaseRow)
+          .toList();
+      final categoryNames = products
+          .map((p) => p.category.trim())
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      if (!mounted) return;
+      setState(() {
+        _products = products;
+        _categories = ['Discover', ...categoryNames];
+        if (_selectedCategoryIndex >= _categories.length) {
+          _selectedCategoryIndex = 0;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _productsError = 'Unable to load products right now.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingProducts = false;
+        });
+      }
+    }
+  }
 
   List<ProductModel> get _filteredProducts {
-    final selectedCategory = _categories[_selectedCategoryIndex];
+    final safeIndex = _selectedCategoryIndex.clamp(0, _categories.length - 1);
+    final selectedCategory = _categories[safeIndex];
     return _products.where((product) {
       final categoryMatch =
           selectedCategory == 'Discover' || product.category == selectedCategory;
@@ -1342,6 +1345,24 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCurrentPage() {
     switch (_currentIndex) {
       case 0:
+        if (_isLoadingProducts) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (_productsError != null) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(_productsError!, style: AppTextStyles.body),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _loadProducts,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
         return SingleChildScrollView(
           padding: const EdgeInsets.all(12),
           child: Column(

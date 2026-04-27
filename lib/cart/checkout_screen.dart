@@ -500,45 +500,6 @@ class _SelectedDeliveryAddressTile extends StatelessWidget {
   }
 }
 
-class _SectionTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-
-  const _SectionTile({
-    required this.icon,
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primaryGreen, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontFamily: AppFonts.primary,
-                color: AppColors.darkText,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: Colors.black45),
-        ],
-      ),
-    );
-  }
-}
-
 class _ChooseDeliveryAddressScreen extends StatefulWidget {
   final List<_DeliveryAddress> initialAddresses;
   final String selectedAddressId;

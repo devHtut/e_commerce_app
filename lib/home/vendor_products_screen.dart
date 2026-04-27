@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../theme_config.dart';
 import '../widgets/search_box.dart';
+import 'create_product_screen.dart';
 
 class VendorProductsScreen extends StatefulWidget {
   const VendorProductsScreen({super.key});
@@ -10,194 +13,107 @@ class VendorProductsScreen extends StatefulWidget {
 }
 
 class _VendorProductsScreenState extends State<VendorProductsScreen> {
-  final List<_VendorProduct> _products = [
-    _VendorProduct(
-      id: '1',
-      name: 'Nike Zoom Mercurial Vapor',
-      price: 188,
-      stock: 1090,
-      imageUrl:
-          'https://images.unsplash.com/photo-1528701800489-20a4baa6d7f4?auto=format&fit=crop&w=900&q=80',
-    ),
-    _VendorProduct(
-      id: '2',
-      name: 'Nike Phantom GX Elite',
-      price: 198,
-      stock: 928,
-      imageUrl:
-          'https://images.unsplash.com/photo-1518893069135-5fe53a454b98?auto=format&fit=crop&w=900&q=80',
-    ),
-    _VendorProduct(
-      id: '3',
-      name: 'Nike Zoom Academy KM MG',
-      price: 150,
-      stock: 1623,
-      imageUrl:
-          'https://images.unsplash.com/photo-1519741494644-0f9754d6d4be?auto=format&fit=crop&w=900&q=80',
-    ),
-    _VendorProduct(
-      id: '4',
-      name: 'Nike Phantom GX Club',
-      price: 202,
-      stock: 883,
-      imageUrl:
-          'https://images.unsplash.com/photo-1515542622106-78bda8ba0e9d?auto=format&fit=crop&w=900&q=80',
-    ),
-    _VendorProduct(
-      id: '5',
-      name: 'Nike Phantom GX Pro',
-      price: 155,
-      stock: 1688,
-      imageUrl:
-          'https://images.unsplash.com/photo-1528701800489-20a4baa6d7f4?auto=format&fit=crop&w=900&q=80',
-    ),
-  ];
-
+  final List<_VendorProduct> _products = [];
+  bool _loading = true;
+  String? _error;
   String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVendorProducts();
+  }
 
   List<_VendorProduct> get _filteredProducts {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) return _products;
-    return _products.where((product) {
-      return product.name.toLowerCase().contains(query) ||
-          product.price.toString().contains(query);
-    }).toList();
+    return _products
+        .where(
+          (p) =>
+              p.name.toLowerCase().contains(query) ||
+              p.price.toStringAsFixed(0).contains(query),
+        )
+        .toList();
   }
 
-  Future<void> _showProductDialog({required _VendorProduct product}) async {
-    final nameController = TextEditingController(text: product.name);
-    final priceController = TextEditingController(
-      text: product.price.toString(),
-    );
-    final stockController = TextEditingController(
-      text: product.stock.toString(),
-    );
+  Future<void> _loadVendorProducts() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        setState(() => _error = 'Please sign in as vendor.');
+        return;
+      }
 
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Edit Product'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Product name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Price'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: stockController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Stock quantity'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-              ),
-              onPressed: () {
-                final updatedName = nameController.text.trim();
-                final updatedPrice =
-                    double.tryParse(priceController.text) ?? product.price;
-                final updatedStock =
-                    int.tryParse(stockController.text) ?? product.stock;
-                setState(() {
-                  product.name = updatedName.isEmpty
-                      ? product.name
-                      : updatedName;
-                  product.price = updatedPrice;
-                  product.stock = updatedStock;
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
+      final brand = await Supabase.instance.client
+          .from('brands')
+          .select('id')
+          .eq('owner_id', user.id)
+          .maybeSingle();
+      if (brand == null) {
+        setState(() => _error = 'No brand profile found.');
+        return;
+      }
+
+      final productRows = await Supabase.instance.client
+          .from('products')
+          .select(
+            'id, title, base_price, '
+            'product_variants(stock_quantity,image_url)',
+          )
+          .eq('brand_id', brand['id'])
+          .order('created_at', ascending: false);
+
+      final products = (productRows as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((row) {
+            final variants =
+                (row['product_variants'] as List<dynamic>? ?? const <dynamic>[])
+                    .cast<Map<String, dynamic>>();
+            final stock = variants.fold<int>(
+              0,
+              (sum, v) => sum + ((v['stock_quantity'] as num?)?.toInt() ?? 0),
+            );
+            final image = variants
+                .map((v) => v['image_url']?.toString() ?? '')
+                .firstWhere(
+                  (url) => url.isNotEmpty,
+                  orElse: () => 'https://via.placeholder.com/600x600?text=No+Image',
+                );
+            return _VendorProduct(
+              id: row['id'].toString(),
+              name: row['title']?.toString() ?? 'Untitled',
+              price: (row['base_price'] as num?)?.toDouble() ?? 0,
+              stock: stock,
+              imageUrl: image,
+            );
+          })
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _products
+          ..clear()
+          ..addAll(products);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Unable to load products.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _addProduct() async {
-    final nameController = TextEditingController();
-    final priceController = TextEditingController();
-    final stockController = TextEditingController();
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add Product'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Product name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Price'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: stockController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Stock quantity'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-              ),
-              onPressed: () {
-                final name = nameController.text.trim();
-                final price = double.tryParse(priceController.text) ?? 0;
-                final stock = int.tryParse(stockController.text) ?? 0;
-                if (name.isEmpty || price <= 0) {
-                  return;
-                }
-                setState(() {
-                  _products.add(
-                    _VendorProduct(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      name: name,
-                      price: price,
-                      stock: stock,
-                      imageUrl:
-                          'https://images.unsplash.com/photo-1515542622106-78bda8ba0e9d?auto=format&fit=crop&w=900&q=80',
-                    ),
-                  );
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
+    final result = await Navigator.push<CreatedProductResult>(
+      context,
+      MaterialPageRoute(builder: (_) => const CreateProductScreen()),
     );
+    if (result == null) return;
+    await _loadVendorProducts();
   }
 
   @override
@@ -233,82 +149,92 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
               SearchBox(
                 hintText: 'Search products...',
                 onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
+                  setState(() => _searchQuery = value);
                 },
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: _filteredProducts.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No products found.',
-                          style: AppTextStyles.body,
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: _filteredProducts.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final product = _filteredProducts[index];
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(18),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 8),
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(_error!, style: AppTextStyles.body),
+                                const SizedBox(height: 10),
+                                TextButton(
+                                  onPressed: _loadVendorProducts,
+                                  child: const Text('Retry'),
                                 ),
                               ],
                             ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(14),
-                              leading: ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: Image.network(
-                                  product.imageUrl,
-                                  width: 70,
-                                  height: 70,
-                                  fit: BoxFit.cover,
+                          )
+                        : _filteredProducts.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'No products found.',
+                                  style: AppTextStyles.body,
                                 ),
-                              ),
-                              title: Text(
-                                product.name,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.darkText,
-                                  fontFamily: AppFonts.primary,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '\$${product.price.toStringAsFixed(0)} • ${product.stock} in stocks',
-                                    style: const TextStyle(
-                                      color: AppColors.subtleText,
-                                      fontFamily: AppFonts.primary,
+                              )
+                            : ListView.separated(
+                                itemCount: _filteredProducts.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                itemBuilder: (context, index) {
+                                  final product = _filteredProducts[index];
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(18),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.04),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.all(14),
+                                      leading: ClipRRect(
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: Image.network(
+                                          product.imageUrl,
+                                          width: 70,
+                                          height: 70,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => Container(
+                                            width: 70,
+                                            height: 70,
+                                            color: Colors.grey.shade300,
+                                            alignment: Alignment.center,
+                                            child: const Icon(Icons.image_not_supported),
+                                          ),
+                                        ),
+                                      ),
+                                      title: Text(
+                                        product.name,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.darkText,
+                                          fontFamily: AppFonts.primary,
+                                        ),
+                                      ),
+                                      subtitle: Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Text(
+                                          '\$${product.price.toStringAsFixed(0)} • ${product.stock} in stocks',
+                                          style: const TextStyle(
+                                            color: AppColors.subtleText,
+                                            fontFamily: AppFonts.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                              trailing: TextButton(
-                                onPressed: () =>
-                                    _showProductDialog(product: product),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.primaryGreen,
-                                ),
-                                child: const Text('Edit'),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
               ),
             ],
           ),
@@ -320,12 +246,12 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
 
 class _VendorProduct {
   final String id;
-  String name;
-  double price;
-  int stock;
+  final String name;
+  final double price;
+  final int stock;
   final String imageUrl;
 
-  _VendorProduct({
+  const _VendorProduct({
     required this.id,
     required this.name,
     required this.price,
@@ -333,3 +259,4 @@ class _VendorProduct {
     required this.imageUrl,
   });
 }
+
