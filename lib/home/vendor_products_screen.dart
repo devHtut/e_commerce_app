@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_config.dart';
 import '../widgets/search_box.dart';
 import 'create_product_screen.dart';
+import 'vendor_product_detail_screen.dart';
 
 class VendorProductsScreen extends StatefulWidget {
   const VendorProductsScreen({super.key});
@@ -195,6 +196,19 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                                       ],
                                     ),
                                     child: ListTile(
+                                      onTap: () async {
+                                        final changed = await Navigator.push<bool>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => VendorProductDetailScreen(
+                                              productId: product.id,
+                                            ),
+                                          ),
+                                        );
+                                        if (changed == true) {
+                                          await _loadVendorProducts();
+                                        }
+                                      },
                                       contentPadding: const EdgeInsets.all(14),
                                       leading: ClipRRect(
                                         borderRadius: BorderRadius.circular(14),

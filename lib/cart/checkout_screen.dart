@@ -88,7 +88,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     Navigator.of(context, rootNavigator: true).pop();
     OrderService.instance.placeOrder(widget.items);
     for (final item in widget.items) {
-      CartService.instance.removeItem(item.id);
+      await CartService.instance.removeItem(item.id);
     }
     if (!mounted) return;
     await _showOrderConfirmedDialog();

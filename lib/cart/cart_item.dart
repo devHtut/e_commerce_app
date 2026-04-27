@@ -2,6 +2,8 @@ import '../product/product_model.dart';
 
 class CartItem {
   final String id;
+  final String? dbId;
+  final String? variantId;
   final ProductModel product;
   final String size;
   final String colorName;
@@ -12,6 +14,8 @@ class CartItem {
 
   const CartItem({
     required this.id,
+    this.dbId,
+    this.variantId,
     required this.product,
     required this.size,
     required this.colorName,
@@ -25,6 +29,8 @@ class CartItem {
 
   CartItem copyWith({
     String? id,
+    String? dbId,
+    String? variantId,
     ProductModel? product,
     String? size,
     String? colorName,
@@ -35,6 +41,8 @@ class CartItem {
   }) {
     return CartItem(
       id: id ?? this.id,
+      dbId: dbId ?? this.dbId,
+      variantId: variantId ?? this.variantId,
       product: product ?? this.product,
       size: size ?? this.size,
       colorName: colorName ?? this.colorName,

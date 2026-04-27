@@ -39,15 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ProductModel> _products = [];
   List<String> _categories = const ['Discover'];
   bool get _isLoggedIn => Supabase.instance.client.auth.currentUser != null;
-  static const List<String> _cartSizes = ['XS', 'S', 'M', 'L', 'XL'];
-  static const List<_CartColorVariant> _cartColorVariants = [
-    _CartColorVariant(name: 'Black', color: Color(0xFF1C1C1C)),
-    _CartColorVariant(name: 'White', color: Color(0xFFF5F5F5)),
-    _CartColorVariant(name: 'Brown', color: Color(0xFF8B5E4A)),
-    _CartColorVariant(name: 'Blue Grey', color: Color(0xFF7797A7)),
-    _CartColorVariant(name: 'Indigo', color: Color(0xFF3D59C9)),
-    _CartColorVariant(name: 'Deep Purple', color: Color(0xFF6F3FD1)),
-  ];
 
   @override
   void initState() {
@@ -222,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       return;
     }
-    final added = WishlistService.instance.toggle(product);
+    final added = await WishlistService.instance.toggle(product);
     if (!mounted) return;
     if (added) {
       await showCustomPopup(
@@ -326,14 +317,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _showEditProductVariantSheet(CartItem item) async {
-    int selectedSize = _cartSizes.indexOf(item.size);
-    int selectedColor = _cartColorVariants.indexWhere(
-      (variant) => variant.name == item.colorName,
+    final variants = await _loadProductVariants(item.product.id);
+    if (!mounted || variants.isEmpty) return;
+    int selectedVariant = variants.indexWhere(
+      (variant) =>
+          variant.id == item.variantId ||
+          (variant.size == item.size && variant.color == item.colorName),
     );
-    int quantity = item.quantity;
-    selectedSize = selectedSize == -1 ? 3 : selectedSize;
-    selectedColor = selectedColor == -1 ? 0 : selectedColor;
-    const int stock = 195;
+    if (selectedVariant == -1) selectedVariant = 0;
+    int quantity = item.quantity.clamp(1, variants[selectedVariant].stock);
 
     await showModalBottomSheet<void>(
       context: context,
@@ -342,7 +334,13 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final colorVariant = _cartColorVariants[selectedColor];
+            final current = variants[selectedVariant];
+            final sizes = variants.map((v) => v.size).toSet().toList();
+            final colors = variants
+                .where((v) => v.size == current.size)
+                .map((v) => v.color)
+                .toSet()
+                .toList();
             return SafeArea(
               top: false,
               child: Container(
@@ -413,7 +411,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Stock  :  $stock',
+                                'Stock  :  ${current.stock}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey.shade600,
@@ -422,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                '\$${item.product.price.toStringAsFixed(2)}',
+                                '\$${current.price.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 22,
                                   color: AppColors.primaryGreen,
@@ -467,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
-                                      onPressed: quantity < stock
+                                      onPressed: quantity < current.stock
                                           ? () {
                                               setModalState(() {
                                                 quantity++;
@@ -501,16 +499,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 10),
                     Row(
-                      children: List.generate(_cartSizes.length, (index) {
-                        final isSelected = selectedSize == index;
+                      children: List.generate(sizes.length, (index) {
+                        final size = sizes[index];
+                        final isSelected = current.size == size;
                         return Padding(
                           padding: EdgeInsets.only(
-                            right: index == _cartSizes.length - 1 ? 0 : 10,
+                            right: index == sizes.length - 1 ? 0 : 10,
                           ),
                           child: InkWell(
                             onTap: () {
+                              final sameSize = variants
+                                  .where((variant) => variant.size == size)
+                                  .toList();
+                              final matchedColor = sameSize.indexWhere(
+                                (variant) => variant.color == current.color,
+                              );
                               setModalState(() {
-                                selectedSize = index;
+                                selectedVariant = variants.indexOf(
+                                  sameSize[matchedColor == -1 ? 0 : matchedColor],
+                                );
+                                quantity = quantity.clamp(
+                                  1,
+                                  variants[selectedVariant].stock,
+                                );
                               });
                             },
                             borderRadius: BorderRadius.circular(22),
@@ -529,7 +540,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               child: Text(
-                                _cartSizes[index],
+                                size,
                                 style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w700,
@@ -564,15 +575,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       height: 78,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        itemCount: _cartColorVariants.length,
+                        itemCount: colors.length,
                         separatorBuilder: (_, __) => const SizedBox(width: 12),
                         itemBuilder: (context, index) {
-                          final variant = _cartColorVariants[index];
-                          final isSelected = selectedColor == index;
+                          final colorName = colors[index];
+                          final isSelected = current.color == colorName;
                           return InkWell(
                             onTap: () {
+                              final match = variants.firstWhere(
+                                (variant) =>
+                                    variant.size == current.size &&
+                                    variant.color == colorName,
+                              );
                               setModalState(() {
-                                selectedColor = index;
+                                selectedVariant = variants.indexOf(match);
+                                quantity = quantity.clamp(
+                                  1,
+                                  variants[selectedVariant].stock,
+                                );
                               });
                             },
                             borderRadius: BorderRadius.circular(18),
@@ -582,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   width: 48,
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: variant.color,
+                                    color: _colorFromName(colorName),
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: isSelected
@@ -595,7 +615,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ? Icon(
                                           Icons.check,
                                           size: 18,
-                                          color: index == 1
+                                          color: _colorFromName(colorName).computeLuminance() > 0.8
                                               ? AppColors.darkText
                                               : Colors.white,
                                         )
@@ -603,7 +623,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  variant.name,
+                                  colorName,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade700,
@@ -650,15 +670,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: SizedBox(
                             height: 52,
                             child: ElevatedButton(
-                              onPressed: () {
-                                CartService.instance.updateItemVariant(
+                              onPressed: () async {
+                                final selected = variants[selectedVariant];
+                                await CartService.instance.updateItemVariant(
                                   itemId: item.id,
-                                  size: _cartSizes[selectedSize],
-                                  colorName: colorVariant.name,
-                                  colorValue: colorVariant.color.value,
-                                  imageUrl: item.imageUrl,
+                                  variantId: selected.id,
+                                  size: selected.size,
+                                  colorName: selected.color,
+                                  colorValue: _colorFromName(selected.color).toARGB32(),
+                                  imageUrl: selected.imageUrl.isEmpty
+                                      ? item.imageUrl
+                                      : selected.imageUrl,
                                   quantity: quantity,
                                 );
+                                if (!context.mounted) return;
                                 Navigator.pop(context);
                               },
                               style: ElevatedButton.styleFrom(
@@ -690,6 +715,29 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Future<List<_CartVariantOption>> _loadProductVariants(String productId) async {
+    final rows = await Supabase.instance.client
+        .from('product_variants')
+        .select(
+          'id,size,color,stock_quantity,price_adjustment,promo_price,image_url,products(base_price)',
+        )
+        .eq('product_id', productId);
+    return (rows as List<dynamic>).cast<Map<String, dynamic>>().map((row) {
+      final product = row['products'] as Map<String, dynamic>?;
+      final base = (product?['base_price'] as num?)?.toDouble() ?? 0;
+      final adjustment = (row['price_adjustment'] as num?)?.toDouble() ?? 0;
+      final promo = (row['promo_price'] as num?)?.toDouble();
+      return _CartVariantOption(
+        id: row['id'].toString(),
+        size: row['size']?.toString() ?? 'Default',
+        color: row['color']?.toString() ?? 'Default',
+        stock: (row['stock_quantity'] as num?)?.toInt() ?? 0,
+        imageUrl: row['image_url']?.toString() ?? '',
+        price: promo ?? (base + adjustment),
+      );
+    }).toList();
   }
 
   Future<void> _confirmAndRemoveCartItem(CartItem item) async {
@@ -741,7 +789,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (shouldRemove != true || !mounted) return;
 
-    CartService.instance.removeItem(item.id);
+    await CartService.instance.removeItem(item.id);
     _showRemovedFromCartToast();
   }
 
@@ -1635,12 +1683,48 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _CartColorVariant {
-  final String name;
-  final Color color;
+class _CartVariantOption {
+  final String id;
+  final String size;
+  final String color;
+  final int stock;
+  final String imageUrl;
+  final double price;
 
-  const _CartColorVariant({
-    required this.name,
+  const _CartVariantOption({
+    required this.id,
+    required this.size,
     required this.color,
+    required this.stock,
+    required this.imageUrl,
+    required this.price,
   });
+}
+
+Color _colorFromName(String colorName) {
+  switch (colorName.trim().toLowerCase()) {
+    case 'black':
+      return const Color(0xFF1C1C1C);
+    case 'white':
+      return const Color(0xFFF5F5F5);
+    case 'red':
+      return const Color(0xFFD84343);
+    case 'blue':
+      return const Color(0xFF3D59C9);
+    case 'green':
+      return const Color(0xFF2E7D32);
+    case 'brown':
+      return const Color(0xFF8B5E4A);
+    case 'grey':
+    case 'gray':
+      return const Color(0xFF7A7A7A);
+    case 'purple':
+      return const Color(0xFF6F3FD1);
+    case 'yellow':
+      return const Color(0xFFF9A825);
+    case 'orange':
+      return const Color(0xFFF57C00);
+    default:
+      return const Color(0xFF4A4A4A);
+  }
 }

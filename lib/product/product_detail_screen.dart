@@ -59,7 +59,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .select(
             'id, brand_id, category_id, title, description, base_price, '
             'categories(name), brands(brand_name,logo_url), '
-            'product_variants(size,color,stock_quantity,price_adjustment,promo_price,image_url,sku)',
+            'product_variants(id,size,color,stock_quantity,price_adjustment,promo_price,image_url,sku)',
           )
           .eq('id', widget.product.id)
           .single();
@@ -70,6 +70,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final variants = variantRows.map((v) {
         final adj = (v['price_adjustment'] as num?)?.toDouble() ?? 0;
         return _VariantOption(
+          id: v['id']?.toString() ?? '',
           color: v['color']?.toString() ?? 'Default',
           size: v['size']?.toString() ?? 'Default',
           stock: (v['stock_quantity'] as num?)?.toInt() ?? 0,
@@ -205,10 +206,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  Future<void> _addToCart({required bool buyNow}) async {
-    final variant = _selectedVariant;
-    if (variant == null) return;
-    final imageUrl = _images.isEmpty ? _product.imageUrl : _images[_selectedImage];
+  Future<void> _addToCart({
+    required bool buyNow,
+    required _VariantOption variant,
+    required int quantity,
+  }) async {
+    final variantImages = _imagesByColor[variant.color] ?? _images;
+    final imageUrl =
+        variantImages.isEmpty ? _product.imageUrl : variantImages.first;
     final price = variant.promoPrice ?? variant.price;
     final cartProduct = ProductModel(
       id: _product.id,
@@ -228,13 +233,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final item = CartItem(
       id: buyNow
           ? 'buy_now_${_product.id}_${DateTime.now().microsecondsSinceEpoch}'
-          : '${_product.id}_${variant.size}_${variant.color}',
+          : '${_product.id}_${variant.id}_${variant.size}_${variant.color}',
+      variantId: variant.id,
       product: cartProduct,
       size: variant.size,
       colorName: variant.color,
       colorValue: _colorFromName(variant.color).toARGB32(),
       imageUrl: imageUrl,
-      quantity: 1,
+      quantity: quantity,
     );
     if (buyNow) {
       if (!mounted) return;
@@ -244,12 +250,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
       return;
     }
-    CartService.instance.addItem(
+    await CartService.instance.addItem(
       product: cartProduct,
+      variantId: variant.id,
       size: variant.size,
       colorName: variant.color,
       colorValue: _colorFromName(variant.color).toARGB32(),
       imageUrl: imageUrl,
+      quantity: quantity,
     );
     if (!mounted) return;
     await showCustomPopup(
@@ -257,6 +265,345 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       title: 'Added to cart',
       message: '${_product.name} was added to your cart.',
       type: PopupType.success,
+    );
+  }
+
+  Future<void> _showConfirmStage({required bool buyNow}) async {
+    if (_variants.isEmpty) return;
+    int selectedSizeIndex = _sizes.indexOf(_selectedSize);
+    if (selectedSizeIndex == -1) selectedSizeIndex = 0;
+    int selectedColorIndex = _colors.indexOf(_selectedColor);
+    if (selectedColorIndex == -1) selectedColorIndex = 0;
+    int quantity = 1;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final color = _colors[selectedColorIndex];
+            final sizesForColor = _variants
+                .where((v) => v.color == color)
+                .map((v) => v.size)
+                .toSet()
+                .toList();
+            if (!sizesForColor.contains(_sizes[selectedSizeIndex])) {
+              selectedSizeIndex = 0;
+            }
+            final size = sizesForColor[selectedSizeIndex];
+            final selectedVariant = _variants.firstWhere(
+              (v) => v.color == color && v.size == size,
+            );
+            quantity = quantity.clamp(1, selectedVariant.stock);
+            final displayPrice =
+                selectedVariant.promoPrice ?? selectedVariant.price;
+            final previewImage = (_imagesByColor[color] ?? _images).isEmpty
+                ? _product.imageUrl
+                : (_imagesByColor[color] ?? _images).first;
+
+            return SafeArea(
+              top: false,
+              child: Container(
+                margin: const EdgeInsets.only(top: 24),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Confirm Product Variant',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.darkText,
+                        fontFamily: AppFonts.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Divider(color: Colors.grey.shade200, height: 1),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            previewImage,
+                            width: 98,
+                            height: 118,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 98,
+                              height: 118,
+                              color: Colors.grey.shade300,
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.image_not_supported),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _product.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.darkText,
+                                  fontFamily: AppFonts.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text('Stock  :  ${selectedVariant.stock}'),
+                              const SizedBox(height: 8),
+                              Text(
+                                '\$${displayPrice.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  color: AppColors.primaryGreen,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: AppFonts.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                height: 42,
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: quantity > 1
+                                          ? () => setModalState(() => quantity--)
+                                          : null,
+                                      icon: const Icon(Icons.remove, size: 20),
+                                    ),
+                                    SizedBox(
+                                      width: 26,
+                                      child: Text(
+                                        '$quantity',
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: quantity < selectedVariant.stock
+                                          ? () => setModalState(() => quantity++)
+                                          : null,
+                                      icon: const Icon(Icons.add, size: 20),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_hasRealVariants) ...[
+                      const SizedBox(height: 14),
+                      Divider(color: Colors.grey.shade200, height: 1),
+                      const SizedBox(height: 12),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Size',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: List.generate(sizesForColor.length, (index) {
+                          final isSelected = selectedSizeIndex == index;
+                          return InkWell(
+                            onTap: () => setModalState(() => selectedSizeIndex = index),
+                            borderRadius: BorderRadius.circular(22),
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: isSelected ? AppColors.primaryGreen : Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.primaryGreen
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              child: Text(
+                                sizesForColor[index],
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: isSelected ? Colors.white : AppColors.darkText,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      Divider(color: Colors.grey.shade200, height: 1),
+                      const SizedBox(height: 12),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Color',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 78,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _colors.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          itemBuilder: (_, index) {
+                            final colorName = _colors[index];
+                            final selected = selectedColorIndex == index;
+                            return InkWell(
+                              onTap: () {
+                                setModalState(() {
+                                  selectedColorIndex = index;
+                                  selectedSizeIndex = 0;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(18),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: _colorFromName(colorName),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: selected
+                                            ? AppColors.darkText
+                                            : Colors.grey.shade300,
+                                        width: selected ? 2 : 1,
+                                      ),
+                                    ),
+                                    child: selected
+                                        ? const Icon(
+                                            Icons.check,
+                                            size: 18,
+                                            color: Colors.white,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    colorName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade700,
+                                      fontFamily: AppFonts.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Divider(color: Colors.grey.shade200, height: 1),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFE3ECE6),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: AppColors.primaryGreen),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                await _addToCart(
+                                  buyNow: buyNow,
+                                  variant: selectedVariant,
+                                  quantity: quantity,
+                                );
+                                if (!context.mounted) return;
+                                Navigator.pop(context);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryGreen,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                              child: const Text(
+                                'Confirm',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -568,7 +915,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Expanded(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
-                      onTap: () => _addToCart(buyNow: true),
+                      onTap: () => _showConfirmStage(buyNow: true),
                       child: Container(
                         height: 54,
                         decoration: BoxDecoration(
@@ -592,7 +939,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Expanded(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
-                      onTap: () => _addToCart(buyNow: false),
+                      onTap: () => _showConfirmStage(buyNow: false),
                       child: Container(
                         height: 54,
                         decoration: BoxDecoration(
@@ -761,6 +1108,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 }
 
 class _VariantOption {
+  final String id;
   final String color;
   final String size;
   final int stock;
@@ -770,6 +1118,7 @@ class _VariantOption {
   final String? imageUrl;
 
   const _VariantOption({
+    required this.id,
     required this.color,
     required this.size,
     required this.stock,
