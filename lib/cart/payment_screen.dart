@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
+import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_pop_up.dart';
@@ -14,8 +15,13 @@ import 'cart_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   final List<CartItem> items;
+  final String shippingAddressId;
 
-  const PaymentScreen({super.key, required this.items});
+  const PaymentScreen({
+    super.key,
+    required this.items,
+    required this.shippingAddressId,
+  });
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -24,6 +30,7 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   List<Map<String, dynamic>> _paymentMethods = [];
   String? _selectedPaymentMethodId;
+  final TextEditingController _transactionController = TextEditingController();
   PlatformFile? _selectedScreenshot;
   Uint8List? _screenshotPreview;
   bool _isLoading = true;
@@ -33,6 +40,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
   void initState() {
     super.initState();
     _loadPaymentMethods();
+  }
+
+  @override
+  void dispose() {
+    _transactionController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPaymentMethods() async {
@@ -48,7 +61,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
 
     try {
-      final payments = await AuthUserService.getVendorPayments(brandId);
+      final payments = await AuthUserService.getVendorPaymentsByBrand(brandId);
       setState(() {
         _paymentMethods = payments;
         if (payments.isNotEmpty) {
@@ -75,7 +88,113 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
   }
 
+  Widget _buildOrderSection() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: const [
+              Icon(
+                Icons.shopping_bag_outlined,
+                color: AppColors.primaryGreen,
+                size: 20,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Order Details',
+                  style: TextStyle(
+                    fontFamily: AppFonts.primary,
+                    color: AppColors.darkText,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          ...widget.items.map((item) => _OrderItemTile(item: item)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewSummary(double subtotal) {
+    const serviceFee = 1.50;
+    const deliveryFee = 8.50;
+    const promo = 0.00;
+    final totalPayment = subtotal + serviceFee + deliveryFee - promo;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.receipt_long_outlined,
+                color: AppColors.primaryGreen,
+                size: 20,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'Review Summary',
+                style: TextStyle(
+                  fontFamily: AppFonts.primary,
+                  color: AppColors.darkText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          _SummaryRow(
+            label: 'Subtotal (${widget.items.length} items)',
+            value: '\$${subtotal.toStringAsFixed(2)}',
+          ),
+          const SizedBox(height: 8),
+          _SummaryRow(label: 'Promo', value: '-\$${promo.toStringAsFixed(2)}'),
+          const SizedBox(height: 8),
+          _SummaryRow(
+            label: 'Service fee',
+            value: '\$${serviceFee.toStringAsFixed(2)}',
+          ),
+          const SizedBox(height: 8),
+          _SummaryRow(
+            label: 'Delivery fee',
+            value: '\$${deliveryFee.toStringAsFixed(2)}',
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          _SummaryRow(
+            label: 'Total Payment',
+            value: '\$${totalPayment.toStringAsFixed(2)}',
+            isTotal: true,
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _makePayment() async {
+    final transactionId = _transactionController.text.trim();
     if (_selectedPaymentMethodId == null || _selectedScreenshot == null) {
       await showCustomPopup(
         context,
@@ -85,13 +204,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
       return;
     }
+    if (transactionId.length != 6) {
+      await showCustomPopup(
+        context,
+        title: 'Validation failed',
+        message: 'Please enter the last 6 digits of the transaction id.',
+        type: PopupType.error,
+      );
+      return;
+    }
 
     setState(() => _isProcessing = true);
 
     try {
-      // Upload screenshot to Supabase storage
-      final filename =
-          'payment_screenshots/${DateTime.now().millisecondsSinceEpoch}_${_selectedScreenshot!.name}';
       final screenshotData = _selectedScreenshot!.bytes;
       if (screenshotData == null) {
         await showCustomPopup(
@@ -103,6 +228,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
 
+      final filename =
+          'payments/${DateTime.now().millisecondsSinceEpoch}_${_selectedScreenshot!.name}';
       final ext = (_selectedScreenshot!.extension ?? '').toLowerCase();
       final String? contentType = switch (ext) {
         'png' => 'image/png',
@@ -114,17 +241,81 @@ class _PaymentScreenState extends State<PaymentScreen> {
       };
 
       await Supabase.instance.client.storage
-          .from('media')
+          .from('payments')
           .uploadBinary(
             filename,
             screenshotData,
             fileOptions: FileOptions(upsert: true, contentType: contentType),
           );
+      final screenshotUrl = Supabase.instance.client.storage
+          .from('payments')
+          .getPublicUrl(filename);
 
-      // Here you could save the order with payment info, but for now just show success
-      // TODO: Integrate with order service to save order and payment details
+      final customer = Supabase.instance.client.auth.currentUser;
+      if (customer == null) {
+        throw Exception('Customer not authenticated');
+      }
 
-      // Remove items from cart
+      final orderPayload = {
+        'customer_id': customer.id,
+        'status': 'pending',
+        'total_price': widget.items.fold<double>(
+          0,
+          (sum, item) => sum + item.product.price * item.quantity,
+        ),
+        'shipping_address_id': widget.shippingAddressId,
+      };
+
+      final orderRow = await Supabase.instance.client
+          .from('orders')
+          .insert(orderPayload)
+          .select('id')
+          .single();
+      final orderId = orderRow['id']?.toString();
+      if (orderId == null || orderId.isEmpty) {
+        throw Exception('Unable to create order');
+      }
+
+      final itemsToInsert = widget.items
+          .map(
+            (item) => {
+              'order_id': orderId,
+              'product_variant_id': item.variantId,
+              'brand_id': item.product.brandId,
+              'quantity': item.quantity,
+              'price_at_purchase': item.product.price,
+            },
+          )
+          .toList();
+      await Supabase.instance.client.from('order_items').insert(itemsToInsert);
+
+      final selectedPayment = _paymentMethods.firstWhere(
+        (payment) => payment['id'].toString() == _selectedPaymentMethodId,
+        orElse: () => {},
+      );
+      if (selectedPayment.isEmpty) {
+        throw Exception('Selected payment method not found');
+      }
+      final paymentPayload = {
+        'order_id': orderId,
+        'payment_method':
+            '${selectedPayment['payment_type']} - ${selectedPayment['account_name']}',
+        'status': 'pending',
+        'transaction_id': transactionId,
+        'amount': widget.items.fold<double>(
+          0,
+          (sum, item) => sum + item.product.price * item.quantity,
+        ),
+        'screenshot_url': screenshotUrl,
+      };
+      await Supabase.instance.client.from('payments').insert(paymentPayload);
+
+      OrderService.instance.placeOrder(
+        widget.items,
+        orderId: orderId,
+        status: OrderStatus.pending,
+      );
+
       for (final item in widget.items) {
         await CartService.instance.removeItem(item.id);
       }
@@ -134,7 +325,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         context,
         title: 'Payment successful',
         message:
-            'You made payment for the order successfully! Please wait for the admin response.',
+            'You made payment for the order successfully! Please wait the admin response.',
         type: PopupType.success,
       );
 
@@ -199,6 +390,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       style: AppTextStyles.body,
                     ),
                     const SizedBox(height: 24),
+                    _buildOrderSection(),
+                    const SizedBox(height: 16),
+                    _buildReviewSummary(
+                      widget.items.fold<double>(
+                        0,
+                        (sum, item) => sum + item.product.price * item.quantity,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     const Text(
                       'Payment Method',
                       style: TextStyle(
@@ -208,34 +408,88 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _selectedPaymentMethodId,
+                    if (_paymentMethods.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: const Text(
+                          'No payment methods available for this brand.',
+                          style: TextStyle(color: AppColors.subtleText),
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        value: _selectedPaymentMethodId,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 14,
+                          ),
+                        ),
+                        items: _paymentMethods.map((payment) {
+                          return DropdownMenuItem(
+                            value: payment['id'].toString(),
+                            child: Text(
+                              '${payment['payment_type']} - ${payment['account_name']} (${payment['account_number']})',
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedPaymentMethodId = value);
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select a payment method.';
+                          }
+                          return null;
+                        },
+                      ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Please check the Account Number and Name before transfer',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.errorRed,
+                        fontFamily: AppFonts.primary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Transaction ID (last 6 digits)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontFamily: AppFonts.primary,
+                        color: AppColors.darkText,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _transactionController,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
                       decoration: InputDecoration(
+                        hintText: 'Enter last 6 transaction digits',
+                        counterText: '',
+                        filled: true,
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 14,
+                        focusedBorder: const OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                          borderSide: BorderSide(color: AppColors.primaryGreen),
                         ),
                       ),
-                      items: _paymentMethods.map((payment) {
-                        return DropdownMenuItem(
-                          value: payment['id'].toString(),
-                          child: Text(
-                            '${payment['payment_type']} - ${payment['account_name']} (${payment['account_number']})',
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() => _selectedPaymentMethodId = value);
-                      },
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please select a payment method.';
-                        }
-                        return null;
-                      },
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -298,6 +552,153 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ],
                 ),
               ),
+      ),
+    );
+  }
+}
+
+class _OrderItemTile extends StatelessWidget {
+  final CartItem item;
+
+  const _OrderItemTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              item.imageUrl,
+              width: 72,
+              height: 86,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 72,
+                height: 86,
+                color: Colors.grey.shade300,
+                alignment: Alignment.center,
+                child: const Icon(Icons.image_not_supported, size: 18),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: AppFonts.primary,
+                    fontSize: 16,
+                    color: AppColors.darkText,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Size: ${item.size}',
+                  style: TextStyle(
+                    fontFamily: AppFonts.primary,
+                    color: Colors.grey.shade600,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      'Color: ${item.colorName} ',
+                      style: TextStyle(
+                        fontFamily: AppFonts.primary,
+                        color: Colors.grey.shade600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Color(item.colorValue),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Qty: ${item.quantity}',
+                  style: TextStyle(
+                    fontFamily: AppFonts.primary,
+                    color: Colors.grey.shade600,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '\$${item.subtotal.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontFamily: AppFonts.primary,
+                    color: AppColors.primaryGreen,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isTotal;
+
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.isTotal = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppFonts.primary,
+                color: AppColors.darkText,
+                fontSize: isTotal ? 16 : 14,
+                fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: AppFonts.primary,
+              color: AppColors.darkText,
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -6,10 +6,7 @@ import 'order_service.dart';
 class OrderDetailScreen extends StatefulWidget {
   final OrderModel order;
 
-  const OrderDetailScreen({
-    super.key,
-    required this.order,
-  });
+  const OrderDetailScreen({super.key, required this.order});
 
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
@@ -159,6 +156,37 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ),
         ),
         const SizedBox(height: 10),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                color: AppColors.primaryGreen,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.order.status.name.toUpperCase(),
+                style: TextStyle(
+                  color: widget.order.status == OrderStatus.pending
+                      ? AppColors.primaryGreen
+                      : widget.order.status == OrderStatus.completed
+                      ? Colors.blue
+                      : AppColors.errorRed,
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
         _detailSection(
           title: 'Your Order (${widget.order.items.length})',
           child: Column(
@@ -191,23 +219,49 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text('Size: ${item.size}',
-                              style: const TextStyle(
-                                  color: AppColors.subtleText,
-                                  fontFamily: AppFonts.primary,
-                                  fontSize: 12)),
+                          Text(
+                            'Size: ${item.size}',
+                            style: const TextStyle(
+                              color: AppColors.subtleText,
+                              fontFamily: AppFonts.primary,
+                              fontSize: 12,
+                            ),
+                          ),
                           const SizedBox(height: 2),
-                          Text('Color: ${item.colorName} ●',
-                              style: const TextStyle(
+                          Row(
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: Color(item.colorValue),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: AppColors.subtleText,
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                item.colorName,
+                                style: const TextStyle(
                                   color: AppColors.subtleText,
                                   fontFamily: AppFonts.primary,
-                                  fontSize: 12)),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 2),
-                          Text('Qty: ${item.quantity}',
-                              style: const TextStyle(
-                                  color: AppColors.subtleText,
-                                  fontFamily: AppFonts.primary,
-                                  fontSize: 12)),
+                          Text(
+                            'Qty: ${item.quantity}',
+                            style: const TextStyle(
+                              color: AppColors.subtleText,
+                              fontFamily: AppFonts.primary,
+                              fontSize: 12,
+                            ),
+                          ),
                           const SizedBox(height: 6),
                           Text(
                             '\$${item.subtotal.toStringAsFixed(2)}',
@@ -235,15 +289,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           title: 'Review Summary',
           child: Column(
             children: [
-              _summaryRow('Subtotal (${widget.order.items.length} items)',
-                  '\$${subtotal.toStringAsFixed(2)}'),
+              _summaryRow(
+                'Subtotal (${widget.order.items.length} items)',
+                '\$${subtotal.toStringAsFixed(2)}',
+              ),
               _summaryRow('Service Fee', '\$${serviceFee.toStringAsFixed(2)}'),
-              _summaryRow('Delivery Fee', '\$${deliveryFee.toStringAsFixed(2)}'),
+              _summaryRow(
+                'Delivery Fee',
+                '\$${deliveryFee.toStringAsFixed(2)}',
+              ),
               _summaryRow('Tax', '\$${tax.toStringAsFixed(2)}'),
               _summaryRow('Promo', '- \$${promo.toStringAsFixed(2)}'),
               const Divider(),
-              _summaryRow('Total Payment', '\$${total.toStringAsFixed(2)}',
-                  isTotal: true),
+              _summaryRow(
+                'Total Payment',
+                '\$${total.toStringAsFixed(2)}',
+                isTotal: true,
+              ),
             ],
           ),
         ),
@@ -252,16 +314,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           title: 'Information Details',
           child: Column(
             children: [
-              _summaryRow('Purchase Date',
-                  '${widget.order.createdAt.day}/${widget.order.createdAt.month}/${widget.order.createdAt.year}'),
+              _summaryRow(
+                'Purchase Date',
+                '${widget.order.createdAt.day}/${widget.order.createdAt.month}/${widget.order.createdAt.year}',
+              ),
               _summaryRow(
                 'Purchase Hours',
                 '${widget.order.createdAt.hour.toString().padLeft(2, '0')}:${widget.order.createdAt.minute.toString().padLeft(2, '0')}',
               ),
               _summaryRow(
-                  'Invoice Number', 'INV${widget.order.id.substring(4, 10).toUpperCase()}TRX'),
+                'Invoice Number',
+                'INV${widget.order.id.substring(4, 10).toUpperCase()}TRX',
+              ),
               _summaryRow(
-                  'Receipt Number', 'RCP${widget.order.id.substring(4, 10).toUpperCase()}RNV'),
+                'Receipt Number',
+                'RCP${widget.order.id.substring(4, 10).toUpperCase()}RNV',
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
@@ -289,12 +357,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Widget _buildTrackOrder() {
     final arrived = widget.order.status == OrderStatus.completed;
-    final title = arrived ? 'Orders Has Arrived' : 'Orders in Delivery';
+    final pending = widget.order.status == OrderStatus.pending;
+    final title = pending
+        ? 'Awaiting Confirmation'
+        : arrived
+        ? 'Orders Has Arrived'
+        : 'Orders in Delivery';
     final trackingEvents = [
       _TrackingEvent(
-        title: arrived ? 'Order Has Arrived - Dec 23' : 'Order is being Delivered - Dec 23',
-        time: arrived ? '09:41 AM' : '08:40 AM',
-        location: arrived
+        title: pending
+            ? 'Payment submitted'
+            : arrived
+            ? 'Order Has Arrived - Dec 23'
+            : 'Order is being Delivered - Dec 23',
+        time: pending
+            ? '09:41 AM'
+            : arrived
+            ? '09:41 AM'
+            : '08:40 AM',
+        location: pending
+            ? 'Waiting for vendor confirmation'
+            : arrived
             ? 'Andrew Ainsley - 701 7th Ave, New York, NY 100...'
             : '4 Evergreen Street Lake Zurich, IL 60047',
         active: true,
@@ -340,8 +423,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: const [
-                  Icon(Icons.inventory_2, color: AppColors.primaryGreen, size: 36),
-                  Icon(Icons.local_shipping, color: AppColors.primaryGreen, size: 36),
+                  Icon(
+                    Icons.inventory_2,
+                    color: AppColors.primaryGreen,
+                    size: 36,
+                  ),
+                  Icon(
+                    Icons.local_shipping,
+                    color: AppColors.primaryGreen,
+                    size: 36,
+                  ),
                   Icon(Icons.handshake, color: Colors.grey, size: 36),
                   Icon(Icons.inventory, color: Colors.grey, size: 36),
                 ],
@@ -487,7 +578,9 @@ class _TrackDot extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 12,
-          backgroundColor: active ? AppColors.primaryGreen : Colors.grey.shade300,
+          backgroundColor: active
+              ? AppColors.primaryGreen
+              : Colors.grey.shade300,
           child: const Icon(Icons.check, size: 14, color: Colors.white),
         ),
         const SizedBox(width: 6),
@@ -506,10 +599,7 @@ class _TrackTimelineRow extends StatelessWidget {
   final _TrackingEvent event;
   final bool showTail;
 
-  const _TrackTimelineRow({
-    required this.event,
-    required this.showTail,
-  });
+  const _TrackTimelineRow({required this.event, required this.showTail});
 
   @override
   Widget build(BuildContext context) {
@@ -525,8 +615,9 @@ class _TrackTimelineRow extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color:
-                        event.active ? AppColors.primaryGreen : Colors.grey.shade400,
+                    color: event.active
+                        ? AppColors.primaryGreen
+                        : Colors.grey.shade400,
                     width: 3,
                   ),
                   color: Colors.white,

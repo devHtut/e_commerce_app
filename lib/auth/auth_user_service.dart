@@ -235,6 +235,36 @@ class AuthUserService {
         .toList();
   }
 
+  static Future<String?> getVendorIdByBrandId(String brandId) async {
+    final client = Supabase.instance.client;
+    final brandRow = await client
+        .from('brands')
+        .select('owner_id')
+        .eq('id', brandId)
+        .maybeSingle();
+    final ownerId = brandRow?['owner_id']?.toString();
+    if (ownerId == null || ownerId.isEmpty) {
+      return null;
+    }
+
+    final vendorRow = await client
+        .from('vendors')
+        .select('id')
+        .eq('user_id', ownerId)
+        .maybeSingle();
+    return vendorRow?['id']?.toString();
+  }
+
+  static Future<List<Map<String, dynamic>>> getVendorPaymentsByBrand(
+    String brandId,
+  ) async {
+    final vendorId = await getVendorIdByBrandId(brandId);
+    if (vendorId == null) {
+      return [];
+    }
+    return getVendorPayments(vendorId);
+  }
+
   static Future<void> replaceVendorPayments(
     String vendorId,
     List<Map<String, String>> payments,

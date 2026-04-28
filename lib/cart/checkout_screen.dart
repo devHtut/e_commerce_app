@@ -160,7 +160,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (!mounted) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => PaymentScreen(items: widget.items)),
+      MaterialPageRoute(
+        builder: (_) => PaymentScreen(
+          items: widget.items,
+          shippingAddressId: _selectedAddress.id,
+        ),
+      ),
     ).then((_) {
       // When returning from payment screen, reset state
       if (mounted) {

@@ -208,7 +208,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  Future<void> _addToCart({
+  Future<CartItem?> _addToCart({
     required bool buyNow,
     required _VariantOption variant,
     required int quantity,
@@ -246,12 +246,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       quantity: quantity,
     );
     if (buyNow) {
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => CheckoutScreen(items: [item])),
-      );
-      return;
+      return item;
     }
 
     // Check if cart has items from a different brand
@@ -261,7 +256,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (cartBrandId != null &&
           cartProduct.brandId != null &&
           cartBrandId != cartProduct.brandId) {
-        if (!mounted) return;
+        if (!mounted) return null;
         await showCustomPopup(
           context,
           title: 'Cannot add to cart',
@@ -269,7 +264,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               'You can\'t add to cart because of different brand. Please checkout first for the first item.',
           type: PopupType.error,
         );
-        return;
+        return null;
       }
     }
 
@@ -282,7 +277,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       imageUrl: imageUrl,
       quantity: quantity,
     );
-    if (!mounted) return;
+    if (!mounted) return null;
     await showCustomPopup(
       context,
       title: 'Added to cart',
@@ -299,7 +294,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (selectedColorIndex == -1) selectedColorIndex = 0;
     int quantity = 1;
 
-    await showModalBottomSheet<void>(
+    final cartItem = await showModalBottomSheet<CartItem?>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -607,13 +602,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             height: 52,
                             child: ElevatedButton(
                               onPressed: () async {
-                                await _addToCart(
+                                final addedItem = await _addToCart(
                                   buyNow: buyNow,
                                   variant: selectedVariant,
                                   quantity: quantity,
                                 );
                                 if (!context.mounted) return;
-                                Navigator.pop(context);
+                                Navigator.pop(context, addedItem);
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primaryGreen,
@@ -639,6 +634,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         );
       },
     );
+
+    if (buyNow && cartItem != null && mounted) {
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(builder: (_) => CheckoutScreen(items: [cartItem])),
+      );
+    }
   }
 
   @override
@@ -883,18 +884,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             child: Column(
                               children: [
                                 Container(
-                                  width: 36,
-                                  height: 36,
+                                  width: 48,
+                                  height: 48,
                                   decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
                                     color: _colorFromName(name),
+                                    shape: BoxShape.circle,
                                     border: Border.all(
                                       color: selected
                                           ? AppColors.darkText
-                                          : Colors.transparent,
-                                      width: 2,
+                                          : Colors.grey.shade300,
+                                      width: selected ? 2 : 1,
                                     ),
                                   ),
+                                  child: selected
+                                      ? const Icon(
+                                          Icons.check,
+                                          size: 18,
+                                          color: Colors.white,
+                                        )
+                                      : null,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(

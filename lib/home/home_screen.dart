@@ -1218,8 +1218,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return ValueListenableBuilder<List<OrderModel>>(
       valueListenable: OrderService.instance.ordersNotifier,
       builder: (context, orders, _) {
-        final active = orders
-            .where((o) => o.status == OrderStatus.active)
+        final pending = orders
+            .where((o) => o.status == OrderStatus.pending)
             .toList();
         final completed = orders
             .where((o) => o.status == OrderStatus.completed)
@@ -1228,12 +1228,12 @@ class _HomeScreenState extends State<HomeScreen> {
             .where((o) => o.status == OrderStatus.canceled)
             .toList();
         final tabs = <(String, int)>[
-          ('Active', active.length),
+          ('Pending', pending.length),
           ('Completed', completed.length),
           ('Canceled', canceled.length),
         ];
         final showing = switch (_orderTabIndex) {
-          0 => active,
+          0 => pending,
           1 => completed,
           _ => canceled,
         };
@@ -1296,16 +1296,59 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      _formatOrderDate(order.createdAt),
-                                      style: TextStyle(
-                                        fontFamily: AppFonts.primary,
-                                        color: Colors.grey.shade700,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _formatOrderDate(order.createdAt),
+                                          style: TextStyle(
+                                            fontFamily: AppFonts.primary,
+                                            color: Colors.grey.shade700,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                order.status ==
+                                                    OrderStatus.pending
+                                                ? AppColors.primaryGreen
+                                                      .withOpacity(0.12)
+                                                : order.status ==
+                                                      OrderStatus.completed
+                                                ? Colors.blue.shade50
+                                                : Colors.red.shade50,
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            order.status.name.toUpperCase(),
+                                            style: TextStyle(
+                                              fontFamily: AppFonts.primary,
+                                              color:
+                                                  order.status ==
+                                                      OrderStatus.pending
+                                                  ? AppColors.primaryGreen
+                                                  : order.status ==
+                                                        OrderStatus.completed
+                                                  ? Colors.blue
+                                                  : AppColors.errorRed,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  if (order.status == OrderStatus.active)
+                                  if (order.status == OrderStatus.pending)
                                     PopupMenuButton<String>(
                                       onSelected: (_) =>
                                           _showCancelOrderDialog(order),
