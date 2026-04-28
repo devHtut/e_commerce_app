@@ -13,7 +13,16 @@ import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
 
 class ProfileInfoScreen extends StatefulWidget {
-  const ProfileInfoScreen({super.key});
+  const ProfileInfoScreen({
+    super.key,
+    this.initialFullName,
+    this.initialAvatarUrl,
+    this.returnToHomeAfterSave = true,
+  });
+
+  final String? initialFullName;
+  final String? initialAvatarUrl;
+  final bool returnToHomeAfterSave;
 
   @override
   State<ProfileInfoScreen> createState() => _ProfileInfoScreenState();
@@ -24,6 +33,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   final _fullNameController = TextEditingController();
   PlatformFile? _selectedAvatar;
   Uint8List? _avatarPreviewBytes;
+  String? _avatarUrl;
   bool _isSaving = false;
   late final String _randomLetter;
 
@@ -32,6 +42,8 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     super.initState();
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     _randomLetter = letters[Random().nextInt(letters.length)];
+    _fullNameController.text = widget.initialFullName ?? '';
+    _avatarUrl = widget.initialAvatarUrl;
   }
 
   @override
@@ -76,7 +88,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
 
     setState(() => _isSaving = true);
 
-    String? avatarUrl;
+    String? avatarUrl = _avatarUrl;
     try {
       if (_selectedAvatar != null) {
         final filename =
@@ -124,10 +136,14 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       );
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      if (widget.returnToHomeAfterSave) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else {
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (!mounted) return;
       await showCustomPopup(
@@ -148,9 +164,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Complete Profile',
-          style: TextStyle(
+        title: Text(
+          widget.initialFullName == null ? 'Complete Profile' : 'Edit Profile',
+          style: const TextStyle(
             fontFamily: AppFonts.primary,
             color: AppColors.darkText,
             fontWeight: FontWeight.bold,
@@ -207,8 +223,33 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                                 ],
                               ),
                               child: ClipOval(
-                                child: _avatarPreviewBytes == null
-                                    ? Container(
+                                child: _avatarPreviewBytes != null
+                                    ? Image.memory(
+                                        _avatarPreviewBytes!,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : (_avatarUrl != null &&
+                                          _avatarUrl!.isNotEmpty)
+                                    ? Image.network(
+                                        _avatarUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) {
+                                          return Container(
+                                            color: Colors.grey.shade100,
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              _displayLetter,
+                                              style: const TextStyle(
+                                                fontSize: 42,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.primaryGreen,
+                                                fontFamily: AppFonts.primary,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      )
+                                    : Container(
                                         color: Colors.grey.shade100,
                                         alignment: Alignment.center,
                                         child: Text(
@@ -220,10 +261,6 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                                             fontFamily: AppFonts.primary,
                                           ),
                                         ),
-                                      )
-                                    : Image.memory(
-                                        _avatarPreviewBytes!,
-                                        fit: BoxFit.cover,
                                       ),
                               ),
                             ),
@@ -288,7 +325,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                   child: _isSaving
                       ? const Center(child: CircularProgressIndicator())
                       : CustomButton(
-                          text: 'Save Profile',
+                          text: widget.initialFullName == null
+                              ? 'Save Profile'
+                              : 'Update Profile',
                           onPressed: _saveProfile,
                         ),
                 ),

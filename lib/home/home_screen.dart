@@ -5,6 +5,9 @@ import '../cart/checkout_screen.dart';
 import '../cart/cart_service.dart';
 import '../order/order_service.dart';
 import '../order/order_detail_screen.dart';
+import '../address/delivery_address_screen.dart';
+import '../auth/auth_user_service.dart';
+import '../auth/profile_info_screen.dart';
 import '../auth/signin_screen.dart';
 import '../auth/signup_screen.dart';
 import '../product/product_detail_screen.dart';
@@ -16,6 +19,7 @@ import '../widgets/custom_pop_up.dart';
 import '../widgets/product_card.dart';
 import '../widgets/search_box.dart';
 import '../theme_config.dart';
+import 'help_support_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final int initialIndex;
@@ -32,6 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _orderTabIndex = 0;
   String _searchQuery = '';
   bool _isLoadingProducts = true;
+  bool _isAccountLoading = false;
+  Map<String, dynamic>? _userProfile;
+  String _userEmail = '';
+  String? _userAvatarUrl;
   String? _productsError;
   List<ProductModel> _products = [];
   List<String> _categories = const ['Discover'];
@@ -42,6 +50,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _loadProducts();
+    if (_isLoggedIn) {
+      _loadAccountInfo();
+      OrderService.instance.loadOrders();
+    }
   }
 
   final List<BannerItem> _banners = const [
@@ -138,6 +150,199 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ProductModel> get _newArrivalProducts => _products.take(4).toList();
   List<ProductModel> get _hotDealProducts =>
       _products.reversed.take(4).toList();
+
+  Future<void> _loadAccountInfo() async {
+    if (!_isLoggedIn) return;
+    setState(() => _isAccountLoading = true);
+
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null) {
+      if (!mounted) return;
+      setState(() => _isAccountLoading = false);
+      return;
+    }
+
+    final profile = await AuthUserService.getUserProfile(currentUser.id);
+    if (!mounted) return;
+
+    setState(() {
+      _userProfile = profile;
+      _userEmail = currentUser.email ?? '';
+      _userAvatarUrl = profile?['avatar_url']?.toString();
+      _isAccountLoading = false;
+    });
+  }
+
+  Future<void> _openChooseDeliveryAddress() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    final profile = await AuthUserService.getUserProfile(user.id);
+    final fullName = profile?['full_name']?.toString() ?? 'You';
+
+    try {
+      final rows = await Supabase.instance.client
+          .from('user_addresses')
+          .select('id,label,phone_number,address_line,city,is_default')
+          .eq('user_id', user.id)
+          .order('is_default', ascending: false);
+
+      final addresses = (rows as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((row) {
+            final street = row['address_line']?.toString() ?? '';
+            final city = row['city']?.toString() ?? '';
+            return DeliveryAddress(
+              id:
+                  row['id']?.toString() ??
+                  'addr_${DateTime.now().microsecondsSinceEpoch}',
+              label: row['label']?.toString() ?? 'Home',
+              recipientName: fullName,
+              phone: row['phone_number']?.toString() ?? '',
+              streetAddress: '$street${city.isNotEmpty ? ', $city' : ''}',
+              note: 'Saved address',
+              isPrimary: (row['is_default'] as bool?) ?? false,
+            );
+          })
+          .toList();
+
+      final selectedId = addresses.isNotEmpty ? addresses.first.id : '';
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DeliveryAddressScreen(
+            initialAddresses: addresses,
+            selectedAddressId: selectedId,
+          ),
+        ),
+      );
+    } catch (_) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const DeliveryAddressScreen(
+            initialAddresses: [],
+            selectedAddressId: '',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _openProfileEdit() async {
+    if (!_isLoggedIn) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProfileInfoScreen(
+          initialFullName: _userProfile?['full_name']?.toString(),
+          initialAvatarUrl: _userAvatarUrl,
+          returnToHomeAfterSave: false,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await _loadAccountInfo();
+  }
+
+  void _openHelpSupport() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+    );
+  }
+
+  void _showLogoutConfirmation() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Logout',
+                  style: TextStyle(
+                    fontFamily: AppFonts.primary,
+                    color: AppColors.primaryGreen,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Are you sure you want to log out?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: AppFonts.primary,
+                    color: AppColors.darkText,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(color: AppColors.lightGrey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: AppColors.primaryGreen,
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _logout();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryGreen,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        child: const Text(
+                          'Yes, Logout',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildHorizontalProductSection({
     required String title,
@@ -317,6 +522,12 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _currentIndex = index;
     });
+    if (index == 3 && _isLoggedIn) {
+      await OrderService.instance.loadOrders();
+    }
+    if (index == 4 && _isLoggedIn) {
+      await _loadAccountInfo();
+    }
   }
 
   Future<void> _showEditProductVariantSheet(CartItem item) async {
@@ -1144,6 +1355,45 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
+  Color _orderStatusColor(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return Colors.amber.shade900;
+      case OrderStatus.completed:
+        return AppColors.primaryGreen;
+      case OrderStatus.canceled:
+        return AppColors.errorRed;
+      case OrderStatus.refund:
+        return Colors.deepOrange.shade800;
+    }
+  }
+
+  Color _orderStatusBackgroundColor(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return Colors.amber.shade50;
+      case OrderStatus.completed:
+        return AppColors.primaryGreen.withOpacity(0.12);
+      case OrderStatus.canceled:
+        return AppColors.errorRed.withOpacity(0.12);
+      case OrderStatus.refund:
+        return Colors.deepOrange.shade50;
+    }
+  }
+
+  String _orderStatusLabel(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'PENDING';
+      case OrderStatus.completed:
+        return 'CONFIRMED';
+      case OrderStatus.canceled:
+        return 'CANCELED';
+      case OrderStatus.refund:
+        return 'REFUND';
+    }
+  }
+
   Future<void> _showCancelOrderDialog(OrderModel order) async {
     final shouldCancel = await showDialog<bool>(
       context: context,
@@ -1221,21 +1471,29 @@ class _HomeScreenState extends State<HomeScreen> {
         final pending = orders
             .where((o) => o.status == OrderStatus.pending)
             .toList();
-        final completed = orders
+        final confirmed = orders
             .where((o) => o.status == OrderStatus.completed)
             .toList();
         final canceled = orders
             .where((o) => o.status == OrderStatus.canceled)
             .toList();
+        final refunds = orders
+            .where((o) => o.status == OrderStatus.refund)
+            .toList();
         final tabs = <(String, int)>[
           ('Pending', pending.length),
-          ('Completed', completed.length),
+          ('Confirmed', confirmed.length),
           ('Canceled', canceled.length),
+          if (refunds.isNotEmpty) ('Refund', refunds.length),
         ];
-        final showing = switch (_orderTabIndex) {
+        final displayedIndex = _orderTabIndex < tabs.length
+            ? _orderTabIndex
+            : tabs.length - 1;
+        final showing = switch (displayedIndex) {
           0 => pending,
-          1 => completed,
-          _ => canceled,
+          1 => confirmed,
+          2 => canceled,
+          _ => refunds,
         };
         return Column(
           children: [
@@ -1249,7 +1507,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final tab = tabs[index];
-                  final selected = _orderTabIndex == index;
+                  final selected = displayedIndex == index;
                   return ChoiceChip(
                     label: Text('${tab.$1} (${tab.$2})'),
                     selected: selected,
@@ -1315,31 +1573,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
-                                            color:
-                                                order.status ==
-                                                    OrderStatus.pending
-                                                ? AppColors.primaryGreen
-                                                      .withOpacity(0.12)
-                                                : order.status ==
-                                                      OrderStatus.completed
-                                                ? Colors.blue.shade50
-                                                : Colors.red.shade50,
+                                            color: _orderStatusBackgroundColor(
+                                              order.status,
+                                            ),
                                             borderRadius: BorderRadius.circular(
                                               999,
                                             ),
                                           ),
                                           child: Text(
-                                            order.status.name.toUpperCase(),
+                                            _orderStatusLabel(order.status),
                                             style: TextStyle(
                                               fontFamily: AppFonts.primary,
-                                              color:
-                                                  order.status ==
-                                                      OrderStatus.pending
-                                                  ? AppColors.primaryGreen
-                                                  : order.status ==
-                                                        OrderStatus.completed
-                                                  ? Colors.blue
-                                                  : AppColors.errorRed,
+                                              color: _orderStatusColor(
+                                                order.status,
+                                              ),
                                               fontWeight: FontWeight.w700,
                                               fontSize: 11,
                                             ),
@@ -1591,54 +1838,241 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return _buildMyOrdersPage();
       case 4:
-        if (_isLoggedIn) {
-          return const Center(
-            child: Text(
-              'You are signed in. Manage account from here.',
-              style: AppTextStyles.body,
-              textAlign: TextAlign.center,
-            ),
-          );
-        }
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Create your account to save wishlist, cart, and orders.',
-                style: AppTextStyles.body,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: CustomButton(
-                  text: 'Sign up',
+        if (!_isLoggedIn) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Create your account to save wishlist, cart, and orders.',
+                  style: AppTextStyles.body,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: CustomButton(
+                    text: 'Sign up',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SignupScreen()),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const SignupScreen()),
+                      MaterialPageRoute(builder: (_) => const SignInScreen()),
                     );
                   },
+                  child: const Text(
+                    'Already have an account? Sign in',
+                    style: TextStyle(
+                      color: AppColors.primaryGreen,
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (_isAccountLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final displayName =
+            (_userProfile?['full_name']?.toString().trim().isNotEmpty ?? false)
+            ? _userProfile!['full_name'].toString().trim()
+            : 'Your Name';
+        final displayEmail = _userEmail.isNotEmpty ? _userEmail : 'No email';
+        final initials = displayName.isNotEmpty
+            ? displayName[0].toUpperCase()
+            : (displayEmail.isNotEmpty ? displayEmail[0].toUpperCase() : 'U');
+
+        return SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 16,
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 74,
+                      height: 74,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.grey.shade200,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child:
+                            _userAvatarUrl != null && _userAvatarUrl!.isNotEmpty
+                            ? Image.network(
+                                _userAvatarUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.grey.shade100,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    initials,
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryGreen,
+                                      fontFamily: AppFonts.primary,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                color: Colors.grey.shade100,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryGreen,
+                                    fontFamily: AppFonts.primary,
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.darkText,
+                              fontFamily: AppFonts.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            displayEmail,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                              fontFamily: AppFonts.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SignInScreen()),
-                  );
-                },
-                child: const Text(
-                  'Already have an account? Sign in',
-                  style: TextStyle(
-                    color: AppColors.primaryGreen,
-                    fontFamily: AppFonts.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
+              const SizedBox(height: 20),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(
+                        Icons.location_on_outlined,
+                        color: AppColors.primaryGreen,
+                      ),
+                      title: const Text(
+                        'Manage Addresses',
+                        style: TextStyle(
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openChooseDeliveryAddress,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.person_outline,
+                        color: AppColors.primaryGreen,
+                      ),
+                      title: const Text(
+                        'My Profile',
+                        style: TextStyle(
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openProfileEdit,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.help_outline,
+                        color: AppColors.primaryGreen,
+                      ),
+                      title: const Text(
+                        'Help & Support',
+                        style: TextStyle(
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openHelpSupport,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.logout,
+                        color: Colors.redAccent,
+                      ),
+                      title: const Text(
+                        'Logout',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.redAccent,
+                      ),
+                      onTap: _showLogoutConfirmation,
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -905,13 +905,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                       : null,
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  name,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
+                                // Text(
+                                //   name,
+                                //   style: TextStyle(
+                                //     fontSize: 10,
+                                //     color: Colors.grey.shade600,
+                                //   ),
+                                // ),
                               ],
                             ),
                           );

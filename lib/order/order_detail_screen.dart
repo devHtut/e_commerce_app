@@ -104,11 +104,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Widget _buildOrderDetails() {
     final subtotal = widget.order.total;
-    const serviceFee = 1.50;
-    const deliveryFee = 8.50;
-    const tax = 3.50;
-    final promo = subtotal * 0.2;
-    final total = subtotal + serviceFee + deliveryFee + tax - promo;
+    final promo = 0.00;
+    final total = subtotal - promo;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -131,24 +128,39 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
-                      'Home  (Andrew Ainsley)',
-                      style: TextStyle(
+                      widget.order.shippingAddressLabel.isNotEmpty
+                          ? widget.order.shippingAddressLabel
+                          : 'Delivery Address',
+                      style: const TextStyle(
                         color: AppColors.darkText,
                         fontFamily: AppFonts.primary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      '701 7th Ave, New York, NY 10036, USA',
-                      style: TextStyle(
+                      widget.order.shippingAddressStreet.isNotEmpty
+                          ? widget.order.shippingAddressStreet
+                          : 'Delivery address not available',
+                      style: const TextStyle(
                         color: AppColors.subtleText,
                         fontFamily: AppFonts.primary,
                         fontSize: 12,
                       ),
                     ),
+                    if (widget.order.shippingAddressPhone.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.order.shippingAddressPhone,
+                        style: const TextStyle(
+                          color: AppColors.subtleText,
+                          fontFamily: AppFonts.primary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -160,25 +172,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 12),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _orderStatusBackgroundColor(widget.order.status),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.info_outline,
-                color: AppColors.primaryGreen,
+                color: _orderStatusColor(widget.order.status),
                 size: 18,
               ),
               const SizedBox(width: 8),
               Text(
-                widget.order.status.name.toUpperCase(),
+                _orderStatusLabel(widget.order.status),
                 style: TextStyle(
-                  color: widget.order.status == OrderStatus.pending
-                      ? AppColors.primaryGreen
-                      : widget.order.status == OrderStatus.completed
-                      ? Colors.blue
-                      : AppColors.errorRed,
+                  color: _orderStatusColor(widget.order.status),
                   fontFamily: AppFonts.primary,
                   fontWeight: FontWeight.w700,
                 ),
@@ -228,30 +236,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: Color(item.colorValue),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.subtleText,
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                item.colorName,
-                                style: const TextStyle(
-                                  color: AppColors.subtleText,
-                                  fontFamily: AppFonts.primary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            'Color: ${item.colorName}',
+                            style: const TextStyle(
+                              color: AppColors.subtleText,
+                              fontFamily: AppFonts.primary,
+                              fontSize: 12,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -293,12 +284,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 'Subtotal (${widget.order.items.length} items)',
                 '\$${subtotal.toStringAsFixed(2)}',
               ),
-              _summaryRow('Service Fee', '\$${serviceFee.toStringAsFixed(2)}'),
-              _summaryRow(
-                'Delivery Fee',
-                '\$${deliveryFee.toStringAsFixed(2)}',
-              ),
-              _summaryRow('Tax', '\$${tax.toStringAsFixed(2)}'),
               _summaryRow('Promo', '- \$${promo.toStringAsFixed(2)}'),
               const Divider(),
               _summaryRow(
@@ -314,40 +299,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           title: 'Information Details',
           child: Column(
             children: [
+              _summaryRow('Order ID', widget.order.id),
               _summaryRow(
                 'Purchase Date',
                 '${widget.order.createdAt.day}/${widget.order.createdAt.month}/${widget.order.createdAt.year}',
               ),
               _summaryRow(
-                'Purchase Hours',
+                'Purchase Time',
                 '${widget.order.createdAt.hour.toString().padLeft(2, '0')}:${widget.order.createdAt.minute.toString().padLeft(2, '0')}',
               ),
-              _summaryRow(
-                'Invoice Number',
-                'INV${widget.order.id.substring(4, 10).toUpperCase()}TRX',
-              ),
-              _summaryRow(
-                'Receipt Number',
-                'RCP${widget.order.id.substring(4, 10).toUpperCase()}RNV',
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.primaryGreen),
-                  ),
-                  child: const Text(
-                    'Generate Invoice',
-                    style: TextStyle(
-                      color: AppColors.primaryGreen,
-                      fontFamily: AppFonts.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
+              if (widget.order.shippingAddressPhone.isNotEmpty)
+                _summaryRow('Contact', widget.order.shippingAddressPhone),
             ],
           ),
         ),
@@ -494,6 +456,45 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
       ],
     );
+  }
+
+  Color _orderStatusColor(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return Colors.amber.shade900;
+      case OrderStatus.completed:
+        return AppColors.primaryGreen;
+      case OrderStatus.canceled:
+        return AppColors.errorRed;
+      case OrderStatus.refund:
+        return Colors.deepOrange.shade800;
+    }
+  }
+
+  Color _orderStatusBackgroundColor(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return Colors.amber.shade50;
+      case OrderStatus.completed:
+        return AppColors.primaryGreen.withOpacity(0.12);
+      case OrderStatus.canceled:
+        return AppColors.errorRed.withOpacity(0.12);
+      case OrderStatus.refund:
+        return Colors.deepOrange.shade50;
+    }
+  }
+
+  String _orderStatusLabel(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'PENDING';
+      case OrderStatus.completed:
+        return 'CONFIRMED';
+      case OrderStatus.canceled:
+        return 'CANCELED';
+      case OrderStatus.refund:
+        return 'REFUND';
+    }
   }
 
   Widget _detailSection({required String title, required Widget child}) {
