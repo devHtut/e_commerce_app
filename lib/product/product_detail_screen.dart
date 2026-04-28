@@ -44,9 +44,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   bool get _hasRealVariants => _variants.any(
-        (v) =>
-            v.color.toLowerCase() != 'default' || v.size.toLowerCase() != 'default',
-      );
+    (v) =>
+        v.color.toLowerCase() != 'default' || v.size.toLowerCase() != 'default',
+  );
 
   Future<void> _load() async {
     setState(() {
@@ -95,7 +95,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             .map(
               (f) => Supabase.instance.client.storage
                   .from('media')
-                  .getPublicUrl('product images/${product.id}/$folder/${f.name}'),
+                  .getPublicUrl(
+                    'product images/${product.id}/$folder/${f.name}',
+                  ),
             )
             .toList();
         if (urls.isNotEmpty) {
@@ -212,8 +214,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     required int quantity,
   }) async {
     final variantImages = _imagesByColor[variant.color] ?? _images;
-    final imageUrl =
-        variantImages.isEmpty ? _product.imageUrl : variantImages.first;
+    final imageUrl = variantImages.isEmpty
+        ? _product.imageUrl
+        : variantImages.first;
     final price = variant.promoPrice ?? variant.price;
     final cartProduct = ProductModel(
       id: _product.id,
@@ -250,6 +253,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
       return;
     }
+
+    // Check if cart has items from a different brand
+    final currentCartItems = CartService.instance.itemsNotifier.value;
+    if (currentCartItems.isNotEmpty) {
+      final cartBrandId = currentCartItems.first.product.brandId;
+      if (cartBrandId != null &&
+          cartProduct.brandId != null &&
+          cartBrandId != cartProduct.brandId) {
+        if (!mounted) return;
+        await showCustomPopup(
+          context,
+          title: 'Cannot add to cart',
+          message:
+              'You can\'t add to cart because of different brand. Please checkout first for the first item.',
+          type: PopupType.error,
+        );
+        return;
+      }
+    }
+
     await CartService.instance.addItem(
       product: cartProduct,
       variantId: variant.id,
@@ -385,7 +408,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               const SizedBox(height: 12),
                               Container(
                                 height: 42,
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(999),
@@ -396,7 +421,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
                                       onPressed: quantity > 1
-                                          ? () => setModalState(() => quantity--)
+                                          ? () =>
+                                                setModalState(() => quantity--)
                                           : null,
                                       icon: const Icon(Icons.remove, size: 20),
                                     ),
@@ -409,8 +435,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     ),
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
-                                      onPressed: quantity < selectedVariant.stock
-                                          ? () => setModalState(() => quantity++)
+                                      onPressed:
+                                          quantity < selectedVariant.stock
+                                          ? () =>
+                                                setModalState(() => quantity++)
                                           : null,
                                       icon: const Icon(Icons.add, size: 20),
                                     ),
@@ -445,14 +473,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         children: List.generate(sizesForColor.length, (index) {
                           final isSelected = selectedSizeIndex == index;
                           return InkWell(
-                            onTap: () => setModalState(() => selectedSizeIndex = index),
+                            onTap: () =>
+                                setModalState(() => selectedSizeIndex = index),
                             borderRadius: BorderRadius.circular(22),
                             child: Container(
                               width: 48,
                               height: 48,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primaryGreen : Colors.white,
+                                color: isSelected
+                                    ? AppColors.primaryGreen
+                                    : Colors.white,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: isSelected
@@ -464,7 +495,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 sizesForColor[index],
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
-                                  color: isSelected ? Colors.white : AppColors.darkText,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : AppColors.darkText,
                                 ),
                               ),
                             ),
@@ -492,7 +525,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _colors.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 12),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
                           itemBuilder: (_, index) {
                             final colorName = _colors[index];
                             final selected = selectedColorIndex == index;
@@ -725,7 +759,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: Image.network(_images[index], fit: BoxFit.cover),
+                                child: Image.network(
+                                  _images[index],
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                           );
@@ -773,7 +810,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         final size = _sizes[index];
                         final isSelected = _selectedSize == size;
                         return Padding(
-                          padding: EdgeInsets.only(right: index == _sizes.length - 1 ? 0 : 10),
+                          padding: EdgeInsets.only(
+                            right: index == _sizes.length - 1 ? 0 : 10,
+                          ),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(999),
                             onTap: () => setState(() => _selectedSize = size),
@@ -783,7 +822,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isSelected ? AppColors.primaryGreen : Colors.white,
+                                color: isSelected
+                                    ? AppColors.primaryGreen
+                                    : Colors.white,
                                 border: Border.all(
                                   color: isSelected
                                       ? AppColors.primaryGreen
@@ -793,7 +834,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               child: Text(
                                 size,
                                 style: TextStyle(
-                                  color: isSelected ? Colors.white : AppColors.darkText,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : AppColors.darkText,
                                 ),
                               ),
                             ),
@@ -830,8 +873,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   .toList();
                               setState(() {
                                 _selectedColor = name;
-                                _selectedSize =
-                                    nextSizes.isEmpty ? 'Default' : nextSizes.first;
+                                _selectedSize = nextSizes.isEmpty
+                                    ? 'Default'
+                                    : nextSizes.first;
                                 _selectedImage = 0;
                               });
                               _imageController.jumpToPage(0);
@@ -978,7 +1022,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Row(
         children: [
           ClipOval(
-            child: _product.brandLogoUrl == null || _product.brandLogoUrl!.isEmpty
+            child:
+                _product.brandLogoUrl == null || _product.brandLogoUrl!.isEmpty
                 ? Container(
                     width: 46,
                     height: 46,
@@ -1047,7 +1092,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 onTap: () {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+                    MaterialPageRoute(
+                      builder: (_) => ProductDetailScreen(product: p),
+                    ),
                   );
                 },
                 child: Container(
@@ -1156,4 +1203,3 @@ Color _colorFromName(String colorName) {
       return const Color(0xFF4A4A4A);
   }
 }
-

@@ -1,40 +1,46 @@
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../auth/auth_user_service.dart';
+import 'auth_user_service.dart';
+import '../home/home_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
-import 'vendor_business_info_screen.dart';
-import 'vendor_dashboard.dart';
 
-class VendorInfoScreen extends StatefulWidget {
-  const VendorInfoScreen({super.key});
+class ProfileInfoScreen extends StatefulWidget {
+  const ProfileInfoScreen({super.key});
 
   @override
-  State<VendorInfoScreen> createState() => _VendorInfoScreenState();
+  State<ProfileInfoScreen> createState() => _ProfileInfoScreenState();
 }
 
-class _VendorInfoScreenState extends State<VendorInfoScreen> {
+class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _brandNameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  PlatformFile? _selectedLogo;
-  Uint8List? _logoPreviewBytes;
+  final _fullNameController = TextEditingController();
+  PlatformFile? _selectedAvatar;
+  Uint8List? _avatarPreviewBytes;
   bool _isSaving = false;
+  late final String _randomLetter;
+
+  @override
+  void initState() {
+    super.initState();
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    _randomLetter = letters[Random().nextInt(letters.length)];
+  }
 
   @override
   void dispose() {
-    _brandNameController.dispose();
-    _descriptionController.dispose();
+    _fullNameController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickLogo() async {
+  Future<void> _pickAvatar() async {
     final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: false,
@@ -43,98 +49,96 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
     if (result == null || result.files.isEmpty) return;
     final selected = result.files.first;
     setState(() {
-      _selectedLogo = selected;
-      _logoPreviewBytes = selected.bytes;
+      _selectedAvatar = selected;
+      _avatarPreviewBytes = selected.bytes;
     });
   }
 
-  Future<void> _saveVendorInfo() async {
+  String get _displayLetter {
+    final text = _fullNameController.text.trim();
+    if (text.isEmpty) return _randomLetter;
+    return text[0].toUpperCase();
+  }
+
+  Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final brandName = _brandNameController.text.trim();
-    final description = _descriptionController.text.trim();
     final currentUser = Supabase.instance.client.auth.currentUser;
-
     if (currentUser == null) {
-      await _showErrorPopup('Unable to detect user. Please sign in again.');
-      return;
-    }
-
-    if (_selectedLogo == null) {
-      await _showErrorPopup('Please select a brand logo image.');
+      await showCustomPopup(
+        context,
+        title: 'Unable to save profile',
+        message: 'Please sign in again.',
+        type: PopupType.error,
+      );
       return;
     }
 
     setState(() => _isSaving = true);
 
+    String? avatarUrl;
     try {
-      final filename =
-          '${DateTime.now().millisecondsSinceEpoch}_${_selectedLogo!.name}';
-      final uploadPath = 'brand logos/${currentUser.id}/$filename';
-      final logoData = _selectedLogo!.bytes;
-      if (logoData == null) {
-        await _showErrorPopup('Unable to read the selected logo file.');
-        return;
+      if (_selectedAvatar != null) {
+        final filename =
+            '${DateTime.now().millisecondsSinceEpoch}_${_selectedAvatar!.name}';
+        final uploadPath = 'profile avatars/${currentUser.id}/$filename';
+        final avatarData = _selectedAvatar!.bytes;
+        if (avatarData == null) {
+          throw Exception('Unable to read avatar image.');
+        }
+
+        final ext = (_selectedAvatar!.extension ?? '').toLowerCase();
+        final String? contentType = switch (ext) {
+          'png' => 'image/png',
+          'jpg' || 'jpeg' => 'image/jpeg',
+          'webp' => 'image/webp',
+          'gif' => 'image/gif',
+          'bmp' => 'image/bmp',
+          _ => null,
+        };
+
+        await Supabase.instance.client.storage
+            .from('media')
+            .uploadBinary(
+              uploadPath,
+              avatarData,
+              fileOptions: FileOptions(upsert: true, contentType: contentType),
+            );
+        avatarUrl = Supabase.instance.client.storage
+            .from('media')
+            .getPublicUrl(uploadPath);
       }
 
-      final ext = (_selectedLogo!.extension ?? '').toLowerCase();
-      final String? contentType = switch (ext) {
-        'png' => 'image/png',
-        'jpg' || 'jpeg' => 'image/jpeg',
-        'webp' => 'image/webp',
-        'gif' => 'image/gif',
-        'bmp' => 'image/bmp',
-        _ => null,
-      };
-
-      await Supabase.instance.client.storage
-          .from('media')
-          .uploadBinary(
-            uploadPath,
-            logoData,
-            fileOptions: FileOptions(upsert: true, contentType: contentType),
-          );
-      final logoUrl = Supabase.instance.client.storage
-          .from('media')
-          .getPublicUrl(uploadPath);
-
-      await AuthUserService.upsertVendorBrandProfile(
+      await AuthUserService.upsertUserProfile(
         currentUser.id,
-        brandName,
-        description,
-        logoUrl,
+        _fullNameController.text.trim(),
+        avatarUrl,
       );
 
       if (!mounted) return;
       await showCustomPopup(
         context,
-        title: 'Vendor information saved',
-        message:
-            'Your brand profile is ready. Please complete business details.',
+        title: 'Profile saved',
+        message: 'Your profile is ready. Enjoy shopping with us!',
         type: PopupType.success,
       );
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const VendorBusinessInfoScreen()),
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
-    } on AuthException catch (e) {
-      await _showErrorPopup(e.message);
     } catch (e) {
-      await _showErrorPopup('Unable to save vendor info. Please try again.');
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Save failed',
+        message: 'Unable to save profile. Please try again.',
+        type: PopupType.error,
+      );
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
-  }
-
-  Future<void> _showErrorPopup(String message) {
-    return showCustomPopup(
-      context,
-      title: 'Something went wrong',
-      message: message,
-      type: PopupType.error,
-    );
   }
 
   @override
@@ -145,7 +149,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Complete Vendor Info',
+          'Complete Profile',
           style: TextStyle(
             fontFamily: AppFonts.primary,
             color: AppColors.darkText,
@@ -162,7 +166,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Brand Details',
+                  'Tell us about yourself',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -172,7 +176,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Add your brand name, logo and description so customers can recognize your store.',
+                  'Add your full name and optional avatar so your delivery and account look great.',
                   style: AppTextStyles.body,
                 ),
                 const SizedBox(height: 24),
@@ -180,7 +184,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                   child: Column(
                     children: [
                       GestureDetector(
-                        onTap: _pickLogo,
+                        onTap: _pickAvatar,
                         child: Stack(
                           alignment: Alignment.bottomRight,
                           children: [
@@ -203,18 +207,22 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                                 ],
                               ),
                               child: ClipOval(
-                                child: _logoPreviewBytes == null
+                                child: _avatarPreviewBytes == null
                                     ? Container(
                                         color: Colors.grey.shade100,
                                         alignment: Alignment.center,
-                                        child: const Icon(
-                                          Icons.storefront_outlined,
-                                          size: 40,
-                                          color: AppColors.subtleText,
+                                        child: Text(
+                                          _displayLetter,
+                                          style: const TextStyle(
+                                            fontSize: 42,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primaryGreen,
+                                            fontFamily: AppFonts.primary,
+                                          ),
                                         ),
                                       )
                                     : Image.memory(
-                                        _logoPreviewBytes!,
+                                        _avatarPreviewBytes!,
                                         fit: BoxFit.cover,
                                       ),
                               ),
@@ -241,9 +249,9 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        _selectedLogo == null
-                            ? 'Tap to upload logo'
-                            : 'Tap to change logo',
+                        _selectedAvatar == null
+                            ? 'Tap to upload avatar (optional)'
+                            : 'Tap to change avatar',
                         style: const TextStyle(
                           fontFamily: AppFonts.primary,
                           color: AppColors.subtleText,
@@ -255,7 +263,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  'Brand Name',
+                  'Full Name',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontFamily: AppFonts.primary,
@@ -264,44 +272,25 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                 ),
                 const SizedBox(height: 8),
                 CustomTextField(
-                  controller: _brandNameController,
-                  hintText: 'Enter brand name',
+                  controller: _fullNameController,
+                  hintText: 'Your full name',
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Brand name is required.';
+                      return 'Full name is required.';
                     }
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Brand Description',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppFonts.primary,
-                    color: AppColors.darkText,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                CustomTextField(
-                  controller: _descriptionController,
-                  hintText: 'Tell us about your brand',
-                  maxLength: 200,
-                  keyboardType: TextInputType.multiline,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Description is required.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: _isSaving
                       ? const Center(child: CircularProgressIndicator())
-                      : CustomButton(text: 'Next', onPressed: _saveVendorInfo),
+                      : CustomButton(
+                          text: 'Save Profile',
+                          onPressed: _saveProfile,
+                        ),
                 ),
               ],
             ),

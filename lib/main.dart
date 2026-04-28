@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/auth_user_service.dart';
 import 'home/home_screen.dart';
+import 'home/vendor_business_info_screen.dart';
 import 'home/vendor_dashboard.dart';
 import 'home/vendor_info_screen.dart';
 import 'theme_config.dart';
@@ -38,7 +39,15 @@ class MyApp extends StatelessWidget {
 
     if (userType.toLowerCase() == 'vendor') {
       final hasVendorInfo = await AuthUserService.vendorHasBrandInfo(user.id);
-      return hasVendorInfo ? const VendorDashboard() : const VendorInfoScreen();
+      if (!hasVendorInfo) {
+        return const VendorInfoScreen();
+      }
+      final hasVendorBusinessInfo = await AuthUserService.vendorHasBusinessInfo(
+        user.id,
+      );
+      return hasVendorBusinessInfo
+          ? const VendorDashboard()
+          : const VendorBusinessInfoScreen();
     }
     return const HomeScreen();
   }

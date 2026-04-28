@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../auth/auth_user_service.dart';
 import '../home/home_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import 'cart_item.dart';
 import 'cart_service.dart';
+import 'payment_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final List<CartItem> items;
@@ -44,6 +46,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
     try {
+      final profile = await AuthUserService.getUserProfile(user.id);
+      final fullName = profile?['full_name']?.toString() ?? '';
       final rows = await Supabase.instance.client
           .from('user_addresses')
           .select('id,label,phone_number,address_line,city,is_default')
@@ -59,7 +63,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   row['id']?.toString() ??
                   DateTime.now().microsecondsSinceEpoch.toString(),
               label: row['label']?.toString() ?? 'Home',
-              recipientName: '',
+              recipientName: fullName,
               phone: row['phone_number']?.toString() ?? '',
               streetAddress: '$street${city.isNotEmpty ? ', $city' : ''}',
               city: city,
@@ -128,13 +132,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       'is_default': address.isPrimary,
     };
     try {
-      final inserted = await Supabase.instance.client
+      if (address.id.startsWith('addr_')) {
+        final inserted = await Supabase.instance.client
+            .from('user_addresses')
+            .insert(payload)
+            .select('id')
+            .single();
+        final id = inserted['id']?.toString() ?? address.id;
+        return address.copyWith(id: id);
+      }
+
+      await Supabase.instance.client
           .from('user_addresses')
-          .insert(payload)
-          .select('id')
-          .single();
-      final id = inserted['id']?.toString() ?? address.id;
-      return address.copyWith(id: id);
+          .update(payload)
+          .eq('id', address.id);
+      return address;
     } catch (_) {
       return null;
     }
@@ -144,19 +156,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_addresses.isEmpty || _isPlacingOrder) return;
     setState(() => _isPlacingOrder = true);
 
-    _showProcessingDialog();
-    await Future.delayed(const Duration(milliseconds: 1600));
+    // Instead of processing payment here, navigate to payment screen
     if (!mounted) return;
-    Navigator.of(context, rootNavigator: true).pop();
-    OrderService.instance.placeOrder(widget.items);
-    for (final item in widget.items) {
-      await CartService.instance.removeItem(item.id);
-    }
-    if (!mounted) return;
-    await _showOrderConfirmedDialog();
-    if (mounted) {
-      setState(() => _isPlacingOrder = false);
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PaymentScreen(items: widget.items)),
+    ).then((_) {
+      // When returning from payment screen, reset state
+      if (mounted) {
+        setState(() => _isPlacingOrder = false);
+      }
+    });
   }
 
   void _showProcessingDialog() {
@@ -564,7 +574,7 @@ class _SelectedDeliveryAddressTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${address.label} (${address.recipientName})',
+                      address.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -894,7 +904,9 @@ class _ChooseAddressCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${address.recipientName}   (${address.phone})',
+                      address.phone.isNotEmpty
+                          ? address.phone
+                          : 'No phone provided',
                       style: const TextStyle(
                         color: AppColors.darkText,
                         fontFamily: AppFonts.primary,
@@ -968,8 +980,25 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
     });
   }
 
+  Future<void> _deleteAddressFromDatabase(String id) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await Supabase.instance.client
+          .from('user_addresses')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+    } catch (_) {
+      // ignore deletion failures for now
+    }
+  }
+
   void _deleteAddress(String id) {
     if (_addresses.length <= 1) return;
+    if (!id.startsWith('addr_')) {
+      _deleteAddressFromDatabase(id);
+    }
     setState(() {
       final deletedWasPrimary = _addresses.any(
         (address) => address.id == id && address.isPrimary,
@@ -1168,7 +1197,9 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                 const Divider(height: 1),
                 const SizedBox(height: 10),
                 Text(
-                  '${address.recipientName}   (${address.phone})',
+                  address.phone.isNotEmpty
+                      ? address.phone
+                      : 'No phone provided',
                   style: const TextStyle(
                     color: AppColors.darkText,
                     fontFamily: AppFonts.primary,
@@ -1261,7 +1292,6 @@ class _AddressDetailsScreen extends StatefulWidget {
 
 class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   late final TextEditingController _labelController;
-  late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
   late final TextEditingController _cityController;
@@ -1277,9 +1307,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     _labelController = TextEditingController(
       text: initial?.label ?? 'Work Office',
     );
-    _nameController = TextEditingController(
-      text: initial?.recipientName ?? 'Andrew Ainsley',
-    );
     _phoneController = TextEditingController(
       text: initial?.phone ?? '+1 111 467 378 399',
     );
@@ -1294,7 +1321,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   @override
   void dispose() {
     _labelController.dispose();
-    _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
     _cityController.dispose();
@@ -1302,39 +1328,89 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     super.dispose();
   }
 
-  void _saveAddress() {
+  Future<String> _getProfileFullName() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return 'Customer';
+    final profile = await AuthUserService.getUserProfile(user.id);
+    return profile?['full_name']?.toString().trim().isNotEmpty == true
+        ? profile!['full_name'].toString().trim()
+        : 'Customer';
+  }
+
+  Future<_DeliveryAddress?> _persistAddressToDatabase(
+    String id,
+    Map<String, dynamic> payload,
+    String note,
+  ) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return null;
+    try {
+      if (id.startsWith('addr_')) {
+        final inserted = await Supabase.instance.client
+            .from('user_addresses')
+            .insert(payload)
+            .select('id')
+            .single();
+        final newId = inserted['id']?.toString() ?? id;
+        return _DeliveryAddress(
+          id: newId,
+          label: payload['label'].toString(),
+          recipientName: await _getProfileFullName(),
+          phone: payload['phone_number'].toString(),
+          streetAddress: payload['address_line'].toString(),
+          city: payload['city'].toString(),
+          note: note,
+          isPrimary: payload['is_default'] as bool,
+        );
+      }
+
+      await Supabase.instance.client
+          .from('user_addresses')
+          .update(payload)
+          .eq('id', id);
+      return _DeliveryAddress(
+        id: id,
+        label: payload['label'].toString(),
+        recipientName: await _getProfileFullName(),
+        phone: payload['phone_number'].toString(),
+        streetAddress: payload['address_line'].toString(),
+        city: payload['city'].toString(),
+        note: note,
+        isPrimary: payload['is_default'] as bool,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveAddress() async {
     final label = _labelController.text.trim();
-    final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final street = _addressController.text.trim();
     final city = _cityController.text.trim();
     final note = _noteController.text.trim().isEmpty
         ? 'Pinpoint already'
         : _noteController.text.trim();
-    if (label.isEmpty ||
-        name.isEmpty ||
-        phone.isEmpty ||
-        street.isEmpty ||
-        city.isEmpty) {
+    if (label.isEmpty || phone.isEmpty || street.isEmpty || city.isEmpty) {
       return;
     }
 
     final id =
         widget.initialAddress?.id ??
         'addr_${DateTime.now().microsecondsSinceEpoch.toString()}';
-    Navigator.pop(
-      context,
-      _DeliveryAddress(
-        id: id,
-        label: label,
-        recipientName: name,
-        phone: phone,
-        streetAddress: street,
-        city: city,
-        note: note,
-        isPrimary: _isPrimary,
-      ),
-    );
+    final payload = {
+      'user_id': Supabase.instance.client.auth.currentUser?.id,
+      'label': label,
+      'phone_number': phone,
+      'address_line': street,
+      'city': city,
+      'is_default': _isPrimary,
+    };
+
+    final savedAddress = await _persistAddressToDatabase(id, payload, note);
+    if (savedAddress != null && mounted) {
+      Navigator.pop(context, savedAddress);
+    }
   }
 
   @override
@@ -1376,12 +1452,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
                   const SizedBox(height: 14),
                   _FieldLabel(label: 'Note to Courier (optional)'),
                   _InputBox(controller: _noteController, hintText: 'Note'),
-                  const SizedBox(height: 14),
-                  _FieldLabel(label: "Recipient's Name"),
-                  _InputBox(
-                    controller: _nameController,
-                    hintText: 'Recipient name',
-                  ),
                   const SizedBox(height: 14),
                   _FieldLabel(label: "Recipient's Phone Number"),
                   _InputBox(

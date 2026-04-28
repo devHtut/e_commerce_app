@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../home/vendor_business_info_screen.dart';
 import 'forgot_password.dart';
 import 'auth_user_service.dart';
 import 'signup_screen.dart';
@@ -11,6 +12,7 @@ import '../home/vendor_info_screen.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
+import 'profile_info_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -85,21 +87,36 @@ class _SignInScreenState extends State<SignInScreen> {
         final vendorHasInfo = isVendor
             ? await AuthUserService.vendorHasBrandInfo(user.id)
             : false;
+        final vendorHasBusinessInfo = isVendor
+            ? await AuthUserService.vendorHasBusinessInfo(user.id)
+            : false;
+        final isCustomer = !isVendor;
+        final customerNeedsProfile = isCustomer
+            ? !(await AuthUserService.userHasProfile(user.id))
+            : false;
         final destination = isVendor
-            ? (vendorHasInfo
-                  ? const VendorDashboard()
-                  : const VendorInfoScreen())
-            : const HomeScreen();
+            ? (!vendorHasInfo
+                  ? const VendorInfoScreen()
+                  : (vendorHasBusinessInfo
+                        ? const VendorDashboard()
+                        : const VendorBusinessInfoScreen()))
+            : (customerNeedsProfile
+                  ? const ProfileInfoScreen()
+                  : const HomeScreen());
 
         if (!mounted) return;
         await showCustomPopup(
           context,
           title: "Sign in success",
           message: isVendor
-              ? (vendorHasInfo
-                    ? "Welcome to Vendor Dashboard!"
-                    : "Welcome! Please complete your vendor profile.")
-              : "Welcome back!",
+              ? (!vendorHasInfo
+                    ? "Welcome! Please complete your vendor brand profile."
+                    : (vendorHasBusinessInfo
+                          ? "Welcome to Vendor Dashboard!"
+                          : "Brand saved! Please complete your business details."))
+              : (customerNeedsProfile
+                    ? "Welcome! Please complete your profile."
+                    : "Welcome back!"),
           type: PopupType.success,
         );
 

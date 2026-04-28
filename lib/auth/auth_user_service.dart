@@ -20,11 +20,38 @@ class AuthUserService {
     final client = Supabase.instance.client;
     final normalizedEmail = email.trim().toLowerCase();
 
-    // CHANGED: Use upsert instead of insert
     await client.from('users').upsert({
       'id': userId,
       'email': normalizedEmail,
       'user_type': userType,
+    });
+  }
+
+  static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    final client = Supabase.instance.client;
+    return client
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+  }
+
+  static Future<bool> userHasProfile(String userId) async {
+    final profile = await getUserProfile(userId);
+    return profile != null &&
+        (profile['full_name']?.toString().trim().isNotEmpty ?? false);
+  }
+
+  static Future<void> upsertUserProfile(
+    String userId,
+    String fullName,
+    String? avatarUrl,
+  ) async {
+    final client = Supabase.instance.client;
+    await client.from('profiles').upsert({
+      'id': userId,
+      'full_name': fullName.trim(),
+      'avatar_url': avatarUrl,
     });
   }
 
@@ -77,6 +104,18 @@ class AuthUserService {
     return row != null;
   }
 
+  static Future<bool> vendorHasBusinessInfo(String userId) async {
+    final client = Supabase.instance.client;
+    final row = await client
+        .from('vendors')
+        .select('id, phone, address')
+        .eq('user_id', userId)
+        .maybeSingle();
+    return row != null &&
+        (row['phone']?.toString().trim().isNotEmpty ?? false) &&
+        (row['address']?.toString().trim().isNotEmpty ?? false);
+  }
+
   static Future<Map<String, dynamic>?> getVendorBrand(String ownerId) async {
     final client = Supabase.instance.client;
     return client
@@ -86,18 +125,132 @@ class AuthUserService {
         .maybeSingle();
   }
 
-  static Future<void> createVendorBrandProfile(
+  static Future<void> upsertVendorBrandProfile(
     String ownerId,
     String brandName,
     String description,
     String logoUrl,
   ) async {
     final client = Supabase.instance.client;
-    await client.from('brands').insert({
+    final existing = await client
+        .from('brands')
+        .select('id')
+        .eq('owner_id', ownerId)
+        .maybeSingle();
+
+    final payload = {
       'owner_id': ownerId,
       'brand_name': brandName,
       'description': description,
       'logo_url': logoUrl,
-    });
+    };
+
+    if (existing != null) {
+      await client.from('brands').update(payload).eq('owner_id', ownerId);
+    } else {
+      await client.from('brands').insert(payload);
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getVendorByUser(String userId) async {
+    final client = Supabase.instance.client;
+    return client
+        .from('vendors')
+        .select(
+          'id, user_id, phone, address, facebook_url, instagram_url, tiktok_url',
+        )
+        .eq('user_id', userId)
+        .maybeSingle();
+  }
+
+  static Future<Map<String, dynamic>?> upsertVendorDetails(
+    String userId,
+    String phone,
+    String address,
+    String facebookUrl,
+    String instagramUrl,
+    String? tiktokUrl,
+  ) async {
+    final client = Supabase.instance.client;
+    final existing = await getVendorByUser(userId);
+    final payload = {
+      'user_id': userId,
+      'phone': phone,
+      'address': address,
+      'facebook_url': facebookUrl,
+      'instagram_url': instagramUrl,
+      'tiktok_url': tiktokUrl,
+    };
+
+    if (existing != null) {
+      await client.from('vendors').update(payload).eq('user_id', userId);
+      return {'id': existing['id'], ...payload};
+    }
+
+    final inserted = await client
+        .from('vendors')
+        .insert(payload)
+        .select(
+          'id, user_id, phone, address, facebook_url, instagram_url, tiktok_url',
+        )
+        .single();
+    return inserted;
+  }
+
+  static Future<List<Map<String, dynamic>>> getPaymentTypes() async {
+    final client = Supabase.instance.client;
+    final rows = await client
+        .from('payment_types')
+        .select('name')
+        .order('name', ascending: true);
+    return (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map((row) => {'name': row['name']?.toString() ?? ''})
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getVendorPayments(
+    String vendorId,
+  ) async {
+    final client = Supabase.instance.client;
+    final rows = await client
+        .from('vendor_payments')
+        .select(
+          'id, vendor_id, payment_type, account_name, account_number, is_active',
+        )
+        .eq('vendor_id', vendorId)
+        .order('id', ascending: true);
+    return (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map(
+          (row) => {
+            'id': row['id'],
+            'vendor_id': row['vendor_id'],
+            'payment_type': row['payment_type']?.toString() ?? '',
+            'account_name': row['account_name']?.toString() ?? '',
+            'account_number': row['account_number']?.toString() ?? '',
+            'is_active': row['is_active'] as bool? ?? false,
+          },
+        )
+        .toList();
+  }
+
+  static Future<void> replaceVendorPayments(
+    String vendorId,
+    List<Map<String, String>> payments,
+  ) async {
+    final client = Supabase.instance.client;
+    await client.from('vendor_payments').delete().eq('vendor_id', vendorId);
+    if (payments.isEmpty) return;
+    final rows = payments.map((payment) {
+      return {
+        'vendor_id': vendorId,
+        'payment_type': payment['payment_type'],
+        'account_name': payment['account_name'],
+        'account_number': payment['account_number'],
+        'is_active': true,
+      };
+    }).toList();
+    await client.from('vendor_payments').insert(rows);
   }
 }
