@@ -308,12 +308,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
         'screenshot_url': screenshotUrl,
       };
-      await Supabase.instance.client.from('payments').insert(paymentPayload);
+      final paymentRow = await Supabase.instance.client
+          .from('payments')
+          .insert(paymentPayload)
+          .select('id')
+          .single();
 
       OrderService.instance.placeOrder(
         widget.items,
         orderId: orderId,
         status: OrderStatus.pending,
+        payment: OrderPaymentDetails(
+          id: paymentRow['id']?.toString() ?? '',
+          paymentMethod: paymentPayload['payment_method']?.toString() ?? '',
+          status: paymentPayload['status']?.toString() ?? '',
+          transactionId: transactionId,
+          amount: (paymentPayload['amount'] as num?)?.toDouble() ?? 0.0,
+          screenshotUrl: screenshotUrl,
+        ),
       );
 
       for (final item in widget.items) {

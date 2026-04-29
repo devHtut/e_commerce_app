@@ -4,7 +4,35 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../product/product_model.dart';
 
-enum OrderStatus { pending, completed, canceled, refund }
+enum OrderStatus { pending, confirmed, inDelivery, completed, canceled, refund }
+
+class OrderStatusHistoryEntry {
+  final OrderStatus status;
+  final DateTime changedAt;
+
+  const OrderStatusHistoryEntry({
+    required this.status,
+    required this.changedAt,
+  });
+}
+
+class OrderPaymentDetails {
+  final String id;
+  final String paymentMethod;
+  final String status;
+  final String transactionId;
+  final double amount;
+  final String screenshotUrl;
+
+  const OrderPaymentDetails({
+    required this.id,
+    required this.paymentMethod,
+    required this.status,
+    required this.transactionId,
+    required this.amount,
+    required this.screenshotUrl,
+  });
+}
 
 class OrderModel {
   final String id;
@@ -15,6 +43,8 @@ class OrderModel {
   final String shippingAddressRecipient;
   final String shippingAddressPhone;
   final String shippingAddressStreet;
+  final OrderPaymentDetails? payment;
+  final List<OrderStatusHistoryEntry> statusHistory;
 
   const OrderModel({
     required this.id,
@@ -25,6 +55,8 @@ class OrderModel {
     required this.shippingAddressRecipient,
     required this.shippingAddressPhone,
     required this.shippingAddressStreet,
+    this.payment,
+    this.statusHistory = const [],
   });
 
   double get total => items.fold<double>(0, (sum, item) => sum + item.subtotal);
@@ -37,6 +69,8 @@ class OrderModel {
     String? shippingAddressRecipient,
     String? shippingAddressPhone,
     String? shippingAddressStreet,
+    OrderPaymentDetails? payment,
+    List<OrderStatusHistoryEntry>? statusHistory,
   }) {
     return OrderModel(
       id: id,
@@ -49,6 +83,8 @@ class OrderModel {
       shippingAddressPhone: shippingAddressPhone ?? this.shippingAddressPhone,
       shippingAddressStreet:
           shippingAddressStreet ?? this.shippingAddressStreet,
+      payment: payment ?? this.payment,
+      statusHistory: statusHistory ?? this.statusHistory,
     );
   }
 }
@@ -61,15 +97,9 @@ class OrderService {
   final ValueNotifier<List<OrderModel>> ordersNotifier =
       ValueNotifier<List<OrderModel>>(<OrderModel>[]);
 
-  Future<void> loadOrders() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-
-    try {
-      final orderRows = await Supabase.instance.client
-          .from('orders')
-          .select('''
+  static const String _orderSelect = '''
             id,
+            customer_id,
             status,
             created_at,
             shipping_address_id,
@@ -91,127 +121,324 @@ class OrderService {
                 )
               )
             )
-          ''')
+          ''';
+
+  Future<void> loadOrders() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final orderRows = await Supabase.instance.client
+          .from('orders')
+          .select(_orderSelect)
           .eq('customer_id', user.id)
           .order('created_at', ascending: false);
 
-      final shippingAddressIds = orderRows
-          .map((row) => row['shipping_address_id']?.toString())
-          .whereType<String>()
-          .toSet()
-          .toList();
-
-      final addressMap = <String, Map<String, dynamic>>{};
-      if (shippingAddressIds.isNotEmpty) {
-        final addressRows = await Supabase.instance.client
-            .from('user_addresses')
-            .select('id,label,phone_number,address_line,city')
-            .filter('id', 'in', shippingAddressIds);
-
-        for (final addressRow in addressRows as List<dynamic>) {
-          final id = addressRow['id']?.toString();
-          if (id == null) continue;
-          addressMap[id] = addressRow as Map<String, dynamic>;
-        }
-      }
-
-      final orders = <OrderModel>[];
-      for (final orderRow in orderRows) {
-        final orderId = orderRow['id']?.toString() ?? '';
-        final statusString = orderRow['status']?.toString() ?? 'pending';
-        final createdAtString = orderRow['created_at']?.toString();
-        final createdAt = createdAtString != null
-            ? DateTime.parse(createdAtString)
-            : DateTime.now();
-        final shippingAddressId = orderRow['shipping_address_id']?.toString();
-
-        final status = () {
-          if (statusString == 'completed') return OrderStatus.completed;
-          if (statusString == 'canceled') return OrderStatus.canceled;
-          if (statusString == 'refund' || statusString == 'refunded') {
-            return OrderStatus.refund;
-          }
-          return OrderStatus.pending;
-        }();
-
-        final items = <CartItem>[];
-        final orderItems = orderRow['order_items'] as List<dynamic>? ?? [];
-
-        for (final itemRow in orderItems) {
-          final quantity = itemRow['quantity'] as int? ?? 1;
-          final priceAtPurchase =
-              (itemRow['price_at_purchase'] as num?)?.toDouble() ?? 0.0;
-
-          final variantRow =
-              itemRow['product_variants'] as Map<String, dynamic>?;
-          if (variantRow == null) continue;
-
-          final productRow = variantRow['products'] as Map<String, dynamic>?;
-          if (productRow == null) continue;
-
-          final categoryRow = productRow['categories'] as Map<String, dynamic>?;
-          final brandRow = productRow['brands'] as Map<String, dynamic>?;
-
-          final product = ProductModel(
-            id: productRow['id']?.toString() ?? '',
-            name: productRow['title']?.toString() ?? '',
-            description: productRow['description']?.toString() ?? '',
-            price: priceAtPurchase,
-            category: categoryRow?['name']?.toString() ?? '',
-            brand: brandRow?['brand_name']?.toString() ?? '',
-            brandId: brandRow?['id']?.toString() ?? '',
-            rating: 0.0, // Default rating since it's not stored in order data
-            imageUrl: variantRow['image_url']?.toString() ?? '',
-          );
-
-          final cartItem = CartItem(
-            id: 'item_${DateTime.now().microsecondsSinceEpoch}_${items.length}',
-            variantId: variantRow['id']?.toString(),
-            product: product,
-            size: variantRow['size']?.toString() ?? '',
-            colorName: variantRow['color']?.toString() ?? '',
-            colorValue: 0,
-            imageUrl: variantRow['image_url']?.toString() ?? '',
-            quantity: quantity,
-          );
-
-          items.add(cartItem);
-        }
-
-        final shippingData = shippingAddressId != null
-            ? addressMap[shippingAddressId]
-            : null;
-        final street = shippingData != null
-            ? shippingData['address_line']?.toString() ?? ''
-            : '';
-        final city = shippingData != null
-            ? shippingData['city']?.toString() ?? ''
-            : '';
-
-        if (items.isNotEmpty) {
-          orders.add(
-            OrderModel(
-              id: orderId,
-              items: items,
-              createdAt: createdAt,
-              status: status,
-              shippingAddressLabel: shippingData?['label']?.toString() ?? '',
-              shippingAddressRecipient:
-                  shippingData?['label']?.toString() ?? '',
-              shippingAddressPhone:
-                  shippingData?['phone_number']?.toString() ?? '',
-              shippingAddressStreet:
-                  '$street${city.isNotEmpty ? ', $city' : ''}',
-            ),
-          );
-        }
-      }
-
-      ordersNotifier.value = orders;
+      final orders = await _buildOrders(orderRows, includePaymentDetails: true);
+      ordersNotifier.value = await _completeOverdueInDeliveryOrders(orders);
     } catch (e) {
       // Handle error silently or log it
       debugPrint('Error loading orders: $e');
     }
+  }
+
+  Future<List<OrderModel>> loadVendorOrders() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return <OrderModel>[];
+
+    try {
+      final brandRows = await Supabase.instance.client
+          .from('brands')
+          .select('id')
+          .eq('owner_id', user.id);
+      final brandIds = (brandRows as List<dynamic>)
+          .map((row) => (row as Map<String, dynamic>)['id']?.toString())
+          .whereType<String>()
+          .toSet();
+
+      if (brandIds.isEmpty) return <OrderModel>[];
+
+      final orderRows = await Supabase.instance.client
+          .from('orders')
+          .select(_orderSelect)
+          .order('created_at', ascending: false);
+
+      final orders = await _buildOrders(
+        orderRows,
+        allowedBrandIds: brandIds,
+        includePaymentDetails: true,
+      );
+      return _completeOverdueInDeliveryOrders(orders);
+    } catch (e) {
+      debugPrint('Error loading vendor orders: $e');
+      return <OrderModel>[];
+    }
+  }
+
+  Future<List<OrderModel>> _buildOrders(
+    List<dynamic> orderRows, {
+    Set<String>? allowedBrandIds,
+    bool includePaymentDetails = false,
+  }) async {
+    final shippingAddressIds = orderRows
+        .map((row) => row['shipping_address_id']?.toString())
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final customerIds = orderRows
+        .map((row) => row['customer_id']?.toString())
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final orderIds = orderRows
+        .map((row) => row['id']?.toString())
+        .whereType<String>()
+        .toSet()
+        .toList();
+
+    final addressMap = <String, Map<String, dynamic>>{};
+    if (shippingAddressIds.isNotEmpty) {
+      final addressRows = await Supabase.instance.client
+          .from('user_addresses')
+          .select('id,label,phone_number,address_line,city')
+          .filter('id', 'in', shippingAddressIds);
+
+      for (final addressRow in addressRows as List<dynamic>) {
+        final id = addressRow['id']?.toString();
+        if (id == null) continue;
+        addressMap[id] = addressRow as Map<String, dynamic>;
+      }
+    }
+
+    final profileMap = <String, Map<String, dynamic>>{};
+    if (customerIds.isNotEmpty) {
+      final profileRows = await Supabase.instance.client
+          .from('profiles')
+          .select('id,full_name')
+          .filter('id', 'in', customerIds);
+
+      for (final profileRow in profileRows as List<dynamic>) {
+        final id = profileRow['id']?.toString();
+        if (id == null) continue;
+        profileMap[id] = profileRow as Map<String, dynamic>;
+      }
+    }
+
+    final paymentMap = <String, OrderPaymentDetails>{};
+    if (includePaymentDetails && orderIds.isNotEmpty) {
+      final paymentRows = await Supabase.instance.client
+          .from('payments')
+          .select(
+            'id,order_id,payment_method,status,transaction_id,amount,screenshot_url',
+          )
+          .filter('order_id', 'in', orderIds);
+
+      for (final paymentRow in paymentRows as List<dynamic>) {
+        final orderId = paymentRow['order_id']?.toString();
+        if (orderId == null || paymentMap.containsKey(orderId)) continue;
+        paymentMap[orderId] = OrderPaymentDetails(
+          id: paymentRow['id']?.toString() ?? '',
+          paymentMethod: paymentRow['payment_method']?.toString() ?? '',
+          status: paymentRow['status']?.toString() ?? '',
+          transactionId: paymentRow['transaction_id']?.toString() ?? '',
+          amount: (paymentRow['amount'] as num?)?.toDouble() ?? 0.0,
+          screenshotUrl: paymentRow['screenshot_url']?.toString() ?? '',
+        );
+      }
+    }
+
+    final historyMap = await _loadStatusHistory(orderIds);
+
+    final orders = <OrderModel>[];
+    for (final orderRow in orderRows) {
+      final orderId = orderRow['id']?.toString() ?? '';
+      final customerId = orderRow['customer_id']?.toString();
+      final statusString = orderRow['status']?.toString() ?? 'pending';
+      final createdAtString = orderRow['created_at']?.toString();
+      final createdAt = createdAtString != null
+          ? DateTime.parse(createdAtString)
+          : DateTime.now();
+      final shippingAddressId = orderRow['shipping_address_id']?.toString();
+
+      final status = _statusFromDatabaseValue(statusString);
+
+      final items = <CartItem>[];
+      final orderItems = orderRow['order_items'] as List<dynamic>? ?? [];
+
+      for (final itemRow in orderItems) {
+        final quantity = itemRow['quantity'] as int? ?? 1;
+        final priceAtPurchase =
+            (itemRow['price_at_purchase'] as num?)?.toDouble() ?? 0.0;
+
+        final variantRow = itemRow['product_variants'] as Map<String, dynamic>?;
+        if (variantRow == null) continue;
+
+        final productRow = variantRow['products'] as Map<String, dynamic>?;
+        if (productRow == null) continue;
+
+        final categoryRow = productRow['categories'] as Map<String, dynamic>?;
+        final brandRow = productRow['brands'] as Map<String, dynamic>?;
+        final brandId = brandRow?['id']?.toString() ?? '';
+
+        if (allowedBrandIds != null && !allowedBrandIds.contains(brandId)) {
+          continue;
+        }
+
+        final product = ProductModel(
+          id: productRow['id']?.toString() ?? '',
+          name: productRow['title']?.toString() ?? '',
+          description: productRow['description']?.toString() ?? '',
+          price: priceAtPurchase,
+          category: categoryRow?['name']?.toString() ?? '',
+          brand: brandRow?['brand_name']?.toString() ?? '',
+          brandId: brandId,
+          rating: 0.0, // Default rating since it's not stored in order data
+          imageUrl: variantRow['image_url']?.toString() ?? '',
+        );
+
+        final cartItem = CartItem(
+          id: 'item_${DateTime.now().microsecondsSinceEpoch}_${items.length}',
+          variantId: variantRow['id']?.toString(),
+          product: product,
+          size: variantRow['size']?.toString() ?? '',
+          colorName: variantRow['color']?.toString() ?? '',
+          colorValue: 0,
+          imageUrl: variantRow['image_url']?.toString() ?? '',
+          quantity: quantity,
+        );
+
+        items.add(cartItem);
+      }
+
+      final shippingData = shippingAddressId != null
+          ? addressMap[shippingAddressId]
+          : null;
+      final profileData = customerId != null ? profileMap[customerId] : null;
+      final street = shippingData != null
+          ? shippingData['address_line']?.toString() ?? ''
+          : '';
+      final city = shippingData != null
+          ? shippingData['city']?.toString() ?? ''
+          : '';
+
+      if (items.isNotEmpty) {
+        orders.add(
+          OrderModel(
+            id: orderId,
+            items: items,
+            createdAt: createdAt,
+            status: status,
+            shippingAddressLabel: shippingData?['label']?.toString() ?? '',
+            shippingAddressRecipient:
+                profileData?['full_name']?.toString() ?? '',
+            shippingAddressPhone:
+                shippingData?['phone_number']?.toString() ?? '',
+            shippingAddressStreet: '$street${city.isNotEmpty ? ', $city' : ''}',
+            payment: paymentMap[orderId],
+            statusHistory: historyMap[orderId] ?? const [],
+          ),
+        );
+      }
+    }
+
+    return orders;
+  }
+
+  Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
+    await Supabase.instance.client
+        .from('orders')
+        .update({'status': _statusToDatabaseValue(status)})
+        .eq('id', orderId);
+
+    final orders = ordersNotifier.value
+        .map(
+          (order) => order.id == orderId
+              ? order.copyWith(
+                  status: status,
+                  statusHistory: [
+                    ...order.statusHistory,
+                    OrderStatusHistoryEntry(
+                      status: status,
+                      changedAt: DateTime.now(),
+                    ),
+                  ],
+                )
+              : order,
+        )
+        .toList();
+    ordersNotifier.value = orders;
+  }
+
+  String _statusToDatabaseValue(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'pending';
+      case OrderStatus.confirmed:
+        return 'confirmed';
+      case OrderStatus.inDelivery:
+        return 'in-delivery';
+      case OrderStatus.completed:
+        return 'completed';
+      case OrderStatus.canceled:
+        return 'cancel';
+      case OrderStatus.refund:
+        return 'refund';
+    }
+  }
+
+  OrderStatus _statusFromDatabaseValue(String value) {
+    switch (value.trim().toLowerCase()) {
+      case 'in-delivery':
+      case 'in_delivery':
+      case 'in delivery':
+        return OrderStatus.inDelivery;
+      case 'confirmed':
+      case 'confirm':
+        return OrderStatus.confirmed;
+      case 'arrived':
+      case 'delivered':
+      case 'completed':
+        return OrderStatus.completed;
+      case 'cancel':
+      case 'canceled':
+      case 'cancelled':
+        return OrderStatus.canceled;
+      case 'refund':
+      case 'refunded':
+        return OrderStatus.refund;
+      default:
+        return OrderStatus.pending;
+    }
+  }
+
+  Future<Map<String, List<OrderStatusHistoryEntry>>> _loadStatusHistory(
+    List<String> orderIds,
+  ) async {
+    final historyMap = <String, List<OrderStatusHistoryEntry>>{};
+    if (orderIds.isEmpty) return historyMap;
+
+    try {
+      final rows = await Supabase.instance.client
+          .from('order_status_history')
+          .select('order_id,status,changed_at')
+          .filter('order_id', 'in', orderIds)
+          .order('changed_at', ascending: true);
+
+      for (final row in rows as List<dynamic>) {
+        final orderId = row['order_id']?.toString();
+        final changedAtString = row['changed_at']?.toString();
+        if (orderId == null || changedAtString == null) continue;
+        final entry = OrderStatusHistoryEntry(
+          status: _statusFromDatabaseValue(row['status']?.toString() ?? ''),
+          changedAt: DateTime.parse(changedAtString),
+        );
+        historyMap.putIfAbsent(orderId, () => []).add(entry);
+      }
+    } catch (e) {
+      debugPrint('Error loading order status history: $e');
+    }
+
+    return historyMap;
   }
 
   void placeOrder(
@@ -222,6 +449,7 @@ class OrderService {
     String shippingAddressRecipient = '',
     String shippingAddressPhone = '',
     String shippingAddressStreet = '',
+    OrderPaymentDetails? payment,
   }) {
     if (items.isEmpty) return;
     final orders = List<OrderModel>.from(ordersNotifier.value);
@@ -236,19 +464,60 @@ class OrderService {
         shippingAddressRecipient: shippingAddressRecipient,
         shippingAddressPhone: shippingAddressPhone,
         shippingAddressStreet: shippingAddressStreet,
+        payment: payment,
+        statusHistory: [
+          OrderStatusHistoryEntry(status: status, changedAt: DateTime.now()),
+        ],
       ),
     );
     ordersNotifier.value = orders;
   }
 
-  void cancelOrder(String orderId) {
-    final orders = ordersNotifier.value
-        .map(
-          (order) => order.id == orderId
-              ? order.copyWith(status: OrderStatus.canceled)
-              : order,
-        )
-        .toList();
-    ordersNotifier.value = orders;
+  Future<void> cancelOrder(String orderId) {
+    return updateOrderStatus(orderId, OrderStatus.canceled);
+  }
+
+  Future<List<OrderModel>> _completeOverdueInDeliveryOrders(
+    List<OrderModel> orders,
+  ) async {
+    final now = DateTime.now();
+    final updatedOrders = <OrderModel>[];
+
+    for (final order in orders) {
+      if (order.status != OrderStatus.inDelivery) {
+        updatedOrders.add(order);
+        continue;
+      }
+
+      final inDeliveryAt = order.statusHistory
+          .where((entry) => entry.status == OrderStatus.inDelivery)
+          .map((entry) => entry.changedAt)
+          .fold<DateTime?>(null, (latest, changedAt) {
+            if (latest == null || changedAt.isAfter(latest)) return changedAt;
+            return latest;
+          });
+
+      if (inDeliveryAt == null ||
+          now.difference(inDeliveryAt) < const Duration(days: 10)) {
+        updatedOrders.add(order);
+        continue;
+      }
+
+      await updateOrderStatus(order.id, OrderStatus.completed);
+      updatedOrders.add(
+        order.copyWith(
+          status: OrderStatus.completed,
+          statusHistory: [
+            ...order.statusHistory,
+            OrderStatusHistoryEntry(
+              status: OrderStatus.completed,
+              changedAt: now,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return updatedOrders;
   }
 }

@@ -1347,8 +1347,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final d = DateTime(date.year, date.month, date.day);
-    if (d == today)
+    if (d == today) {
       return 'Today, ${months[date.month - 1]} ${date.day}, ${date.year}';
+    }
     if (d == today.subtract(const Duration(days: 1))) {
       return 'Yesterday, ${months[date.month - 1]} ${date.day}, ${date.year}';
     }
@@ -1359,6 +1360,10 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (status) {
       case OrderStatus.pending:
         return Colors.amber.shade900;
+      case OrderStatus.confirmed:
+        return Colors.teal.shade700;
+      case OrderStatus.inDelivery:
+        return Colors.blue.shade700;
       case OrderStatus.completed:
         return AppColors.primaryGreen;
       case OrderStatus.canceled:
@@ -1372,10 +1377,14 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (status) {
       case OrderStatus.pending:
         return Colors.amber.shade50;
+      case OrderStatus.confirmed:
+        return Colors.teal.shade50;
+      case OrderStatus.inDelivery:
+        return Colors.blue.shade50;
       case OrderStatus.completed:
-        return AppColors.primaryGreen.withOpacity(0.12);
+        return AppColors.primaryGreen.withValues(alpha: 0.12);
       case OrderStatus.canceled:
-        return AppColors.errorRed.withOpacity(0.12);
+        return AppColors.errorRed.withValues(alpha: 0.12);
       case OrderStatus.refund:
         return Colors.deepOrange.shade50;
     }
@@ -1385,8 +1394,12 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (status) {
       case OrderStatus.pending:
         return 'PENDING';
-      case OrderStatus.completed:
+      case OrderStatus.confirmed:
         return 'CONFIRMED';
+      case OrderStatus.inDelivery:
+        return 'IN-DELIVERY';
+      case OrderStatus.completed:
+        return 'COMPLETED';
       case OrderStatus.canceled:
         return 'CANCELED';
       case OrderStatus.refund:
@@ -1430,7 +1443,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (shouldCancel != true || !mounted) return;
-    OrderService.instance.cancelOrder(order.id);
+    await OrderService.instance.cancelOrder(order.id);
+    if (!mounted) return;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1472,6 +1486,12 @@ class _HomeScreenState extends State<HomeScreen> {
             .where((o) => o.status == OrderStatus.pending)
             .toList();
         final confirmed = orders
+            .where((o) => o.status == OrderStatus.confirmed)
+            .toList();
+        final inDelivery = orders
+            .where((o) => o.status == OrderStatus.inDelivery)
+            .toList();
+        final completed = orders
             .where((o) => o.status == OrderStatus.completed)
             .toList();
         final canceled = orders
@@ -1483,6 +1503,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final tabs = <(String, int)>[
           ('Pending', pending.length),
           ('Confirmed', confirmed.length),
+          ('In Delivery', inDelivery.length),
+          ('Completed', completed.length),
           ('Canceled', canceled.length),
           if (refunds.isNotEmpty) ('Refund', refunds.length),
         ];
@@ -1492,7 +1514,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final showing = switch (displayedIndex) {
           0 => pending,
           1 => confirmed,
-          2 => canceled,
+          2 => inDelivery,
+          3 => completed,
+          4 => canceled,
           _ => refunds,
         };
         return Column(
@@ -1676,6 +1700,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 builder: (_) =>
                                                     OrderDetailScreen(
                                                       order: order,
+                                                      onOrderUpdated: (_) {
+                                                        OrderService.instance
+                                                            .loadOrders();
+                                                      },
                                                     ),
                                               ),
                                             );
