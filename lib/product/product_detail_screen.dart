@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../cart/cart_service.dart';
 import '../cart/checkout_screen.dart';
+import '../home/shop_profile_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import 'product_model.dart';
@@ -1058,14 +1059,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ),
           OutlinedButton(
-            onPressed: () async {
-              await showCustomPopup(
-                context,
-                title: _product.brand,
-                message: 'Shop page can be connected here.',
-                type: PopupType.success,
-              );
-            },
+            onPressed: _product.brandId == null || _product.brandId!.isEmpty
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ShopProfileScreen(brandId: _product.brandId),
+                      ),
+                    );
+                  },
             child: const Text('View shop'),
           ),
         ],

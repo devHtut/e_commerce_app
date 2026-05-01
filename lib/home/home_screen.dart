@@ -10,6 +10,8 @@ import '../auth/auth_user_service.dart';
 import '../auth/profile_info_screen.dart';
 import '../auth/signin_screen.dart';
 import '../auth/signup_screen.dart';
+import '../notification/notification_screen.dart';
+import '../notification/notification_service.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
 import '../wishlist/wishlist_service.dart';
@@ -53,6 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_isLoggedIn) {
       _loadAccountInfo();
       OrderService.instance.loadOrders();
+      NotificationService.instance.refreshUnreadCount(
+        audience: AppNotificationAudience.customer,
+      );
     }
   }
 
@@ -200,7 +205,6 @@ class _HomeScreenState extends State<HomeScreen> {
               recipientName: fullName,
               phone: row['phone_number']?.toString() ?? '',
               streetAddress: '$street${city.isNotEmpty ? ', $city' : ''}',
-              note: 'Saved address',
               isPrimary: (row['is_default'] as bool?) ?? false,
             );
           })
@@ -249,6 +253,30 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+    );
+  }
+
+  Future<void> _openNotifications() async {
+    if (!_isLoggedIn) {
+      await showCustomPopup(
+        context,
+        title: 'Sign in required',
+        message: 'Please sign in to view notifications.',
+        type: PopupType.error,
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const NotificationScreen(
+          audience: AppNotificationAudience.customer,
+        ),
+      ),
+    );
+    await NotificationService.instance.refreshUnreadCount(
+      audience: AppNotificationAudience.customer,
     );
   }
 
@@ -2111,6 +2139,49 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _notificationButton() {
+    return ValueListenableBuilder<int>(
+      valueListenable: NotificationService.instance.unreadCountNotifier,
+      builder: (context, unreadCount, _) {
+        return IconButton(
+          onPressed: _openNotifications,
+          tooltip: 'Notifications',
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(
+                Icons.notifications_none_rounded,
+                color: AppColors.darkText,
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: -2,
+                  top: -3,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: AppColors.errorRed,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2158,15 +2229,7 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: _currentIndex == 0,
         actions: _isLoggedIn
             ? [
-                if (_currentIndex == 0)
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: AppColors.darkText,
-                    ),
-                    tooltip: 'Notifications',
-                  ),
+                if (_currentIndex == 0) _notificationButton(),
                 IconButton(
                   onPressed: _logout,
                   icon: const Icon(Icons.logout, color: AppColors.darkText),
@@ -2174,16 +2237,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ]
             : _currentIndex == 0
-            ? [
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    Icons.notifications_none_rounded,
-                    color: AppColors.darkText,
-                  ),
-                  tooltip: 'Notifications',
-                ),
-              ]
+            ? [_notificationButton()]
             : null,
       ),
       body: _buildCurrentPage(),

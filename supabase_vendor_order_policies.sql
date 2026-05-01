@@ -10,6 +10,45 @@ alter table public.payments enable row level security;
 alter table public.user_addresses enable row level security;
 alter table public.profiles enable row level security;
 
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references auth.users(id) on delete cascade,
+  actor_id uuid references auth.users(id) on delete set null,
+  audience text not null check (audience in ('customer', 'vendor')),
+  title text not null,
+  message text not null,
+  type text not null default 'general',
+  order_id uuid references public.orders(id) on delete cascade,
+  metadata jsonb not null default '{}'::jsonb,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_recipient_created_at_idx
+on public.notifications (recipient_id, created_at desc);
+
+create index if not exists notifications_recipient_read_at_idx
+on public.notifications (recipient_id, read_at);
+
+create index if not exists notifications_order_id_idx
+on public.notifications (order_id);
+
+alter table public.notifications enable row level security;
+
+create table if not exists public.order_stock_reservations (
+  order_id uuid not null references public.orders(id) on delete cascade,
+  product_variant_id uuid not null references public.product_variants(id) on delete cascade,
+  quantity integer not null check (quantity > 0),
+  reserved_at timestamptz not null default now(),
+  released_at timestamptz,
+  primary key (order_id, product_variant_id)
+);
+
+create index if not exists order_stock_reservations_released_at_idx
+on public.order_stock_reservations (released_at);
+
+alter table public.order_stock_reservations enable row level security;
+
 create table if not exists public.order_status_history (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references public.orders(id) on delete cascade,
@@ -42,6 +81,158 @@ as $$
   );
 $$;
 
+create or replace function public.reserve_variant_stock(
+  p_order_id uuid,
+  p_product_variant_id uuid,
+  p_quantity integer
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_stock integer;
+  changed_count integer;
+begin
+  if p_quantity <= 0 then
+    return;
+  end if;
+
+  select stock_quantity
+    into current_stock
+  from public.product_variants
+  where id = p_product_variant_id
+  for update;
+
+  if current_stock is null then
+    raise exception 'Product variant % was not found', p_product_variant_id;
+  end if;
+
+  if current_stock < p_quantity then
+    raise exception 'Not enough stock for product variant %', p_product_variant_id;
+  end if;
+
+  insert into public.order_stock_reservations (
+    order_id,
+    product_variant_id,
+    quantity
+  )
+  values (p_order_id, p_product_variant_id, p_quantity)
+  on conflict (order_id, product_variant_id)
+  do update set
+    quantity = public.order_stock_reservations.quantity + excluded.quantity,
+    released_at = null
+  where public.order_stock_reservations.released_at is null;
+
+  get diagnostics changed_count = row_count;
+  if changed_count = 0 then
+    raise exception 'Stock for order % was already released', p_order_id;
+  end if;
+
+  update public.product_variants
+  set stock_quantity = stock_quantity - p_quantity
+  where id = p_product_variant_id;
+end;
+$$;
+
+create or replace function public.reserve_order_stock(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  item record;
+  already_reserved integer;
+  quantity_to_reserve integer;
+begin
+  for item in
+    select product_variant_id, sum(quantity)::integer as quantity
+    from public.order_items
+    where order_id = p_order_id
+      and product_variant_id is not null
+    group by product_variant_id
+  loop
+    select coalesce(quantity, 0)
+      into already_reserved
+    from public.order_stock_reservations
+    where order_id = p_order_id
+      and product_variant_id = item.product_variant_id
+      and released_at is null
+    for update;
+
+    quantity_to_reserve = item.quantity - coalesce(already_reserved, 0);
+    if quantity_to_reserve > 0 then
+      perform public.reserve_variant_stock(
+        p_order_id,
+        item.product_variant_id,
+        quantity_to_reserve
+      );
+    end if;
+  end loop;
+end;
+$$;
+
+create or replace function public.restore_order_stock(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  reservation record;
+begin
+  for reservation in
+    select product_variant_id, quantity
+    from public.order_stock_reservations
+    where order_id = p_order_id
+      and released_at is null
+    for update
+  loop
+    update public.product_variants
+    set stock_quantity = stock_quantity + reservation.quantity
+    where id = reservation.product_variant_id;
+  end loop;
+
+  update public.order_stock_reservations
+  set released_at = now()
+  where order_id = p_order_id
+    and released_at is null;
+end;
+$$;
+
+create or replace function public.reserve_stock_for_order_item()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  order_status text;
+begin
+  select status into order_status
+  from public.orders
+  where id = new.order_id;
+
+  if new.product_variant_id is not null and
+     order_status in ('pending', 'confirmed', 'confirm') then
+    perform public.reserve_variant_stock(
+      new.order_id,
+      new.product_variant_id,
+      new.quantity
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists order_items_stock_reservation_trigger on public.order_items;
+create trigger order_items_stock_reservation_trigger
+after insert on public.order_items
+for each row execute function public.reserve_stock_for_order_item();
+
 create or replace function public.record_order_status_change()
 returns trigger
 language plpgsql
@@ -58,6 +249,11 @@ begin
   if new.status is distinct from old.status then
     insert into public.order_status_history (order_id, status, changed_by)
     values (new.id, new.status, auth.uid());
+
+    if new.status in ('cancel', 'canceled', 'cancelled') and
+       old.status not in ('cancel', 'canceled', 'cancelled', 'refund', 'refunded') then
+      perform public.restore_order_stock(new.id);
+    end if;
   end if;
 
   return new;
@@ -240,6 +436,28 @@ using (
       and o.customer_id = auth.uid()
   )
 );
+
+drop policy if exists "Users can view their notifications" on public.notifications;
+create policy "Users can view their notifications"
+on public.notifications
+for select
+to authenticated
+using (recipient_id = auth.uid());
+
+drop policy if exists "Users can mark their notifications read" on public.notifications;
+create policy "Users can mark their notifications read"
+on public.notifications
+for update
+to authenticated
+using (recipient_id = auth.uid())
+with check (recipient_id = auth.uid());
+
+drop policy if exists "Authenticated users can create notifications" on public.notifications;
+create policy "Authenticated users can create notifications"
+on public.notifications
+for insert
+to authenticated
+with check (actor_id = auth.uid() or actor_id is null);
 
 -- Optional hardening: uncomment these if vendors should only update status
 -- columns from the client, not every column covered by the update policies.

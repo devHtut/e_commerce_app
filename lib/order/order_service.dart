@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../cart/cart_item.dart';
+import '../notification/notification_service.dart';
 import '../product/product_model.dart';
 
 enum OrderStatus { pending, confirmed, inDelivery, completed, canceled, refund }
@@ -345,10 +346,25 @@ class OrderService {
   }
 
   Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
+    final previousStatus = await _loadOrderStatus(orderId);
+
     await Supabase.instance.client
         .from('orders')
         .update({'status': _statusToDatabaseValue(status)})
         .eq('id', orderId);
+
+    if (status == OrderStatus.canceled &&
+        previousStatus != OrderStatus.canceled &&
+        previousStatus != OrderStatus.refund) {
+      await restoreStockForOrder(orderId);
+    }
+
+    if (previousStatus != status) {
+      await NotificationService.instance.notifyOrderStatusChanged(
+        orderId,
+        status.name,
+      );
+    }
 
     final orders = ordersNotifier.value
         .map(
@@ -367,6 +383,109 @@ class OrderService {
         )
         .toList();
     ordersNotifier.value = orders;
+  }
+
+  Future<void> reserveStockForOrder(String orderId) async {
+    if (orderId.isEmpty) return;
+
+    try {
+      await Supabase.instance.client.rpc(
+        'reserve_order_stock',
+        params: {'p_order_id': orderId},
+      );
+      return;
+    } catch (e) {
+      if (!_isMissingStockRpc(e)) rethrow;
+      debugPrint('Stock reservation RPC unavailable: $e');
+    }
+
+    final items = await _loadOrderStockItems(orderId);
+    await _adjustVariantStock(items, reserve: true);
+  }
+
+  Future<void> restoreStockForOrder(String orderId) async {
+    if (orderId.isEmpty) return;
+
+    try {
+      await Supabase.instance.client.rpc(
+        'restore_order_stock',
+        params: {'p_order_id': orderId},
+      );
+      return;
+    } catch (e) {
+      if (!_isMissingStockRpc(e)) rethrow;
+      debugPrint('Stock restore RPC unavailable: $e');
+    }
+
+    final items = await _loadOrderStockItems(orderId);
+    await _adjustVariantStock(items, reserve: false);
+  }
+
+  bool _isMissingStockRpc(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('pgrst202') ||
+        message.contains('could not find') ||
+        message.contains('schema cache') ||
+        message.contains('function') && message.contains('not found');
+  }
+
+  Future<OrderStatus> _loadOrderStatus(String orderId) async {
+    final cached = ordersNotifier.value.where((order) => order.id == orderId);
+    if (cached.isNotEmpty) return cached.first.status;
+
+    try {
+      final row = await Supabase.instance.client
+          .from('orders')
+          .select('status')
+          .eq('id', orderId)
+          .single();
+      return _statusFromDatabaseValue(row['status']?.toString() ?? '');
+    } catch (e) {
+      debugPrint('Error loading order status: $e');
+      return OrderStatus.pending;
+    }
+  }
+
+  Future<Map<String, int>> _loadOrderStockItems(String orderId) async {
+    final rows = await Supabase.instance.client
+        .from('order_items')
+        .select('product_variant_id,quantity')
+        .eq('order_id', orderId);
+
+    final items = <String, int>{};
+    for (final row in rows as List<dynamic>) {
+      final variantId = row['product_variant_id']?.toString();
+      if (variantId == null || variantId.isEmpty) continue;
+      final quantity = (row['quantity'] as num?)?.toInt() ?? 0;
+      if (quantity <= 0) continue;
+      items[variantId] = (items[variantId] ?? 0) + quantity;
+    }
+    return items;
+  }
+
+  Future<void> _adjustVariantStock(
+    Map<String, int> items, {
+    required bool reserve,
+  }) async {
+    for (final entry in items.entries) {
+      final row = await Supabase.instance.client
+          .from('product_variants')
+          .select('stock_quantity')
+          .eq('id', entry.key)
+          .single();
+      final currentStock = (row['stock_quantity'] as num?)?.toInt() ?? 0;
+      final nextStock = reserve
+          ? currentStock - entry.value
+          : currentStock + entry.value;
+      if (nextStock < 0) {
+        throw Exception('Not enough stock available for this product.');
+      }
+
+      await Supabase.instance.client
+          .from('product_variants')
+          .update({'stock_quantity': nextStock})
+          .eq('id', entry.key);
+    }
   }
 
   String _statusToDatabaseValue(OrderStatus status) {

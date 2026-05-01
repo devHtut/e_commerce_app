@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/signin_screen.dart';
+import '../notification/notification_screen.dart';
+import '../notification/notification_service.dart';
 import '../order/order_detail_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
 import '../widgets/custom_pop_up.dart';
+import 'shop_profile_screen.dart';
 import 'vendor_products_screen.dart';
 
 class VendorDashboard extends StatefulWidget {
@@ -25,6 +28,9 @@ class _VendorDashboardState extends State<VendorDashboard> {
   void initState() {
     super.initState();
     _vendorOrdersFuture = OrderService.instance.loadVendorOrders();
+    NotificationService.instance.refreshUnreadCount(
+      audience: AppNotificationAudience.vendor,
+    );
   }
 
   Future<void> _logout() async {
@@ -47,6 +53,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
   static const List<String> _titles = [
     'Vendor Dashboard',
     'Products',
+    'Shop Profile',
     'Orders',
     'Chat',
     'Account',
@@ -304,6 +311,62 @@ class _VendorDashboardState extends State<VendorDashboard> {
       _vendorOrdersFuture = future;
     });
     await future;
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            const NotificationScreen(audience: AppNotificationAudience.vendor),
+      ),
+    );
+    await NotificationService.instance.refreshUnreadCount(
+      audience: AppNotificationAudience.vendor,
+    );
+  }
+
+  Widget _notificationButton() {
+    return ValueListenableBuilder<int>(
+      valueListenable: NotificationService.instance.unreadCountNotifier,
+      builder: (context, unreadCount, _) {
+        return IconButton(
+          onPressed: _openNotifications,
+          tooltip: 'Notifications',
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(
+                Icons.notifications_none_rounded,
+                color: AppColors.darkText,
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: -2,
+                  top: -3,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: AppColors.errorRed,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   String _formatOrderDate(DateTime date) {
@@ -673,6 +736,10 @@ class _VendorDashboardState extends State<VendorDashboard> {
     final pages = <Widget>[
       _buildOverviewPage(),
       const VendorProductsScreen(),
+      ShopProfileScreen(
+        ownerId: Supabase.instance.client.auth.currentUser?.id,
+        embedded: true,
+      ),
       _buildOrdersPage(),
       _buildPlaceholder(
         'Vendor chat is coming soon.',
@@ -698,6 +765,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
           ),
         ),
         actions: [
+          _notificationButton(),
           IconButton(
             onPressed: _logout,
             icon: const Icon(Icons.logout, color: AppColors.darkText),
@@ -719,6 +787,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
             icon: const Icon(Icons.inventory_2_outlined),
             activeIcon: const Icon(Icons.inventory_2),
             label: 'Products',
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.storefront_outlined),
+            activeIcon: const Icon(Icons.storefront),
+            label: 'Shop',
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.receipt_long_outlined),

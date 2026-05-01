@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
+import '../notification/notification_service.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
@@ -216,6 +217,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     setState(() => _isProcessing = true);
 
+    String? orderId;
+    var stockReserved = false;
+
     try {
       final screenshotData = _selectedScreenshot!.bytes;
       if (screenshotData == null) {
@@ -271,7 +275,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           .insert(orderPayload)
           .select('id')
           .single();
-      final orderId = orderRow['id']?.toString();
+      orderId = orderRow['id']?.toString();
       if (orderId == null || orderId.isEmpty) {
         throw Exception('Unable to create order');
       }
@@ -288,6 +292,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           )
           .toList();
       await Supabase.instance.client.from('order_items').insert(itemsToInsert);
+      await OrderService.instance.reserveStockForOrder(orderId);
+      stockReserved = true;
 
       final selectedPayment = _paymentMethods.firstWhere(
         (payment) => payment['id'].toString() == _selectedPaymentMethodId,
@@ -313,6 +319,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           .insert(paymentPayload)
           .select('id')
           .single();
+
+      await NotificationService.instance.notifyOrderPaymentSubmitted(orderId);
 
       OrderService.instance.placeOrder(
         widget.items,
@@ -348,11 +356,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
         (route) => false,
       );
     } catch (e) {
+      if (stockReserved && orderId != null && orderId.isNotEmpty) {
+        try {
+          await OrderService.instance.restoreStockForOrder(orderId);
+        } catch (restoreError) {
+          debugPrint(
+            'Unable to restore stock after payment failure: $restoreError',
+          );
+        }
+      }
       if (!mounted) return;
       await showCustomPopup(
         context,
         title: 'Payment failed',
-        message: 'Unable to process payment. Please try again.',
+        message: e.toString().toLowerCase().contains('stock')
+            ? 'Not enough stock is available for this order.'
+            : 'Unable to process payment. Please try again.',
         type: PopupType.error,
       );
     } finally {
