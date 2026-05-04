@@ -8,17 +8,16 @@ import '../order/order_detail_screen.dart';
 import '../address/delivery_address_screen.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/profile_info_screen.dart';
-import '../auth/signin_screen.dart';
-import '../auth/signup_screen.dart';
 import '../notification/notification_screen.dart';
 import '../notification/notification_service.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
 import '../wishlist/wishlist_service.dart';
 import '../widgets/auto_banner_slider.dart';
-import '../widgets/custom_buttom.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/product_card.dart';
+import '../widgets/guest_auth_gate.dart';
+import '../widgets/order_readable_id_search.dart';
 import '../widgets/search_box.dart';
 import '../theme_config.dart';
 import 'help_support_screen.dart';
@@ -47,6 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _categories = const ['Discover'];
   bool get _isLoggedIn => Supabase.instance.client.auth.currentUser != null;
 
+  final TextEditingController _customerOrderSearchController =
+      TextEditingController();
+  String _customerOrderSearchNeedle = '';
+
   @override
   void initState() {
     super.initState();
@@ -58,7 +61,14 @@ class _HomeScreenState extends State<HomeScreen> {
       NotificationService.instance.refreshUnreadCount(
         audience: AppNotificationAudience.customer,
       );
+      CartService.instance.loadCartItems();
     }
+  }
+
+  @override
+  void dispose() {
+    _customerOrderSearchController.dispose();
+    super.dispose();
   }
 
   final List<BannerItem> _banners = const [
@@ -441,12 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _toggleWishlist(ProductModel product) async {
     if (!_isLoggedIn) {
-      await showCustomPopup(
-        context,
-        title: 'Sign in required',
-        message: 'Please sign in to save products to wishlist.',
-        type: PopupType.error,
-      );
+      setState(() => _currentIndex = 1);
       return;
     }
     final added = await WishlistService.instance.toggle(product);
@@ -533,23 +538,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleTabTap(int index) async {
-    // Guests can browse Home freely; protected tabs require auth.
-    if (!_isLoggedIn && [1, 2, 3].contains(index)) {
-      await showCustomPopup(
-        context,
-        title: 'Sign in required',
-        message: 'Please sign in to use wishlist, cart, and orders.',
-        type: PopupType.error,
-      );
-      if (!mounted) return;
-      setState(() {
-        _currentIndex = 4;
-      });
-      return;
-    }
     setState(() {
       _currentIndex = index;
     });
+    if (index == 2 && _isLoggedIn) {
+      await CartService.instance.loadCartItems();
+    }
     if (index == 3 && _isLoggedIn) {
       await OrderService.instance.loadOrders();
     }
@@ -1101,6 +1095,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCartPage() {
+    if (!_isLoggedIn) {
+      return const GuestAuthGatePanel();
+    }
     return ValueListenableBuilder<List<CartItem>>(
       valueListenable: CartService.instance.itemsNotifier,
       builder: (context, items, _) {
@@ -1240,6 +1237,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: Colors.grey.shade600,
                               ),
                             ),
+                            if (item.isExpiringSoon) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                item.expiryLabel,
+                                style: const TextStyle(
+                                  fontFamily: AppFonts.primary,
+                                  fontSize: 13,
+                                  color: AppColors.primaryGreen,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 8),
                             Text(
                               '\$${item.subtotal.toStringAsFixed(2)}',
@@ -1319,6 +1327,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildWishlistPage() {
+    if (!_isLoggedIn) {
+      return const GuestAuthGatePanel();
+    }
     return ValueListenableBuilder<List<ProductModel>>(
       valueListenable: WishlistService.instance.itemsNotifier,
       builder: (context, wishlistItems, _) {
@@ -1507,6 +1518,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMyOrdersPage() {
+    if (!_isLoggedIn) {
+      return const GuestAuthGatePanel();
+    }
     return ValueListenableBuilder<List<OrderModel>>(
       valueListenable: OrderService.instance.ordersNotifier,
       builder: (context, orders, _) {
@@ -1547,6 +1561,14 @@ class _HomeScreenState extends State<HomeScreen> {
           4 => canceled,
           _ => refunds,
         };
+        final filtered = showing
+            .where(
+              (o) => orderReadableIdMatchesSearch(
+                o.readableId,
+                _customerOrderSearchNeedle,
+              ),
+            )
+            .toList();
         return Column(
           children: [
             const SizedBox(height: 8),
@@ -1576,17 +1598,34 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: CustomerOrderReadableIdSearchField(
+                controller: _customerOrderSearchController,
+                onNeedleChanged: (needle) {
+                  setState(() => _customerOrderSearchNeedle = needle);
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
             Expanded(
               child: showing.isEmpty
                   ? const Center(
                       child: Text('No orders yet.', style: AppTextStyles.body),
                     )
+                  : filtered.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'အော်ဒါ ID လေး မှားနေသလားလို့ပါ။ 🧐 ရှာလို့မတွေ့ဖြစ်နေလို့ တစ်ခေါက်လောက် ပြန်စစ်ပြီး ရိုက်ထည့်ပေးပါဦးနော်။ ကျေးဇူးတင်ပါတယ်ဗျ! 🙌',
+                        style: AppTextStyles.body,
+                      ),
+                    )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      itemCount: showing.length,
+                      itemCount: filtered.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
-                        final order = showing[index];
+                        final order = filtered[index];
                         final leadItem = order.items.first;
                         final extraCount = order.items.length - 1;
                         return Container(
@@ -1610,6 +1649,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
+                                        Text(
+                                          order.readableId,
+                                          style: const TextStyle(
+                                            fontFamily: AppFonts.primary,
+                                            color: AppColors.darkText,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
                                         Text(
                                           _formatOrderDate(order.createdAt),
                                           style: TextStyle(
@@ -1895,50 +1945,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return _buildMyOrdersPage();
       case 4:
         if (!_isLoggedIn) {
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Create your account to save wishlist, cart, and orders.',
-                  style: AppTextStyles.body,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: CustomButton(
-                    text: 'Sign up',
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SignupScreen()),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SignInScreen()),
-                    );
-                  },
-                  child: const Text(
-                    'Already have an account? Sign in',
-                    style: TextStyle(
-                      color: AppColors.primaryGreen,
-                      fontFamily: AppFonts.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
+          return const GuestAuthGatePanel();
         }
 
         if (_isAccountLoading) {

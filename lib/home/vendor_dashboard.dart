@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../auth/auth_user_service.dart';
 import '../auth/signin_screen.dart';
+import '../auth/vendor_access.dart';
 import '../notification/notification_screen.dart';
 import '../notification/notification_service.dart';
 import '../order/order_detail_screen.dart';
@@ -9,6 +11,7 @@ import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/order_readable_id_search.dart';
 import 'shop_profile_screen.dart';
 import 'vendor_products_screen.dart';
 
@@ -23,14 +26,43 @@ class _VendorDashboardState extends State<VendorDashboard> {
   int _currentIndex = 0;
   int _orderTabIndex = 0;
   late Future<List<OrderModel>> _vendorOrdersFuture;
+  final TextEditingController _vendorOrderSearchController =
+      TextEditingController();
+  String _vendorOrderSearchNeedle = '';
+  String _vendorBrandOrderPrefix = '';
+  bool _vendorAccessGranted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorAccess());
+  }
+
+  Future<void> _ensureVendorAccess() async {
+    final ok = await VendorAccess.ensureVendorOrRedirect(context);
+    if (!mounted || !ok) return;
     _vendorOrdersFuture = OrderService.instance.loadVendorOrders();
+    _loadVendorBrandOrderPrefix();
     NotificationService.instance.refreshUnreadCount(
       audience: AppNotificationAudience.vendor,
     );
+    setState(() => _vendorAccessGranted = true);
+  }
+
+  Future<void> _loadVendorBrandOrderPrefix() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    final brand = await AuthUserService.getVendorBrand(user.id);
+    if (!mounted) return;
+    setState(() {
+      _vendorBrandOrderPrefix = brand?['prefix']?.toString() ?? '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _vendorOrderSearchController.dispose();
+    super.dispose();
   }
 
   Future<void> _logout() async {
@@ -306,6 +338,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
   }
 
   Future<void> _refreshVendorOrders() async {
+    await _loadVendorBrandOrderPrefix();
     final future = OrderService.instance.loadVendorOrders();
     setState(() {
       _vendorOrdersFuture = future;
@@ -511,6 +544,14 @@ class _VendorDashboardState extends State<VendorDashboard> {
           4 => canceled,
           _ => refunds,
         };
+        final filtered = showing
+            .where(
+              (o) => orderReadableIdMatchesSearch(
+                o.readableId,
+                _vendorOrderSearchNeedle,
+              ),
+            )
+            .toList();
 
         return Column(
           children: [
@@ -541,6 +582,17 @@ class _VendorDashboardState extends State<VendorDashboard> {
               ),
             ),
             const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: VendorOrderReadableIdSearchField(
+                controller: _vendorOrderSearchController,
+                brandOrderPrefix: _vendorBrandOrderPrefix,
+                onNeedleChanged: (needle) {
+                  setState(() => _vendorOrderSearchNeedle = needle);
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refreshVendorOrders,
@@ -556,13 +608,25 @@ class _VendorDashboardState extends State<VendorDashboard> {
                           ),
                         ],
                       )
-                    : ListView.separated(
+                    : filtered.isEmpty
+                        ? ListView(
+                            children: const [
+                              SizedBox(height: 240),
+                              Center(
+                                child: Text(
+                                  'အော်ဒါ ID လေး မှားနေသလားလို့ပါ။ 🧐 ရှာလို့မတွေ့ဖြစ်နေလို့ တစ်ခေါက်လောက် ပြန်စစ်ပြီး ရိုက်ထည့်ပေးပါဦးနော်။ ကျေးဇူးတင်ပါတယ်ဗျ! 🙌',
+                                  style: AppTextStyles.body,
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                        itemCount: showing.length,
+                        itemCount: filtered.length,
                         separatorBuilder: (context, index) =>
                             const SizedBox(height: 12),
                         itemBuilder: (context, index) {
-                          final order = showing[index];
+                          final order = filtered[index];
                           final leadItem = order.items.first;
                           final extraCount = order.items.length - 1;
                           return Container(
@@ -586,6 +650,17 @@ class _VendorDashboardState extends State<VendorDashboard> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
+                                          Text(
+                                            order.readableId,
+                                            style: const TextStyle(
+                                              fontFamily: AppFonts.primary,
+                                              color: AppColors.darkText,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
                                           Text(
                                             _formatOrderDate(order.createdAt),
                                             style: TextStyle(
@@ -733,6 +808,12 @@ class _VendorDashboardState extends State<VendorDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_vendorAccessGranted) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final pages = <Widget>[
       _buildOverviewPage(),
       const VendorProductsScreen(),

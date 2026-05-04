@@ -1663,15 +1663,6 @@ class _OrderItemTile extends StatelessWidget {
                         fontSize: 13,
                       ),
                     ),
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: Color(item.colorValue),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 2),

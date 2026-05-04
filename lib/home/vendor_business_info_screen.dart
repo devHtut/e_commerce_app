@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
+import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
@@ -44,6 +45,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _vendorAccessOk = false;
   Map<String, dynamic>? _brand;
   List<String> _paymentTypes = [];
   final List<_VendorPaymentEntry> _paymentEntries = [];
@@ -51,6 +53,13 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoad());
+  }
+
+  Future<void> _ensureVendorThenLoad() async {
+    final ok = await VendorAccess.ensureVendorOrRedirect(context);
+    if (!mounted || !ok) return;
+    setState(() => _vendorAccessOk = true);
     _loadData();
   }
 
@@ -350,6 +359,11 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_vendorAccessOk) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(

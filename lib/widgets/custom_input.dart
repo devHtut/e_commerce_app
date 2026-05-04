@@ -12,6 +12,7 @@ class CustomTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
   final int? maxLength;
+  final TextCapitalization textCapitalization;
 
   const CustomTextField({
     super.key,
@@ -24,6 +25,7 @@ class CustomTextField extends StatelessWidget {
     this.keyboardType,
     this.inputFormatters,
     this.maxLength,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   @override
@@ -33,6 +35,7 @@ class CustomTextField extends StatelessWidget {
       obscureText: isPassword,
       validator: validator,
       keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
       inputFormatters: inputFormatters,
       maxLength: maxLength,
       decoration: InputDecoration(

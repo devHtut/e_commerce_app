@@ -129,10 +129,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _buildReviewSummary(double subtotal) {
-    const serviceFee = 1.50;
-    const deliveryFee = 8.50;
     const promo = 0.00;
-    final totalPayment = subtotal + serviceFee + deliveryFee - promo;
+    final totalPayment = subtotal - promo;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -171,16 +169,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
           const SizedBox(height: 8),
           _SummaryRow(label: 'Promo', value: '-\$${promo.toStringAsFixed(2)}'),
-          const SizedBox(height: 8),
-          _SummaryRow(
-            label: 'Service fee',
-            value: '\$${serviceFee.toStringAsFixed(2)}',
-          ),
-          const SizedBox(height: 8),
-          _SummaryRow(
-            label: 'Delivery fee',
-            value: '\$${deliveryFee.toStringAsFixed(2)}',
-          ),
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 12),
@@ -200,7 +188,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await showCustomPopup(
         context,
         title: 'Validation failed',
-        message: 'Please select a payment method and upload a screenshot.',
+        message: 'အဆင်ပြေရာ Payment Method လေးရွေးချယ်ပေးပြီး ငွေပေးချေမှုအောင်မြင်ကြောင်း Screenshot လေးကို ဒီမှာတင်ပေးပါဦးနော်။ ✨📸',
         type: PopupType.error,
       );
       return;
@@ -209,7 +197,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await showCustomPopup(
         context,
         title: 'Validation failed',
-        message: 'Please enter the last 6 digits of the transaction id.',
+        message: 'Transaction ID (နောက်ဆုံးဂဏန်း ၆ လုံး) လေးကို ဖြည့်သွင်းပေးပါဦးနော်။ ✍️ ရှာရခက်နေရင် Screenshot ထဲမှာ ပြန်ကြည့်လို့ရပါတယ်ခင်ဗျာ။ 😊',
         type: PopupType.error,
       );
       return;
@@ -226,7 +214,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         await showCustomPopup(
           context,
           title: 'Upload failed',
-          message: 'Unable to read the selected screenshot file.',
+          message: 'အို... ဖိုင်ကို ဖတ်လို့မရဖြစ်နေလို့ပါ။ 📸 ပုံလေးကို နောက်တစ်ခေါက်လောက် ပြန်ရွေးပေးပါဦးနော်။ အဆင်မပြေဖြစ်သွားရင် တောင်းပန်ပါတယ်ခင်ဗျာ။ 😊',
           type: PopupType.error,
         );
         return;
@@ -260,7 +248,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         throw Exception('Customer not authenticated');
       }
 
-      final orderPayload = {
+      final brandId = widget.items.first.product.brandId;
+      final orderPayload = <String, dynamic>{
         'customer_id': customer.id,
         'status': 'pending',
         'total_price': widget.items.fold<double>(
@@ -268,6 +257,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           (sum, item) => sum + item.product.price * item.quantity,
         ),
         'shipping_address_id': widget.shippingAddressId,
+        if (brandId != null && brandId.isNotEmpty) 'brand_id': brandId,
       };
 
       final orderRow = await Supabase.instance.client
@@ -345,7 +335,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         context,
         title: 'Payment successful',
         message:
-            'You made payment for the order successfully! Please wait the admin response.',
+            'အော်ဒါအတွက် ငွေပေးချေမှု အောင်မြင်သွားပါပြီဗျာ! 🎉 အခုဆိုရင် Admin ဘက်က အတည်ပြုပေးဖို့ စစ်ဆေးနေပြီမို့လို့ ခဏလေးတော့ စောင့်ပေးပါဦးနော်။ ✨ ကျေးဇူးအများကြီး တင်ပါတယ်ခင်ဗျာ။ 🙏',
         type: PopupType.success,
       );
 
@@ -417,7 +407,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Select a payment method and upload your payment screenshot.',
+                      'အဆင်ပြေရာ Payment Method လေးရွေးချယ်ပေးပြီး ငွေပေးချေမှုအောင်မြင်ကြောင်း Screenshot လေးကို ဒီမှာတင်ပေးပါဦးနော်။ ✨📸',
                       style: AppTextStyles.body,
                     ),
                     const SizedBox(height: 24),
@@ -651,15 +641,6 @@ class _OrderItemTile extends StatelessWidget {
                         fontFamily: AppFonts.primary,
                         color: Colors.grey.shade600,
                         fontSize: 13,
-                      ),
-                    ),
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: Color(item.colorValue),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade300),
                       ),
                     ),
                   ],

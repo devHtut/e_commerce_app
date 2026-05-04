@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import 'edit_product_screen.dart';
@@ -16,6 +17,7 @@ class VendorProductDetailScreen extends StatefulWidget {
 }
 
 class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
+  bool _vendorAccessOk = false;
   bool _loading = true;
   String? _error;
   String _name = '';
@@ -36,6 +38,13 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoad());
+  }
+
+  Future<void> _ensureVendorThenLoad() async {
+    final ok = await VendorAccess.ensureVendorOrRedirect(context);
+    if (!mounted || !ok) return;
+    setState(() => _vendorAccessOk = true);
     _load();
   }
 
@@ -228,6 +237,9 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_vendorAccessOk) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

@@ -37,6 +37,7 @@ class OrderPaymentDetails {
 
 class OrderModel {
   final String id;
+  final String readableId;
   final List<CartItem> items;
   final DateTime createdAt;
   final OrderStatus status;
@@ -49,6 +50,7 @@ class OrderModel {
 
   const OrderModel({
     required this.id,
+    required this.readableId,
     required this.items,
     required this.createdAt,
     required this.status,
@@ -75,6 +77,7 @@ class OrderModel {
   }) {
     return OrderModel(
       id: id,
+      readableId: readableId,
       items: items ?? this.items,
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
@@ -100,6 +103,7 @@ class OrderService {
 
   static const String _orderSelect = '''
             id,
+            readable_id,
             customer_id,
             status,
             created_at,
@@ -118,7 +122,7 @@ class OrderService {
                   description,
                   base_price,
                   categories(name),
-                  brands(brand_name, id)
+                  brands(brand_name, id, logo_url)
                 )
               )
             )
@@ -138,7 +142,6 @@ class OrderService {
       final orders = await _buildOrders(orderRows, includePaymentDetails: true);
       ordersNotifier.value = await _completeOverdueInDeliveryOrders(orders);
     } catch (e) {
-      // Handle error silently or log it
       debugPrint('Error loading orders: $e');
     }
   }
@@ -253,6 +256,7 @@ class OrderService {
     final orders = <OrderModel>[];
     for (final orderRow in orderRows) {
       final orderId = orderRow['id']?.toString() ?? '';
+      final readableId = orderRow['readable_id']?.toString() ?? orderId;
       final customerId = orderRow['customer_id']?.toString();
       final statusString = orderRow['status']?.toString() ?? 'pending';
       final createdAtString = orderRow['created_at']?.toString();
@@ -293,7 +297,8 @@ class OrderService {
           category: categoryRow?['name']?.toString() ?? '',
           brand: brandRow?['brand_name']?.toString() ?? '',
           brandId: brandId,
-          rating: 0.0, // Default rating since it's not stored in order data
+          brandLogoUrl: brandRow?['logo_url']?.toString(),
+          rating: 0.0,
           imageUrl: variantRow['image_url']?.toString() ?? '',
         );
 
@@ -306,6 +311,7 @@ class OrderService {
           colorValue: 0,
           imageUrl: variantRow['image_url']?.toString() ?? '',
           quantity: quantity,
+          createdAt: DateTime.now().toUtc(),
         );
 
         items.add(cartItem);
@@ -326,6 +332,7 @@ class OrderService {
         orders.add(
           OrderModel(
             id: orderId,
+            readableId: readableId,
             items: items,
             createdAt: createdAt,
             status: status,
@@ -360,6 +367,7 @@ class OrderService {
     }
 
     if (previousStatus != status) {
+      // ⚠️ ပြင်ဆင်ချက်: NotificationService က Parameter (၂) ခုပဲလက်ခံတဲ့အတွက် (၂) ခုပဲထည့်ပေးထားပါတယ်
       await NotificationService.instance.notifyOrderStatusChanged(
         orderId,
         status.name,
@@ -387,7 +395,6 @@ class OrderService {
 
   Future<void> reserveStockForOrder(String orderId) async {
     if (orderId.isEmpty) return;
-
     try {
       await Supabase.instance.client.rpc(
         'reserve_order_stock',
@@ -405,7 +412,6 @@ class OrderService {
 
   Future<void> restoreStockForOrder(String orderId) async {
     if (orderId.isEmpty) return;
-
     try {
       await Supabase.instance.client.rpc(
         'restore_order_stock',
@@ -563,6 +569,7 @@ class OrderService {
   void placeOrder(
     List<CartItem> items, {
     String? orderId,
+    String? readableId,
     OrderStatus status = OrderStatus.pending,
     String shippingAddressLabel = '',
     String shippingAddressRecipient = '',
@@ -576,6 +583,7 @@ class OrderService {
       0,
       OrderModel(
         id: orderId ?? 'ord_${DateTime.now().microsecondsSinceEpoch}',
+        readableId: readableId ?? 'PENDING',
         items: List<CartItem>.from(items),
         createdAt: DateTime.now(),
         status: status,

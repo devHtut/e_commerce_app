@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
+import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
 import 'vendor_business_info_screen.dart';
-import 'vendor_dashboard.dart';
 
 class VendorInfoScreen extends StatefulWidget {
   const VendorInfoScreen({super.key});
@@ -23,13 +23,28 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _brandNameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _prefixController = TextEditingController();
   PlatformFile? _selectedLogo;
   Uint8List? _logoPreviewBytes;
   bool _isSaving = false;
+  bool _vendorAccessOk = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendor());
+  }
+
+  Future<void> _ensureVendor() async {
+    final ok = await VendorAccess.ensureVendorOrRedirect(context);
+    if (!mounted || !ok) return;
+    setState(() => _vendorAccessOk = true);
+  }
 
   @override
   void dispose() {
     _brandNameController.dispose();
+    _prefixController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -53,6 +68,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
 
     final brandName = _brandNameController.text.trim();
     final description = _descriptionController.text.trim();
+    final prefix = _prefixController.text.trim();
     final currentUser = Supabase.instance.client.auth.currentUser;
 
     if (currentUser == null) {
@@ -103,6 +119,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
         brandName,
         description,
         logoUrl,
+        prefix,
       );
 
       if (!mounted) return;
@@ -139,6 +156,11 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_vendorAccessOk) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
@@ -269,6 +291,28 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Brand name is required.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Order ID prefix',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontFamily: AppFonts.primary,
+                    color: AppColors.darkText,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                CustomTextField(
+                  controller: _prefixController,
+                  hintText: 'e.g. PDT (shown as PDT- on orders)',
+                  maxLength: 8,
+                  textCapitalization: TextCapitalization.characters,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Prefix is required.';
                     }
                     return null;
                   },

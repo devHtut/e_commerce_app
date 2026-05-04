@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
+import 'order_receipt_generator.dart';
 import 'order_service.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   int _tabIndex = 0; // 0 => details, 1 => track
   late OrderModel _order;
   bool _savingStatus = false;
+  bool _generatingReceipt = false;
 
   @override
   void initState() {
@@ -241,7 +243,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           title: 'Information Details',
           child: Column(
             children: [
-              _summaryRow('Order ID', _order.id),
+              _summaryRow('Order ID', _order.readableId),
               if (brandNames.isNotEmpty) _summaryRow('Brand', brandNames),
               if (_order.shippingAddressRecipient.isNotEmpty)
                 _summaryRow('Customer', _order.shippingAddressRecipient),
@@ -267,8 +269,77 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(height: 14),
           _buildCustomerStatusActions(),
         ],
+        const SizedBox(height: 16),
+        _buildGenerateReceiptButton(),
+        const SizedBox(height: 8),
       ],
     );
+  }
+
+  Widget _buildGenerateReceiptButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _generatingReceipt ? null : _onGenerateReceipt,
+        icon: _generatingReceipt
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.receipt_long_outlined, color: AppColors.darkText),
+        label: Text(
+          _generatingReceipt ? 'Generating…' : 'Generate Receipt',
+          style: const TextStyle(
+            fontFamily: AppFonts.primary,
+            fontWeight: FontWeight.w700,
+            color: AppColors.darkText,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          side: const BorderSide(color: AppColors.primaryGreen),
+          foregroundColor: AppColors.darkText,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onGenerateReceipt() async {
+    setState(() => _generatingReceipt = true);
+    try {
+      await OrderReceiptGenerator.precacheImages(context, _order);
+      if (!mounted) return;
+      final png = await OrderReceiptGenerator.renderPng(context, _order);
+      if (!mounted) return;
+      if (png == null || png.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not create receipt image.')),
+        );
+        return;
+      }
+      final file = await OrderReceiptGenerator.savePng(png, _order.readableId);
+      if (!mounted) return;
+      if (file == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save receipt file.')),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Receipt saved:\n${file.path}'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Receipt error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _generatingReceipt = false);
+    }
   }
 
   Widget _buildDeliveryAddressDetails() {
@@ -577,7 +648,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _summaryRow('Payment ID', payment.id),
           _summaryRow('Method', payment.paymentMethod),
           _summaryRow('Status', payment.status.toUpperCase()),
           _summaryRow('Transaction ID', payment.transactionId),

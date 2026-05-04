@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/search_box.dart';
 import 'create_product_screen.dart';
@@ -18,10 +19,18 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
   bool _loading = true;
   String? _error;
   String _searchQuery = '';
+  bool _vendorAccessOk = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoad());
+  }
+
+  Future<void> _ensureVendorThenLoad() async {
+    final ok = await VendorAccess.ensureVendorOrRedirect(context);
+    if (!mounted || !ok) return;
+    setState(() => _vendorAccessOk = true);
     _loadVendorProducts();
   }
 
@@ -119,6 +128,9 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_vendorAccessOk) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       body: SafeArea(

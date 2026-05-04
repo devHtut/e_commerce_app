@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
@@ -20,6 +21,7 @@ class EditProductScreen extends StatefulWidget {
 }
 
 class _EditProductScreenState extends State<EditProductScreen> {
+  bool _vendorAccessOk = false;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -53,6 +55,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoad());
+  }
+
+  Future<void> _ensureVendorThenLoad() async {
+    final ok = await VendorAccess.ensureVendorOrRedirect(context);
+    if (!mounted || !ok) return;
+    setState(() => _vendorAccessOk = true);
     _load();
   }
 
@@ -418,6 +427,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_vendorAccessOk) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

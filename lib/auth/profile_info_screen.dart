@@ -125,6 +125,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         currentUser.id,
         _fullNameController.text.trim(),
         avatarUrl,
+        '',
       );
 
       if (!mounted) return;
