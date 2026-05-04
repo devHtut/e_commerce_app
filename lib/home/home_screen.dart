@@ -21,6 +21,7 @@ import '../widgets/order_readable_id_search.dart';
 import '../widgets/search_box.dart';
 import '../theme_config.dart';
 import 'help_support_screen.dart';
+import 'shop_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final int initialIndex;
@@ -43,6 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _userAvatarUrl;
   String? _productsError;
   List<ProductModel> _products = [];
+  bool _isLoadingBrands = true;
+  String? _brandsError;
+  List<_BrandInfo> _brands = [];
   List<String> _categories = const ['Discover'];
   bool get _isLoggedIn => Supabase.instance.client.auth.currentUser != null;
 
@@ -55,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _loadProducts();
+    _loadBrands();
     if (_isLoggedIn) {
       _loadAccountInfo();
       OrderService.instance.loadOrders();
@@ -429,6 +434,178 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _loadBrands() async {
+    setState(() {
+      _brandsError = null;
+      _isLoadingBrands = true;
+    });
+    try {
+      final rows = await Supabase.instance.client
+          .from('brands')
+          .select('id, brand_name, logo_url')
+          .order('created_at', ascending: false)
+          .limit(5);
+      final brands = (rows as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .where((row) => row['id'] != null)
+          .map(
+            (row) => _BrandInfo(
+              id: row['id'].toString(),
+              name: row['brand_name']?.toString() ?? 'Brand',
+              logoUrl: row['logo_url']?.toString() ?? '',
+            ),
+          )
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _brands = brands;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _brandsError = 'Unable to load brands right now.';
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingBrands = false;
+      });
+    }
+  }
+
+  Widget _buildBrandsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Brands',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.darkText,
+            fontFamily: AppFonts.primary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (_isLoadingBrands)
+          const SizedBox(
+            height: 100,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_brandsError != null)
+          Text(
+            _brandsError!,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+            ),
+          )
+        else if (_brands.isEmpty)
+          const Text(
+            'No brands available right now.',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+            ),
+          )
+        else
+          SizedBox(
+            height: 118,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: List.generate(_brands.length, (index) {
+                final brand = _brands[index];
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: index == _brands.length - 1 ? 0 : 8,
+                    ),
+                    child: _buildBrandTile(brand),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildBrandTile(_BrandInfo brand) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ShopProfileScreen(brandId: brand.id),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: brand.logoUrl.isNotEmpty
+                    ? Image.network(
+                        brand.logoUrl,
+                        width: 52,
+                        height: 52,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 52,
+                          height: 52,
+                          color: Colors.grey.shade200,
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.storefront_outlined,
+                            size: 28,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.storefront_outlined,
+                          size: 28,
+                          color: AppColors.primaryGreen,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                brand.name,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.darkText,
+                  fontFamily: AppFonts.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1852,6 +2029,8 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               AutoBannerSlider(banners: _banners),
               const SizedBox(height: 12),
+              _buildBrandsSection(),
+              const SizedBox(height: 12),
               _buildHorizontalProductSection(
                 title: 'New Arrival',
                 products: _newArrivalProducts,
@@ -2301,6 +2480,18 @@ class _CartVariantOption {
     required this.stock,
     required this.imageUrl,
     required this.price,
+  });
+}
+
+class _BrandInfo {
+  final String id;
+  final String name;
+  final String logoUrl;
+
+  const _BrandInfo({
+    required this.id,
+    required this.name,
+    required this.logoUrl,
   });
 }
 

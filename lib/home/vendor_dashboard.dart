@@ -12,6 +12,7 @@ import '../theme_config.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/order_readable_id_search.dart';
+import 'brand_account_settings_screen.dart';
 import 'shop_profile_screen.dart';
 import 'vendor_products_screen.dart';
 
@@ -609,18 +610,18 @@ class _VendorDashboardState extends State<VendorDashboard> {
                         ],
                       )
                     : filtered.isEmpty
-                        ? ListView(
-                            children: const [
-                              SizedBox(height: 240),
-                              Center(
-                                child: Text(
-                                  'အော်ဒါ ID လေး မှားနေသလားလို့ပါ။ 🧐 ရှာလို့မတွေ့ဖြစ်နေလို့ တစ်ခေါက်လောက် ပြန်စစ်ပြီး ရိုက်ထည့်ပေးပါဦးနော်။ ကျေးဇူးတင်ပါတယ်ဗျ! 🙌',
-                                  style: AppTextStyles.body,
-                                ),
-                              ),
-                            ],
-                          )
-                        : ListView.separated(
+                    ? ListView(
+                        children: const [
+                          SizedBox(height: 240),
+                          Center(
+                            child: Text(
+                              'အော်ဒါ ID လေး မှားနေသလားလို့ပါ။ 🧐 ရှာလို့မတွေ့ဖြစ်နေလို့ တစ်ခေါက်လောက် ပြန်စစ်ပြီး ရိုက်ထည့်ပေးပါဦးနော်။ ကျေးဇူးတင်ပါတယ်ဗျ! 🙌',
+                              style: AppTextStyles.body,
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                         itemCount: filtered.length,
                         separatorBuilder: (context, index) =>
@@ -809,9 +810,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessGranted) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final pages = <Widget>[
@@ -826,10 +825,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
         'Vendor chat is coming soon.',
         Icons.chat_bubble_outline,
       ),
-      _buildPlaceholder(
-        'Manage your account details here.',
-        Icons.person_outline,
-      ),
+      const BrandAccountSettingsScreen(),
     ];
 
     return Scaffold(
