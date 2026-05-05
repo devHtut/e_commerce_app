@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../cart/cart_service.dart';
 import '../cart/checkout_screen.dart';
-import '../home/shop_profile_screen.dart';
+import '../vendor/shop_profile_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';

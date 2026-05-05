@@ -21,7 +21,7 @@ import '../widgets/order_readable_id_search.dart';
 import '../widgets/search_box.dart';
 import '../theme_config.dart';
 import 'help_support_screen.dart';
-import 'shop_profile_screen.dart';
+import '../vendor/shop_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final int initialIndex;

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../home/home_screen.dart';
+import '../customer/home_screen.dart';
 import 'auth_user_service.dart';
 import 'signin_screen.dart';
 
