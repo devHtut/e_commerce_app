@@ -310,16 +310,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          _titles[_currentIndex],
-          style: const TextStyle(
-            fontFamily: AppFonts.primary,
-            color: AppColors.darkText,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: Text(_titles[_currentIndex], style: AppTextStyles.appBarTitle),
         actions: [
           IconButton(
             onPressed: _logout,

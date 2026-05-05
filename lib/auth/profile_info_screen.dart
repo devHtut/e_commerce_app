@@ -137,9 +137,10 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
 
       if (!mounted) return;
       if (widget.returnToHomeAfterSave) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
         );
       } else {
         Navigator.pop(context);
@@ -162,15 +163,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         title: Text(
           widget.initialFullName == null ? 'Complete Profile' : 'Edit Profile',
-          style: const TextStyle(
-            fontFamily: AppFonts.primary,
-            color: AppColors.darkText,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTextStyles.appBarTitle,
         ),
       ),
       body: SafeArea(

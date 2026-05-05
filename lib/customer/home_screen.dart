@@ -496,7 +496,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return 'Wishlist ($count)';
     }
     if (_currentIndex == 3) {
-      return 'My Order';
+      return 'My Orders';
     }
     if (_currentIndex == 0) {
       return 'Trendify';
@@ -2085,52 +2085,58 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        leading: _currentIndex == 0
-            ? Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.primaryGreen,
-                  ),
-                  child: const Icon(Icons.eco, size: 18, color: Colors.white),
-                ),
-              )
-            : null,
-        leadingWidth: _currentIndex == 0 ? 52 : null,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: _currentIndex == 2
-            ? ValueListenableBuilder<List<CartItem>>(
-                valueListenable: CartService.instance.itemsNotifier,
-                builder: (context, items, _) {
-                  return Text(
-                    'Cart (${items.length})',
-                    style: TextStyle(
-                      fontFamily: AppFonts.primary,
-                      color: AppColors.darkText,
-                      fontWeight: FontWeight.bold,
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: _currentIndex == 0
+              ? Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primaryGreen,
                     ),
-                  );
-                },
-              )
-            : Text(
-                _appBarTitle(),
-                style: TextStyle(
-                  fontFamily: AppFonts.primary,
-                  color: AppColors.darkText,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-        centerTitle: _currentIndex == 0,
-        actions: _isLoggedIn
-            ? [
-                if (_currentIndex == 0)
+                    child: const Icon(Icons.eco, size: 18, color: Colors.white),
+                  ),
+                )
+              : null,
+          leadingWidth: _currentIndex == 0 ? 52 : 0,
+          title: _currentIndex == 2
+              ? ValueListenableBuilder<List<CartItem>>(
+                  valueListenable: CartService.instance.itemsNotifier,
+                  builder: (context, items, _) {
+                    return Text(
+                      'Cart (${items.length})',
+                      style: AppTextStyles.appBarTitle,
+                    );
+                  },
+                )
+              : Text(_appBarTitle(), style: AppTextStyles.appBarTitle),
+          centerTitle: true,
+          actions: _isLoggedIn
+              ? [
+                  if (_currentIndex == 0)
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: AppColors.darkText,
+                      ),
+                      tooltip: 'Notifications',
+                    ),
+                  IconButton(
+                    onPressed: _logout,
+                    icon: const Icon(Icons.logout, color: AppColors.darkText),
+                    tooltip: 'Logout',
+                  ),
+                ]
+              : _currentIndex == 0
+              ? [
                   IconButton(
                     onPressed: () {},
                     icon: const Icon(
@@ -2139,59 +2145,51 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     tooltip: 'Notifications',
                   ),
-                IconButton(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout, color: AppColors.darkText),
-                  tooltip: 'Logout',
-                ),
-              ]
-            : _currentIndex == 0
-            ? [
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    Icons.notifications_none_rounded,
-                    color: AppColors.darkText,
-                  ),
-                  tooltip: 'Notifications',
-                ),
-              ]
-            : null,
-      ),
-      body: _buildCurrentPage(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        selectedItemColor: AppColors.primaryGreen,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        onTap: _handleTabTap,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
+                ]
+              : null,
+        ),
+        body: _buildCurrentPage(),
+        bottomNavigationBar: Theme(
+          data: Theme.of(context).copyWith(
+            splashFactory: NoSplash.splashFactory,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            activeIcon: Icon(Icons.favorite),
-            label: 'Wishlist',
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            selectedItemColor: AppColors.primaryGreen,
+            unselectedItemColor: Colors.grey,
+            type: BottomNavigationBarType.fixed,
+            onTap: _handleTabTap,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.favorite_border),
+                activeIcon: Icon(Icons.favorite),
+                label: 'Wishlist',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.shopping_cart_outlined),
+                activeIcon: Icon(Icons.shopping_cart),
+                label: 'Cart',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.receipt_long_outlined),
+                activeIcon: Icon(Icons.receipt_long),
+                label: 'My Orders',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.account_circle_outlined),
+                activeIcon: Icon(Icons.account_circle),
+                label: 'Account',
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            activeIcon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'My Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_circle_outlined),
-            activeIcon: Icon(Icons.account_circle),
-            label: 'Account',
-          ),
-        ],
+        ),
       ),
     );
   }

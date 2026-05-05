@@ -13,6 +13,13 @@ class AppFonts {
 }
 
 class AppTextStyles {
+  static const TextStyle appBarTitle = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.bold,
+    color: Colors.black87,
+    fontFamily: AppFonts.primary,
+  );
+
   static const TextStyle header = TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.bold,

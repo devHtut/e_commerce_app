@@ -10,7 +10,6 @@ import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
 import '../vendor/vendor_business_info_screen.dart';
-import '../vendor/vendor_dashboard.dart';
 
 class VendorInfoScreen extends StatefulWidget {
   const VendorInfoScreen({super.key});
@@ -115,9 +114,10 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
       );
 
       if (!mounted) return;
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const VendorBusinessInfoScreen()),
+        (route) => false,
       );
     } on AuthException catch (e) {
       await _showErrorPopup(e.message);
@@ -142,15 +142,9 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         title: const Text(
           'Complete Vendor Info',
-          style: TextStyle(
-            fontFamily: AppFonts.primary,
-            color: AppColors.darkText,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTextStyles.appBarTitle,
         ),
       ),
       body: SafeArea(

@@ -65,6 +65,13 @@ class MyApp extends StatelessWidget {
           headlineLarge: AppTextStyles.header,
           bodyMedium: AppTextStyles.body,
         ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: AppTextStyles.appBarTitle,
+          iconTheme: IconThemeData(color: AppColors.darkText),
+        ),
       ),
       home: FutureBuilder<Widget>(
         future: _resolveStartScreen(),

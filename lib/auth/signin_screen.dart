@@ -121,9 +121,10 @@ class _SignInScreenState extends State<SignInScreen> {
         );
 
         if (!mounted) return;
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => destination),
+          (route) => false,
         );
       }
     } on AuthException catch (e) {

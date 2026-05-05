@@ -331,9 +331,10 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
       );
 
       if (!mounted) return;
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const VendorDashboard()),
+        (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
@@ -353,16 +354,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Business Details',
-          style: TextStyle(
-            fontFamily: AppFonts.primary,
-            color: AppColors.darkText,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Business Details', style: AppTextStyles.appBarTitle),
       ),
       body: SafeArea(
         child: _isLoading
