@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../cart/cart_item.dart';
-import '../notification/notification_service.dart';
 import '../product/product_model.dart';
 
 enum OrderStatus { pending, confirmed, inDelivery, completed, canceled, refund }
@@ -364,14 +363,6 @@ class OrderService {
         previousStatus != OrderStatus.canceled &&
         previousStatus != OrderStatus.refund) {
       await restoreStockForOrder(orderId);
-    }
-
-    if (previousStatus != status) {
-      // ⚠️ ပြင်ဆင်ချက်: NotificationService က Parameter (၂) ခုပဲလက်ခံတဲ့အတွက် (၂) ခုပဲထည့်ပေးထားပါတယ်
-      await NotificationService.instance.notifyOrderStatusChanged(
-        orderId,
-        status.name,
-      );
     }
 
     final orders = ordersNotifier.value

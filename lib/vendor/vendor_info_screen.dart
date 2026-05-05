@@ -11,7 +11,6 @@ import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
 import 'vendor_business_info_screen.dart';
-import '../vendor/vendor_business_info_screen.dart';
 
 class VendorInfoScreen extends StatefulWidget {
   const VendorInfoScreen({super.key});
@@ -159,9 +158,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
       backgroundColor: AppColors.lightGrey,

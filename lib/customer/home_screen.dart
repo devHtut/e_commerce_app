@@ -2405,15 +2405,7 @@ class _HomeScreenState extends State<HomeScreen> {
           centerTitle: true,
           actions: _isLoggedIn
               ? [
-                  if (_currentIndex == 0)
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.notifications_none_rounded,
-                        color: AppColors.darkText,
-                      ),
-                      tooltip: 'Notifications',
-                    ),
+                  if (_currentIndex == 0) _notificationButton(),
                   IconButton(
                     onPressed: _logout,
                     icon: const Icon(Icons.logout, color: AppColors.darkText),
@@ -2421,16 +2413,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ]
               : _currentIndex == 0
-              ? [
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: AppColors.darkText,
-                    ),
-                    tooltip: 'Notifications',
-                  ),
-                ]
+              ? [_notificationButton()]
               : null,
         ),
         body: _buildCurrentPage(),

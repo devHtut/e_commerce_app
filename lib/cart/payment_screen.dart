@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
-import '../notification/notification_service.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
@@ -188,7 +187,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await showCustomPopup(
         context,
         title: 'Validation failed',
-        message: 'အဆင်ပြေရာ Payment Method လေးရွေးချယ်ပေးပြီး ငွေပေးချေမှုအောင်မြင်ကြောင်း Screenshot လေးကို ဒီမှာတင်ပေးပါဦးနော်။ ✨📸',
+        message:
+            'အဆင်ပြေရာ Payment Method လေးရွေးချယ်ပေးပြီး ငွေပေးချေမှုအောင်မြင်ကြောင်း Screenshot လေးကို ဒီမှာတင်ပေးပါဦးနော်။ ✨📸',
         type: PopupType.error,
       );
       return;
@@ -197,7 +197,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await showCustomPopup(
         context,
         title: 'Validation failed',
-        message: 'Transaction ID (နောက်ဆုံးဂဏန်း ၆ လုံး) လေးကို ဖြည့်သွင်းပေးပါဦးနော်။ ✍️ ရှာရခက်နေရင် Screenshot ထဲမှာ ပြန်ကြည့်လို့ရပါတယ်ခင်ဗျာ။ 😊',
+        message:
+            'Transaction ID (နောက်ဆုံးဂဏန်း ၆ လုံး) လေးကို ဖြည့်သွင်းပေးပါဦးနော်။ ✍️ ရှာရခက်နေရင် Screenshot ထဲမှာ ပြန်ကြည့်လို့ရပါတယ်ခင်ဗျာ။ 😊',
         type: PopupType.error,
       );
       return;
@@ -214,7 +215,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         await showCustomPopup(
           context,
           title: 'Upload failed',
-          message: 'အို... ဖိုင်ကို ဖတ်လို့မရဖြစ်နေလို့ပါ။ 📸 ပုံလေးကို နောက်တစ်ခေါက်လောက် ပြန်ရွေးပေးပါဦးနော်။ အဆင်မပြေဖြစ်သွားရင် တောင်းပန်ပါတယ်ခင်ဗျာ။ 😊',
+          message:
+              'အို... ဖိုင်ကို ဖတ်လို့မရဖြစ်နေလို့ပါ။ 📸 ပုံလေးကို နောက်တစ်ခေါက်လောက် ပြန်ရွေးပေးပါဦးနော်။ အဆင်မပြေဖြစ်သွားရင် တောင်းပန်ပါတယ်ခင်ဗျာ။ 😊',
           type: PopupType.error,
         );
         return;
@@ -309,8 +311,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
           .insert(paymentPayload)
           .select('id')
           .single();
-
-      await NotificationService.instance.notifyOrderPaymentSubmitted(orderId);
 
       OrderService.instance.placeOrder(
         widget.items,
