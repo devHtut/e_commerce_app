@@ -2404,14 +2404,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : Text(_appBarTitle(), style: AppTextStyles.appBarTitle),
           centerTitle: true,
           actions: _isLoggedIn
-              ? [
-                  if (_currentIndex == 0) _notificationButton(),
-                  IconButton(
-                    onPressed: _logout,
-                    icon: const Icon(Icons.logout, color: AppColors.darkText),
-                    tooltip: 'Logout',
-                  ),
-                ]
+              ? [if (_currentIndex == 0) _notificationButton()]
               : _currentIndex == 0
               ? [_notificationButton()]
               : null,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
-import '../auth/signin_screen.dart';
 import '../auth/vendor_access.dart';
 import '../notification/notification_screen.dart';
 import '../notification/notification_service.dart';
@@ -10,7 +9,6 @@ import '../order/order_detail_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
-import '../widgets/custom_pop_up.dart';
 import '../widgets/order_readable_id_search.dart';
 import 'brand_account_settings_screen.dart';
 import 'shop_profile_screen.dart';
@@ -64,23 +62,6 @@ class _VendorDashboardState extends State<VendorDashboard> {
   void dispose() {
     _vendorOrderSearchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _logout() async {
-    await Supabase.instance.client.auth.signOut();
-    if (!mounted) return;
-    await showCustomPopup(
-      context,
-      title: 'Logged out',
-      message: 'You have been signed out successfully.',
-      type: PopupType.success,
-    );
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const SignInScreen()),
-      (route) => false,
-    );
   }
 
   static const List<String> _titles = [
@@ -832,14 +813,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
         title: Text(_titles[_currentIndex], style: AppTextStyles.appBarTitle),
-        actions: [
-          _notificationButton(),
-          IconButton(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout, color: AppColors.darkText),
-            tooltip: 'Logout',
-          ),
-        ],
+        actions: [_notificationButton()],
       ),
       body: pages[_currentIndex],
       bottomNavigationBar: AppBottomNavigationBar(
