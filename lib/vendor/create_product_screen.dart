@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
+import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
@@ -27,6 +28,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   bool _isSaving = false;
   bool _hasVariants = true;
   bool _isLoadingCategories = true;
+  bool _vendorAccessOk = false;
   String? _selectedCategoryId;
   final List<_CategoryOption> _categories = [];
 
@@ -65,7 +67,14 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCategories();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoadCategories());
+  }
+
+  Future<void> _ensureVendorThenLoadCategories() async {
+    final ok = await VendorAccess.ensureVendorOrRedirect(context);
+    if (!mounted || !ok) return;
+    setState(() => _vendorAccessOk = true);
+    await _loadCategories();
   }
 
   @override
@@ -382,6 +391,11 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_vendorAccessOk) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(

@@ -8,7 +8,6 @@ class DeliveryAddress {
   final String recipientName;
   final String phone;
   final String streetAddress;
-  final String note;
   final bool isPrimary;
 
   const DeliveryAddress({
@@ -17,7 +16,6 @@ class DeliveryAddress {
     required this.recipientName,
     required this.phone,
     required this.streetAddress,
-    required this.note,
     this.isPrimary = false,
   });
 
@@ -27,7 +25,6 @@ class DeliveryAddress {
     String? recipientName,
     String? phone,
     String? streetAddress,
-    String? note,
     bool? isPrimary,
   }) {
     return DeliveryAddress(
@@ -36,7 +33,6 @@ class DeliveryAddress {
       recipientName: recipientName ?? this.recipientName,
       phone: phone ?? this.phone,
       streetAddress: streetAddress ?? this.streetAddress,
-      note: note ?? this.note,
       isPrimary: isPrimary ?? this.isPrimary,
     );
   }
@@ -432,20 +428,6 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.location_on_outlined, color: Colors.grey.shade600, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      address.note,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontFamily: AppFonts.primary,
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -517,12 +499,11 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
   void initState() {
     super.initState();
     final initial = widget.initialAddress;
-    _labelController = TextEditingController(text: initial?.label ?? 'Work Office');
-    _nameController = TextEditingController(text: initial?.recipientName ?? 'Andrew Ainsley');
-    _phoneController = TextEditingController(text: initial?.phone ?? '+1 111 467 378 399');
+    _labelController = TextEditingController(text: initial?.label ?? '');
+    _nameController = TextEditingController(text: initial?.recipientName ?? '');
+    _phoneController = TextEditingController(text: initial?.phone ?? '');
     _addressController =
-        TextEditingController(text: initial?.streetAddress ?? '75 9th Ave, New York, NY 10011, USA');
-    _noteController = TextEditingController(text: initial?.note ?? '');
+        TextEditingController(text: initial?.streetAddress ?? '');
     _isPrimary = initial?.isPrimary ?? true;
   }
 
@@ -532,7 +513,6 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _noteController.dispose();
     super.dispose();
   }
 
@@ -541,8 +521,6 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final street = _addressController.text.trim();
-    final note =
-        _noteController.text.trim().isEmpty ? 'Pinpoint already' : _noteController.text.trim();
     if (label.isEmpty || name.isEmpty || phone.isEmpty || street.isEmpty) return;
 
     Navigator.pop(
@@ -554,7 +532,6 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
         recipientName: name,
         phone: phone,
         streetAddress: street,
-        note: note,
         isPrimary: _isPrimary,
       ),
     );
@@ -592,19 +569,16 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
                   const _FieldLabel(label: 'Address Labels'),
                   _InputBox(controller: _labelController, hintText: 'Home / Work Office'),
                   const SizedBox(height: 14),
-                  const _FieldLabel(label: 'Note to Courier (optional)'),
-                  _InputBox(controller: _noteController, hintText: 'Note'),
-                  const SizedBox(height: 14),
-                  const _FieldLabel(label: "Recipient's Name"),
+                  const _FieldLabel(label: "လက်ခံမည့်သူ အမည်"),
                   _InputBox(controller: _nameController, hintText: 'Recipient name'),
                   const SizedBox(height: 14),
-                  const _FieldLabel(label: "Recipient's Phone Number"),
+                  const _FieldLabel(label: "လက်ခံမည့်သူ ဖုန်းနံပါတ်"),
                   _InputBox(controller: _phoneController, hintText: 'Phone number'),
                   const SizedBox(height: 14),
-                  const _FieldLabel(label: 'Address'),
+                  const _FieldLabel(label: 'လိပ်စာ'),
                   _InputBox(
                     controller: _addressController,
-                    hintText: 'Street, City, ZIP',
+                    hintText: 'လမ်းအမည်၊ မြို့အမည်',
                     maxLines: 2,
                   ),
                   const SizedBox(height: 14),
@@ -757,19 +731,6 @@ class _ChooseAddressCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.location_on_outlined, color: Colors.grey.shade600, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    address.note,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontFamily: AppFonts.primary,
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),

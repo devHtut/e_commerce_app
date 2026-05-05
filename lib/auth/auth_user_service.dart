@@ -46,6 +46,7 @@ class AuthUserService {
     String userId,
     String fullName,
     String? avatarUrl,
+    String prefix,
   ) async {
     final client = Supabase.instance.client;
     await client.from('profiles').upsert({
@@ -94,6 +95,11 @@ class AuthUserService {
     return 'customer';
   }
 
+  static Future<bool> isVendorAccount(String userId, {String? email}) async {
+    final t = await resolveUserType(userId: userId, email: email);
+    return t.trim().toLowerCase() == 'vendor';
+  }
+
   static Future<bool> vendorHasBrandInfo(String userId) async {
     final client = Supabase.instance.client;
     final row = await client
@@ -120,7 +126,7 @@ class AuthUserService {
     final client = Supabase.instance.client;
     return client
         .from('brands')
-        .select('id, brand_name, logo_url, description')
+        .select('id, brand_name, logo_url, description, prefix')
         .eq('owner_id', ownerId)
         .maybeSingle();
   }
@@ -130,6 +136,7 @@ class AuthUserService {
     String brandName,
     String description,
     String logoUrl,
+      String prefix,
   ) async {
     final client = Supabase.instance.client;
     final existing = await client
@@ -143,6 +150,7 @@ class AuthUserService {
       'brand_name': brandName,
       'description': description,
       'logo_url': logoUrl,
+      'prefix': prefix.trim(),
     };
 
     if (existing != null) {

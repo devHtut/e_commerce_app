@@ -67,7 +67,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               phone: row['phone_number']?.toString() ?? '',
               streetAddress: '$street${city.isNotEmpty ? ', $city' : ''}',
               city: city,
-              note: 'Pinpoint already',
               isPrimary: (row['is_default'] as bool?) ?? false,
             );
           })
@@ -462,7 +461,6 @@ class _DeliveryAddress {
   final String phone;
   final String streetAddress;
   final String city;
-  final String note;
   final bool isPrimary;
 
   const _DeliveryAddress({
@@ -472,7 +470,6 @@ class _DeliveryAddress {
     required this.phone,
     required this.streetAddress,
     required this.city,
-    required this.note,
     this.isPrimary = false,
   });
 
@@ -493,7 +490,6 @@ class _DeliveryAddress {
       phone: phone ?? this.phone,
       streetAddress: streetAddress ?? this.streetAddress,
       city: city ?? this.city,
-      note: note ?? this.note,
       isPrimary: isPrimary ?? this.isPrimary,
     );
   }
@@ -933,24 +929,6 @@ class _ChooseAddressCard extends StatelessWidget {
                   fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    color: Colors.grey.shade600,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    address.note,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontFamily: AppFonts.primary,
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -1221,24 +1199,6 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      color: Colors.grey.shade600,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      address.note,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontFamily: AppFonts.primary,
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -1300,7 +1260,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
   late final TextEditingController _cityController;
-  late final TextEditingController _noteController;
   late bool _isPrimary;
 
   bool get _isEditMode => widget.initialAddress != null;
@@ -1310,7 +1269,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     super.initState();
     final initial = widget.initialAddress;
     _labelController = TextEditingController(
-      text: initial?.label ?? 'Work Office',
+      text: initial?.label ?? 'Work',
     );
     _phoneController = TextEditingController(
       text: initial?.phone ?? '+1 111 467 378 399',
@@ -1319,7 +1278,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
       text: initial?.streetAddress ?? '75 9th Ave, New York, NY 10011, USA',
     );
     _cityController = TextEditingController(text: initial?.city ?? 'New York');
-    _noteController = TextEditingController(text: initial?.note ?? '');
     _isPrimary = initial?.isPrimary ?? true;
   }
 
@@ -1329,7 +1287,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     _cityController.dispose();
-    _noteController.dispose();
     super.dispose();
   }
 
@@ -1345,7 +1302,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   Future<_DeliveryAddress?> _persistAddressToDatabase(
     String id,
     Map<String, dynamic> payload,
-    String note,
   ) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return null;
@@ -1364,7 +1320,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
           phone: payload['phone_number'].toString(),
           streetAddress: payload['address_line'].toString(),
           city: payload['city'].toString(),
-          note: note,
           isPrimary: payload['is_default'] as bool,
         );
       }
@@ -1380,7 +1335,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
         phone: payload['phone_number'].toString(),
         streetAddress: payload['address_line'].toString(),
         city: payload['city'].toString(),
-        note: note,
         isPrimary: payload['is_default'] as bool,
       );
     } catch (_) {
@@ -1393,9 +1347,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     final phone = _phoneController.text.trim();
     final street = _addressController.text.trim();
     final city = _cityController.text.trim();
-    final note = _noteController.text.trim().isEmpty
-        ? 'Pinpoint already'
-        : _noteController.text.trim();
     if (label.isEmpty || phone.isEmpty || street.isEmpty || city.isEmpty) {
       return;
     }
@@ -1412,7 +1363,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
       'is_default': _isPrimary,
     };
 
-    final savedAddress = await _persistAddressToDatabase(id, payload, note);
+    final savedAddress = await _persistAddressToDatabase(id, payload);
     if (savedAddress != null && mounted) {
       Navigator.pop(context, savedAddress);
     }
@@ -1454,9 +1405,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
                     controller: _labelController,
                     hintText: 'Home / Work Office',
                   ),
-                  const SizedBox(height: 14),
-                  _FieldLabel(label: 'Note to Courier (optional)'),
-                  _InputBox(controller: _noteController, hintText: 'Note'),
                   const SizedBox(height: 14),
                   _FieldLabel(label: "Recipient's Phone Number"),
                   _InputBox(
@@ -1713,15 +1661,6 @@ class _OrderItemTile extends StatelessWidget {
                         fontFamily: AppFonts.primary,
                         color: Colors.grey.shade600,
                         fontSize: 13,
-                      ),
-                    ),
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: Color(item.colorValue),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade300),
                       ),
                     ),
                   ],

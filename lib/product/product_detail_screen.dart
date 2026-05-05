@@ -4,14 +4,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../cart/cart_service.dart';
 import '../cart/checkout_screen.dart';
+import '../home/shop_profile_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/guest_auth_gate.dart';
 import 'product_model.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final ProductModel product;
 
-  const ProductDetailScreen({super.key, required this.product});
+  /// When true (e.g. vendor viewing their shop), hide Buy Now / Add to cart.
+  final bool hideShoppingActions;
+
+  const ProductDetailScreen({
+    super.key,
+    required this.product,
+    this.hideShoppingActions = false,
+  });
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -244,6 +253,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       colorValue: _colorFromName(variant.color).toARGB32(),
       imageUrl: imageUrl,
       quantity: quantity,
+      createdAt: DateTime.now().toUtc(),
     );
     if (buyNow) {
       return item;
@@ -284,9 +294,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       message: '${_product.name} was added to your cart.',
       type: PopupType.success,
     );
+    return item;
   }
 
   Future<void> _showConfirmStage({required bool buyNow}) async {
+    if (Supabase.instance.client.auth.currentUser == null) {
+      await GuestAuthGatePanel.show(context);
+      return;
+    }
     if (_variants.isEmpty) return;
     int selectedSizeIndex = _sizes.indexOf(_selectedSize);
     if (selectedSizeIndex == -1) selectedSizeIndex = 0;
@@ -958,63 +973,64 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: () => _showConfirmStage(buyNow: true),
-                      child: Container(
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDDECE1),
-                          borderRadius: BorderRadius.circular(999),
+          if (!widget.hideShoppingActions)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: () => _showConfirmStage(buyNow: true),
+                        child: Container(
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDDECE1),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'Buy Now',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryGreen,
+                              fontFamily: AppFonts.primary,
+                            ),
+                          ),
                         ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Buy Now',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: () => _showConfirmStage(buyNow: false),
+                        child: Container(
+                          height: 54,
+                          decoration: BoxDecoration(
                             color: AppColors.primaryGreen,
-                            fontFamily: AppFonts.primary,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'Add to Cart',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              fontFamily: AppFonts.primary,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: () => _showConfirmStage(buyNow: false),
-                      child: Container(
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryGreen,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Add to Cart',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            fontFamily: AppFonts.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -1058,14 +1074,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ),
           OutlinedButton(
-            onPressed: () async {
-              await showCustomPopup(
-                context,
-                title: _product.brand,
-                message: 'Shop page can be connected here.',
-                type: PopupType.success,
-              );
-            },
+            onPressed: _product.brandId == null || _product.brandId!.isEmpty
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ShopProfileScreen(brandId: _product.brandId),
+                      ),
+                    );
+                  },
             child: const Text('View shop'),
           ),
         ],
@@ -1101,7 +1120,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(product: p),
+                      builder: (_) => ProductDetailScreen(
+                        product: p,
+                        hideShoppingActions: widget.hideShoppingActions,
+                      ),
                     ),
                   );
                 },

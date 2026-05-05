@@ -6,6 +6,10 @@ import 'forgot_password.dart';
 import 'auth_user_service.dart';
 import 'signup_screen.dart';
 import '../theme_config.dart';
+import '../home/home_screen.dart';
+import '../home/vendor_dashboard.dart';
+import '../home/vendor_info_screen.dart';
+import '../notification/notification_service.dart';
 import '../customer/home_screen.dart';
 import '../vendor/vendor_dashboard.dart';
 import '../vendor/vendor_info_screen.dart';
@@ -103,6 +107,11 @@ class _SignInScreenState extends State<SignInScreen> {
             : (customerNeedsProfile
                   ? const ProfileInfoScreen()
                   : const HomeScreen());
+
+        await NotificationService.instance.createWelcomeNotification(
+          isVendor: isVendor,
+          userId: user.id,
+        );
 
         if (!mounted) return;
         await showCustomPopup(
