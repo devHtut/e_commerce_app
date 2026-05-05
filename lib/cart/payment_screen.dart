@@ -9,7 +9,7 @@ import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_pop_up.dart';
-import '../home/home_screen.dart';
+import '../customer/home_screen.dart';
 import 'cart_item.dart';
 import 'cart_service.dart';
 

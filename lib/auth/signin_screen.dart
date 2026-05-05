@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../home/vendor_business_info_screen.dart';
+import '../vendor/vendor_business_info_screen.dart';
 import 'forgot_password.dart';
 import 'auth_user_service.dart';
 import 'signup_screen.dart';
 import '../theme_config.dart';
-import '../home/home_screen.dart';
-import '../home/vendor_dashboard.dart';
-import '../home/vendor_info_screen.dart';
+import '../customer/home_screen.dart';
+import '../vendor/vendor_dashboard.dart';
+import '../vendor/vendor_info_screen.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';

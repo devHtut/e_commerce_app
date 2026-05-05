@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
-import 'edit_product_screen.dart';
+import '../widgets/edit_product_screen.dart';
 
 class VendorProductDetailScreen extends StatefulWidget {
   final String productId;

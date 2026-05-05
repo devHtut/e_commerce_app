@@ -6,9 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme_config.dart';
-import '../widgets/custom_buttom.dart';
-import '../widgets/custom_input.dart';
-import '../widgets/custom_pop_up.dart';
+import 'custom_buttom.dart';
+import 'custom_input.dart';
+import 'custom_pop_up.dart';
 
 class EditProductScreen extends StatefulWidget {
   final String productId;

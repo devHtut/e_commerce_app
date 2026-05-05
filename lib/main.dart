@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/auth_user_service.dart';
-import 'home/home_screen.dart';
-import 'home/vendor_business_info_screen.dart';
-import 'home/vendor_dashboard.dart';
-import 'home/vendor_info_screen.dart';
+import 'customer/home_screen.dart';
+import 'vendor/vendor_business_info_screen.dart';
+import 'vendor/vendor_dashboard.dart';
+import 'vendor/vendor_info_screen.dart';
 import 'theme_config.dart';
 
 Future<void> main() async {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
-import '../home/home_screen.dart';
+import '../customer/home_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import 'cart_item.dart';

@@ -9,8 +9,8 @@ import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
-import 'vendor_business_info_screen.dart';
-import 'vendor_dashboard.dart';
+import '../vendor/vendor_business_info_screen.dart';
+import '../vendor/vendor_dashboard.dart';
 
 class VendorInfoScreen extends StatefulWidget {
   const VendorInfoScreen({super.key});
