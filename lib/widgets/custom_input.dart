@@ -4,6 +4,7 @@ import '../theme_config.dart';
 
 class CustomTextField extends StatelessWidget {
   final String hintText;
+  final String? labelText;
   final TextEditingController controller;
   final bool isPassword;
   final Widget? prefixIcon;
@@ -17,6 +18,7 @@ class CustomTextField extends StatelessWidget {
   const CustomTextField({
     super.key,
     required this.hintText,
+    this.labelText,
     required this.controller,
     this.isPassword = false,
     this.prefixIcon,
@@ -39,6 +41,12 @@ class CustomTextField extends StatelessWidget {
       inputFormatters: inputFormatters,
       maxLength: maxLength,
       decoration: InputDecoration(
+        labelText: labelText,
+        labelStyle: const TextStyle(
+          color: AppColors.darkText,
+          fontFamily: AppFonts.primary,
+          fontWeight: FontWeight.w600,
+        ),
         hintText: hintText,
         hintStyle: const TextStyle(
           color: Colors.black38,

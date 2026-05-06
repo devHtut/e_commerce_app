@@ -67,7 +67,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoadCategories());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _ensureVendorThenLoadCategories(),
+    );
   }
 
   Future<void> _ensureVendorThenLoadCategories() async {
@@ -102,9 +104,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       _categories
         ..clear()
         ..addAll(
-          (rows as List<dynamic>)
-              .cast<Map<String, dynamic>>()
-              .map((e) => _CategoryOption(id: e['id'].toString(), name: e['name'].toString())),
+          (rows as List<dynamic>).cast<Map<String, dynamic>>().map(
+            (e) => _CategoryOption(
+              id: e['id'].toString(),
+              name: e['name'].toString(),
+            ),
+          ),
         );
       if (_categories.isNotEmpty) {
         _selectedCategoryId = _categories.first.id;
@@ -223,7 +228,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
 
       final colorImages = await _uploadImagesByColor(productId);
 
-      await Supabase.instance.client.from('product_variants').insert(
+      await Supabase.instance.client
+          .from('product_variants')
+          .insert(
             variants.map((v) {
               final image = (colorImages[v.color] ?? const []).isEmpty
                   ? null
@@ -307,7 +314,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     return variants;
   }
 
-  Future<Map<String, List<String>>> _uploadImagesByColor(String productId) async {
+  Future<Map<String, List<String>>> _uploadImagesByColor(
+    String productId,
+  ) async {
     final result = <String, List<String>>{};
     if (_hasVariants) {
       for (final group in _variantGroups) {
@@ -316,7 +325,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           final image = group.images[i];
           final path =
               'product images/$productId/${group.color}/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
-          await Supabase.instance.client.storage.from('media').uploadBinary(
+          await Supabase.instance.client.storage
+              .from('media')
+              .uploadBinary(
                 path,
                 image.bytes,
                 fileOptions: FileOptions(
@@ -324,7 +335,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   contentType: _contentType(image.extension),
                 ),
               );
-          urls.add(Supabase.instance.client.storage.from('media').getPublicUrl(path));
+          urls.add(
+            Supabase.instance.client.storage.from('media').getPublicUrl(path),
+          );
         }
         result[group.color] = urls;
       }
@@ -336,7 +349,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       final image = _simpleImages[i];
       final path =
           'product images/$productId/default/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
-      await Supabase.instance.client.storage.from('media').uploadBinary(
+      await Supabase.instance.client.storage
+          .from('media')
+          .uploadBinary(
             path,
             image.bytes,
             fileOptions: FileOptions(
@@ -344,19 +359,21 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
               contentType: _contentType(image.extension),
             ),
           );
-      urls.add(Supabase.instance.client.storage.from('media').getPublicUrl(path));
+      urls.add(
+        Supabase.instance.client.storage.from('media').getPublicUrl(path),
+      );
     }
     result['Default'] = urls;
     return result;
   }
 
   String? _contentType(String ext) => switch (ext) {
-        'png' => 'image/png',
-        'jpg' || 'jpeg' => 'image/jpeg',
-        'webp' => 'image/webp',
-        'gif' => 'image/gif',
-        _ => null,
-      };
+    'png' => 'image/png',
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'webp' => 'image/webp',
+    'gif' => 'image/gif',
+    _ => null,
+  };
 
   String? _validatePrice(String? value) {
     final raw = (value ?? '').trim();
@@ -385,16 +402,15 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     final promo = double.tryParse(raw);
     final price = double.tryParse(priceText.trim());
     if (promo == null || promo <= 0) return 'Invalid promo.';
-    if (price != null && promo >= price) return 'Promo must be lower than price.';
+    if (price != null && promo >= price)
+      return 'Promo must be lower than price.';
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
@@ -421,6 +437,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
               children: [
                 CustomTextField(
                   controller: _nameController,
+                  labelText: 'Product name',
                   hintText: 'Product name',
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? 'Product name is required.'
@@ -429,6 +446,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                 const SizedBox(height: 10),
                 CustomTextField(
                   controller: _descriptionController,
+                  labelText: 'Product description',
                   hintText: 'Product description',
                   maxLength: 500,
                   validator: (v) => (v == null || v.trim().isEmpty)
@@ -442,6 +460,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   DropdownButtonFormField<String>(
                     value: _selectedCategoryId,
                     decoration: const InputDecoration(
+                      labelText: 'Category',
+                      labelStyle: TextStyle(
+                        color: AppColors.darkText,
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
                       filled: true,
                       fillColor: Colors.white,
                       hintText: 'Choose category',
@@ -454,7 +478,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) => setState(() => _selectedCategoryId = value),
+                    onChanged: (value) =>
+                        setState(() => _selectedCategoryId = value),
                     validator: (v) => (v == null || v.isEmpty)
                         ? 'Category is required.'
                         : null,
@@ -468,7 +493,10 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   onChanged: (value) => setState(() => _hasVariants = value),
                 ),
                 const SizedBox(height: 6),
-                if (_hasVariants) _buildVariantsSection() else _buildSimpleSection(),
+                if (_hasVariants)
+                  _buildVariantsSection()
+                else
+                  _buildSimpleSection(),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -507,6 +535,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
               Expanded(
                 child: CustomTextField(
                   controller: _simplePriceController,
+                  labelText: 'Price',
                   hintText: 'Price',
                   keyboardType: TextInputType.number,
                   inputFormatters: [
@@ -520,13 +549,15 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
               Expanded(
                 child: CustomTextField(
                   controller: _simplePromoController,
+                  labelText: 'Promo',
                   hintText: 'Promo (optional)',
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                     LengthLimitingTextInputFormatter(7),
                   ],
-                  validator: (v) => _validatePromo(v, _simplePriceController.text),
+                  validator: (v) =>
+                      _validatePromo(v, _simplePriceController.text),
                 ),
               ),
             ],
@@ -534,6 +565,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           const SizedBox(height: 8),
           CustomTextField(
             controller: _simpleStockController,
+            labelText: 'Stock quantity',
             hintText: 'Stock quantity',
             keyboardType: TextInputType.number,
             inputFormatters: [
@@ -594,11 +626,19 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                       child: DropdownButtonFormField<String>(
                         value: group.color,
                         decoration: const InputDecoration(
+                          labelText: 'Color',
+                          labelStyle: TextStyle(
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                           filled: true,
                           fillColor: AppColors.lightGrey,
                         ),
                         items: _colorOptions
-                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                            .map(
+                              (c) => DropdownMenuItem(value: c, child: Text(c)),
+                            )
                             .toList(),
                         onChanged: (value) =>
                             setState(() => group.color = value ?? group.color),
@@ -606,8 +646,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                     ),
                     if (_variantGroups.length > 1)
                       IconButton(
-                        onPressed: () => setState(() => _variantGroups.removeAt(groupIndex)),
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () =>
+                            setState(() => _variantGroups.removeAt(groupIndex)),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
                       ),
                   ],
                 ),
@@ -637,11 +681,22 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                               child: DropdownButtonFormField<String>(
                                 value: v.size,
                                 decoration: const InputDecoration(
+                                  labelText: 'Size',
+                                  labelStyle: TextStyle(
+                                    color: AppColors.darkText,
+                                    fontFamily: AppFonts.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   filled: true,
                                   fillColor: Colors.white,
                                 ),
                                 items: _sizeOptions
-                                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                                    .map(
+                                      (s) => DropdownMenuItem(
+                                        value: s,
+                                        child: Text(s),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (value) =>
                                     setState(() => v.size = value ?? v.size),
@@ -651,6 +706,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                             Expanded(
                               child: CustomTextField(
                                 controller: v.stockController,
+                                labelText: 'Stock',
                                 hintText: 'Stock',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
@@ -668,10 +724,13 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                             Expanded(
                               child: CustomTextField(
                                 controller: v.priceController,
+                                labelText: 'Price',
                                 hintText: 'Price',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                   LengthLimitingTextInputFormatter(7),
                                 ],
                                 validator: _validatePrice,
@@ -681,13 +740,17 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                             Expanded(
                               child: CustomTextField(
                                 controller: v.promoPriceController,
+                                labelText: 'Promo',
                                 hintText: 'Promo (optional)',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                   LengthLimitingTextInputFormatter(7),
                                 ],
-                                validator: (val) => _validatePromo(val, v.priceController.text),
+                                validator: (val) =>
+                                    _validatePromo(val, v.priceController.text),
                               ),
                             ),
                           ],
@@ -695,6 +758,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                         const SizedBox(height: 8),
                         CustomTextField(
                           controller: v.skuController,
+                          labelText: 'SKU',
                           hintText: 'SKU (optional)',
                         ),
                         Row(
@@ -708,7 +772,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                                       size: _sizeOptions.first,
                                       stockController: TextEditingController(),
                                       priceController: TextEditingController(),
-                                      promoPriceController: TextEditingController(),
+                                      promoPriceController:
+                                          TextEditingController(),
                                       skuController: TextEditingController(),
                                     ),
                                   );
@@ -720,7 +785,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                             if (group.variants.length > 1)
                               TextButton(
                                 onPressed: () => setState(() {
-                                  final removed = group.variants.removeAt(variantIndex);
+                                  final removed = group.variants.removeAt(
+                                    variantIndex,
+                                  );
                                   removed.dispose();
                                 }),
                                 child: const Text('Remove'),
@@ -884,7 +951,11 @@ class _ImagePickerGrid extends StatelessWidget {
                           color: Colors.black54,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                       ),
                     ),
                   ),
@@ -918,4 +989,3 @@ class _ImagePickerGrid extends StatelessWidget {
     );
   }
 }
-
