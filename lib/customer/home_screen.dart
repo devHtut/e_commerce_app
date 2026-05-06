@@ -1816,7 +1816,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   : filtered.isEmpty
                   ? const Center(
                       child: Text(
-                        'အော်ဒါ ID လေး မှားနေသလားလို့ပါ။ 🧐 ရှာလို့မတွေ့ဖြစ်နေလို့ တစ်ခေါက်လောက် ပြန်စစ်ပြီး ရိုက်ထည့်ပေးပါဦးနော်။ ကျေးဇူးတင်ပါတယ်ဗျ! 🙌',
+                        'No orders match this order ID.',
                         style: AppTextStyles.body,
                       ),
                     )
@@ -2407,8 +2407,8 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: AppColors.lightGrey,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          leading: _currentIndex == 0 ? _chatButton() : null,
-          leadingWidth: _currentIndex == 0 ? 56 : 0,
+          leading: _chatButton(),
+          leadingWidth: 56,
           title: _currentIndex == 2
               ? ValueListenableBuilder<List<CartItem>>(
                   valueListenable: CartService.instance.itemsNotifier,
@@ -2421,11 +2421,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               : Text(_appBarTitle(), style: AppTextStyles.appBarTitle),
           centerTitle: true,
-          actions: _isLoggedIn
-              ? [if (_currentIndex == 0) _notificationButton()]
-              : _currentIndex == 0
-              ? [_notificationButton()]
-              : null,
+          actions: [_notificationButton()],
         ),
         body: _buildCurrentPage(),
         bottomNavigationBar: Theme(

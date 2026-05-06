@@ -188,7 +188,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         context,
         title: 'Validation failed',
         message:
-            'အဆင်ပြေရာ Payment Method လေးရွေးချယ်ပေးပြီး ငွေပေးချေမှုအောင်မြင်ကြောင်း Screenshot လေးကို ဒီမှာတင်ပေးပါဦးနော်။ ✨📸',
+            'Choose one of the Payment Method and upload a screenshot after make payment!',
         type: PopupType.error,
       );
       return;
@@ -198,7 +198,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         context,
         title: 'Validation failed',
         message:
-            'Transaction ID (နောက်ဆုံးဂဏန်း ၆ လုံး) လေးကို ဖြည့်သွင်းပေးပါဦးနော်။ ✍️ ရှာရခက်နေရင် Screenshot ထဲမှာ ပြန်ကြည့်လို့ရပါတယ်ခင်ဗျာ။ 😊',
+            'Please enter the last 6 digits of the transaction id.',
         type: PopupType.error,
       );
       return;
@@ -216,7 +216,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           context,
           title: 'Upload failed',
           message:
-              'အို... ဖိုင်ကို ဖတ်လို့မရဖြစ်နေလို့ပါ။ 📸 ပုံလေးကို နောက်တစ်ခေါက်လောက် ပြန်ရွေးပေးပါဦးနော်။ အဆင်မပြေဖြစ်သွားရင် တောင်းပန်ပါတယ်ခင်ဗျာ။ 😊',
+              'Unable to read the selected screenshot file.',
           type: PopupType.error,
         );
         return;
@@ -335,7 +335,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         context,
         title: 'Payment successful',
         message:
-            'အော်ဒါအတွက် ငွေပေးချေမှု အောင်မြင်သွားပါပြီဗျာ! 🎉 အခုဆိုရင် Admin ဘက်က အတည်ပြုပေးဖို့ စစ်ဆေးနေပြီမို့လို့ ခဏလေးတော့ စောင့်ပေးပါဦးနော်။ ✨ ကျေးဇူးအများကြီး တင်ပါတယ်ခင်ဗျာ။ 🙏',
+            'You made payment for the order successfully! Please wait the admin response.',
         type: PopupType.success,
       );
 
@@ -407,7 +407,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'အဆင်ပြေရာ Payment Method လေးရွေးချယ်ပေးပြီး ငွေပေးချေမှုအောင်မြင်ကြောင်း Screenshot လေးကို ဒီမှာတင်ပေးပါဦးနော်။ ✨📸',
+                      'Choose one of the Payment Method and upload a screenshot after make payment!',
                       style: AppTextStyles.body,
                     ),
                     const SizedBox(height: 24),

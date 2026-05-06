@@ -592,7 +592,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                           SizedBox(height: 240),
                           Center(
                             child: Text(
-                              'အော်ဒါ ID လေး မှားနေသလားလို့ပါ။ 🧐 ရှာလို့မတွေ့ဖြစ်နေလို့ တစ်ခေါက်လောက် ပြန်စစ်ပြီး ရိုက်ထည့်ပေးပါဦးနော်။ ကျေးဇူးတင်ပါတယ်ဗျ! 🙌',
+                              'အNo orders match this order ID.',
                               style: AppTextStyles.body,
                             ),
                           ),

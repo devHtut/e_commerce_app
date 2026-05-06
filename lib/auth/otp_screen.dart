@@ -61,6 +61,13 @@ class _OtpScreenState extends State<OtpScreen> {
         );
 
         if (!mounted) return;
+        await showCustomPopup(
+          context,
+          title: "Verification successful",
+          message: "Please sign in with the same email and password",
+          type: PopupType.success,
+        );
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const SignInScreen()),
