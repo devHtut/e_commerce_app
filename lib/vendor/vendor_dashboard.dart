@@ -593,7 +593,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                           SizedBox(height: 240),
                           Center(
                             child: Text(
-                              'အNo orders match this order ID.',
+                              'No orders match this order ID.',
                               style: AppTextStyles.body,
                             ),
                           ),

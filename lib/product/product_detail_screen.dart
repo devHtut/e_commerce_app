@@ -272,7 +272,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           context,
           title: 'Cannot add to cart',
           message:
-              'You can\'t add to cart because of different brand. Please checkout the existing items from the cart!',
+              'You can\'t add to cart multi brands items. Please checkout the existing items from the cart!',
           type: PopupType.error,
         );
         return null;

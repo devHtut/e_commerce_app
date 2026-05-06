@@ -6,8 +6,8 @@ import '../auth/signin_screen.dart';
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
-import 'vendor_business_info_screen.dart';
-import 'vendor_info_screen.dart';
+import 'brand_business_info_screen.dart';
+import 'brand_profile_screen.dart';
 import 'vendor_social_links_screen.dart';
 
 class BrandAccountSettingsScreen extends StatefulWidget {
@@ -62,7 +62,7 @@ class _BrandAccountSettingsScreenState
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const SignInScreen()),
-          (route) => false,
+      (route) => false,
     );
   }
 
@@ -212,35 +212,35 @@ class _BrandAccountSettingsScreenState
                     child: ClipOval(
                       child: logoUrl != null && logoUrl.isNotEmpty
                           ? Image.network(
-                        logoUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.grey.shade100,
-                          alignment: Alignment.center,
-                          child: Text(
-                            initials,
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGreen,
-                              fontFamily: AppFonts.primary,
-                            ),
-                          ),
-                        ),
-                      )
+                              logoUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey.shade100,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryGreen,
+                                    fontFamily: AppFonts.primary,
+                                  ),
+                                ),
+                              ),
+                            )
                           : Container(
-                        color: Colors.grey.shade100,
-                        alignment: Alignment.center,
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryGreen,
-                            fontFamily: AppFonts.primary,
-                          ),
-                        ),
-                      ),
+                              color: Colors.grey.shade100,
+                              alignment: Alignment.center,
+                              child: Text(
+                                initials,
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryGreen,
+                                  fontFamily: AppFonts.primary,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -310,7 +310,7 @@ class _BrandAccountSettingsScreenState
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const VendorInfoScreen(),
+                          builder: (_) => const BrandProfileScreen(),
                         ),
                       ).then((_) => _loadData());
                     },
@@ -333,11 +333,9 @@ class _BrandAccountSettingsScreenState
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const VendorBusinessInfoScreen(
-                            continueToSocialLinks: false,
-                          ),
+                          builder: (_) => const BrandBusinessInfoScreen(),
                         ),
-                      );
+                      ).then((_) => _loadData());
                     },
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
