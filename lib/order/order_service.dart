@@ -297,7 +297,7 @@ class OrderService {
           brand: brandRow?['brand_name']?.toString() ?? '',
           brandId: brandId,
           brandLogoUrl: brandRow?['logo_url']?.toString(),
-          rating: 0.0,
+          // rating: 0.0,
           imageUrl: variantRow['image_url']?.toString() ?? '',
         );
 

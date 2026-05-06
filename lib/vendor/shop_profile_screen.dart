@@ -157,7 +157,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         filtered.sort((a, b) => a.price.compareTo(b.price));
       case _ShopSort.topRated:
       case _ShopSort.popularity:
-        filtered.sort((a, b) => b.rating.compareTo(a.rating));
+        // filtered.sort((a, b) => b.rating.compareTo(a.rating));
       case _ShopSort.latestArrival:
       case _ShopSort.discount:
       case _ShopSort.mostSuitable:

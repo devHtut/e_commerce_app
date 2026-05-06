@@ -237,7 +237,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       brandLogoUrl: _product.brandLogoUrl,
       description: _product.description,
       price: price,
-      rating: _product.rating,
+      // rating: _product.rating,
       imageUrl: imageUrl,
       imageUrls: _images,
     );

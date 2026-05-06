@@ -8,7 +8,7 @@ class ProductModel {
   final String? brandLogoUrl;
   final String description;
   final double price;
-  final double rating;
+  // final double rating;
   final String imageUrl;
   final List<String> imageUrls;
 
@@ -22,7 +22,7 @@ class ProductModel {
     this.brandLogoUrl,
     required this.description,
     required this.price,
-    required this.rating,
+    // required this.rating,
     required this.imageUrl,
     this.imageUrls = const [],
   });
@@ -55,7 +55,7 @@ class ProductModel {
       brandLogoUrl: ((row['brands'] as Map?)?['logo_url']?.toString()),
       description: row['description']?.toString() ?? '',
       price: basePrice,
-      rating: 4.8,
+      // rating: 4.8,
       imageUrl: imageUrls.isEmpty
           ? 'https://via.placeholder.com/600x800?text=No+Image'
           : imageUrls.first,
@@ -87,7 +87,7 @@ class ProductModel {
       brandLogoUrl: brandLogoUrl ?? this.brandLogoUrl,
       description: description ?? this.description,
       price: price ?? this.price,
-      rating: rating ?? this.rating,
+      // rating: rating ?? this.rating,
       imageUrl: imageUrl ?? this.imageUrl,
       imageUrls: imageUrls ?? this.imageUrls,
     );

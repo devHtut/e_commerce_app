@@ -7,7 +7,7 @@ import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
-import 'vendor_dashboard.dart';
+import 'vendor_social_links_screen.dart';
 
 class _VendorPaymentEntry {
   String? paymentType;
@@ -28,7 +28,12 @@ class _VendorPaymentEntry {
 }
 
 class VendorBusinessInfoScreen extends StatefulWidget {
-  const VendorBusinessInfoScreen({super.key});
+  const VendorBusinessInfoScreen({
+    super.key,
+    this.continueToSocialLinks = true,
+  });
+
+  final bool continueToSocialLinks;
 
   @override
   State<VendorBusinessInfoScreen> createState() =>
@@ -39,9 +44,6 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _facebookController = TextEditingController();
-  final _instagramController = TextEditingController();
-  final _tiktokController = TextEditingController();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -67,9 +69,6 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   void dispose() {
     _phoneController.dispose();
     _addressController.dispose();
-    _facebookController.dispose();
-    _instagramController.dispose();
-    _tiktokController.dispose();
     for (final entry in _paymentEntries) {
       entry.dispose();
     }
@@ -134,9 +133,6 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
         }
         _phoneController.text = vendor?['phone']?.toString() ?? '';
         _addressController.text = vendor?['address']?.toString() ?? '';
-        _facebookController.text = vendor?['facebook_url']?.toString() ?? '';
-        _instagramController.text = vendor?['instagram_url']?.toString() ?? '';
-        _tiktokController.text = vendor?['tiktok_url']?.toString() ?? '';
         _isLoading = false;
       });
     } catch (e) {
@@ -319,11 +315,6 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
         currentUser.id,
         _phoneController.text.trim(),
         _addressController.text.trim(),
-        _facebookController.text.trim(),
-        _instagramController.text.trim(),
-        _tiktokController.text.trim().isEmpty
-            ? null
-            : _tiktokController.text.trim(),
       );
 
       final vendorId = vendor?['id']?.toString();
@@ -334,17 +325,22 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
       if (!mounted) return;
       await showCustomPopup(
         context,
-        title: 'Vendor setup complete',
+        title: 'Business details saved',
         message: 'Your business and payment details are saved.',
         type: PopupType.success,
       );
 
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const VendorDashboard()),
-        (route) => false,
-      );
+      if (widget.continueToSocialLinks) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const VendorSocialLinksScreen(isOnboarding: true),
+          ),
+        );
+      } else {
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (!mounted) return;
       await showCustomPopup(
@@ -443,48 +439,6 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        'Facebook URL',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontFamily: AppFonts.primary,
-                          color: AppColors.darkText,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _facebookController,
-                        hintText: 'https://facebook.com/yourpage',
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Instagram URL',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontFamily: AppFonts.primary,
-                          color: AppColors.darkText,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _instagramController,
-                        hintText: 'https://instagram.com/yourpage',
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'TikTok URL',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontFamily: AppFonts.primary,
-                          color: AppColors.darkText,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _tiktokController,
-                        hintText: 'https://tiktok.com/@yourpage',
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
                         'Payment Methods',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
@@ -523,7 +477,9 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
                         child: _isSaving
                             ? const Center(child: CircularProgressIndicator())
                             : CustomButton(
-                                text: 'Finish',
+                                text: widget.continueToSocialLinks
+                                    ? 'Continue'
+                                    : 'Save',
                                 onPressed: _saveVendorBusinessInfo,
                               ),
                       ),

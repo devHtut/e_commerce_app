@@ -85,30 +85,30 @@ class _ProductCardState extends State<ProductCard> {
                       child: const Icon(Icons.image_not_supported, size: 28),
                     ),
                   ),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            widget.product.rating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontFamily: AppFonts.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  // Positioned(
+                  //   top: 8,
+                  //   left: 8,
+                  //   child: Container(
+                  //     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  //     decoration: BoxDecoration(
+                  //       color: Colors.white.withValues(alpha: 0.9),
+                  //       borderRadius: BorderRadius.circular(20),
+                  //     ),
+                  //     child: Row(
+                  //       children: [
+                  //         const Icon(Icons.star, color: Colors.amber, size: 16),
+                  //         const SizedBox(width: 4),
+                  //         Text(
+                  //           widget.product.rating.toStringAsFixed(1),
+                  //           style: const TextStyle(
+                  //             fontFamily: AppFonts.primary,
+                  //             fontWeight: FontWeight.w600,
+                  //           ),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   ),
+                  // ),
                   Positioned(
                     top: 8,
                     right: 8,

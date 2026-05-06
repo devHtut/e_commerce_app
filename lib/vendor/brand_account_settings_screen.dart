@@ -8,6 +8,7 @@ import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import 'vendor_business_info_screen.dart';
 import 'vendor_info_screen.dart';
+import 'vendor_social_links_screen.dart';
 
 class BrandAccountSettingsScreen extends StatefulWidget {
   const BrandAccountSettingsScreen({super.key});
@@ -265,7 +266,9 @@ class _BrandAccountSettingsScreenState
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const VendorBusinessInfoScreen(),
+                          builder: (_) => const VendorBusinessInfoScreen(
+                            continueToSocialLinks: false,
+                          ),
                         ),
                       );
                     },
@@ -288,7 +291,7 @@ class _BrandAccountSettingsScreenState
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const VendorBusinessInfoScreen(),
+                          builder: (_) => const VendorSocialLinksScreen(),
                         ),
                       );
                     },

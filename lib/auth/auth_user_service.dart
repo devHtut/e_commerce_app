@@ -175,9 +175,6 @@ class AuthUserService {
     String userId,
     String phone,
     String address,
-    String facebookUrl,
-    String instagramUrl,
-    String? tiktokUrl,
   ) async {
     final client = Supabase.instance.client;
     final existing = await getVendorByUser(userId);
@@ -185,6 +182,38 @@ class AuthUserService {
       'user_id': userId,
       'phone': phone,
       'address': address,
+      'facebook_url': existing?['facebook_url']?.toString() ?? '',
+      'instagram_url': existing?['instagram_url']?.toString() ?? '',
+      'tiktok_url': existing?['tiktok_url']?.toString(),
+    };
+
+    if (existing != null) {
+      await client.from('vendors').update(payload).eq('user_id', userId);
+      return {'id': existing['id'], ...payload};
+    }
+
+    final inserted = await client
+        .from('vendors')
+        .insert(payload)
+        .select(
+          'id, user_id, phone, address, facebook_url, instagram_url, tiktok_url',
+        )
+        .single();
+    return inserted;
+  }
+
+  static Future<Map<String, dynamic>?> updateVendorSocialLinks({
+    required String userId,
+    required String facebookUrl,
+    required String instagramUrl,
+    required String? tiktokUrl,
+  }) async {
+    final client = Supabase.instance.client;
+    final existing = await getVendorByUser(userId);
+    final payload = {
+      'user_id': userId,
+      'phone': existing?['phone']?.toString() ?? '',
+      'address': existing?['address']?.toString() ?? '',
       'facebook_url': facebookUrl,
       'instagram_url': instagramUrl,
       'tiktok_url': tiktokUrl,
