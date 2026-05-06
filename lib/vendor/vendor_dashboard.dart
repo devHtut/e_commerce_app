@@ -9,6 +9,7 @@ import '../order/order_detail_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
+import '../widgets/custom_pop_up.dart';
 import '../widgets/order_readable_id_search.dart';
 import 'brand_account_settings_screen.dart';
 import 'shop_profile_screen.dart';
@@ -69,7 +70,6 @@ class _VendorDashboardState extends State<VendorDashboard> {
     'Products',
     'Shop Profile',
     'Orders',
-    'Chat',
     'Account',
   ];
 
@@ -298,27 +298,6 @@ class _VendorDashboardState extends State<VendorDashboard> {
     );
   }
 
-  Widget _buildPlaceholder(String message, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 64, color: AppColors.primaryGreen.withOpacity(0.8)),
-          const SizedBox(height: 18),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 18,
-              color: AppColors.darkText,
-              fontFamily: AppFonts.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _refreshVendorOrders() async {
     await _loadVendorBrandOrderPrefix();
     final future = OrderService.instance.loadVendorOrders();
@@ -338,6 +317,23 @@ class _VendorDashboardState extends State<VendorDashboard> {
     );
     await NotificationService.instance.refreshUnreadCount(
       audience: AppNotificationAudience.vendor,
+    );
+  }
+
+  Future<void> _openChat() async {
+    await showCustomPopup(
+      context,
+      title: 'Chat',
+      message: 'Vendor chat is coming soon.',
+      type: PopupType.success,
+    );
+  }
+
+  Widget _chatButton() {
+    return IconButton(
+      onPressed: _openChat,
+      tooltip: 'Chat',
+      icon: const Icon(Icons.chat_bubble_outline, color: AppColors.darkText),
     );
   }
 
@@ -802,16 +798,15 @@ class _VendorDashboardState extends State<VendorDashboard> {
         embedded: true,
       ),
       _buildOrdersPage(),
-      _buildPlaceholder(
-        'Vendor chat is coming soon.',
-        Icons.chat_bubble_outline,
-      ),
       const BrandAccountSettingsScreen(),
     ];
 
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: _chatButton(),
+        leadingWidth: 56,
         title: Text(_titles[_currentIndex], style: AppTextStyles.appBarTitle),
         actions: [_notificationButton()],
       ),
@@ -839,11 +834,6 @@ class _VendorDashboardState extends State<VendorDashboard> {
             icon: const Icon(Icons.receipt_long_outlined),
             activeIcon: const Icon(Icons.receipt_long),
             label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.chat_bubble_outline),
-            activeIcon: const Icon(Icons.chat_bubble),
-            label: 'Chat',
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.person_outline),
