@@ -748,6 +748,11 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final current = variants[selectedVariant];
+            final hasSelectableVariants = variants.any(
+              (variant) =>
+                  !_isDefaultVariantValue(variant.size) ||
+                  !_isDefaultVariantValue(variant.color),
+            );
             final sizes = variants.map((v) => v.size).toSet().toList();
             final colors = variants
                 .where((v) => v.size == current.size)
@@ -897,167 +902,170 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    Divider(color: Colors.grey.shade200, height: 1),
-                    const SizedBox(height: 12),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Size',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
+                    if (hasSelectableVariants) ...[
+                      const SizedBox(height: 14),
+                      Divider(color: Colors.grey.shade200, height: 1),
+                      const SizedBox(height: 12),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Size',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: List.generate(sizes.length, (index) {
-                        final size = sizes[index];
-                        final isSelected = current.size == size;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            right: index == sizes.length - 1 ? 0 : 10,
-                          ),
-                          child: InkWell(
-                            onTap: () {
-                              final sameSize = variants
-                                  .where((variant) => variant.size == size)
-                                  .toList();
-                              final matchedColor = sameSize.indexWhere(
-                                (variant) => variant.color == current.color,
-                              );
-                              setModalState(() {
-                                selectedVariant = variants.indexOf(
-                                  sameSize[matchedColor == -1
-                                      ? 0
-                                      : matchedColor],
+                      const SizedBox(height: 10),
+                      Row(
+                        children: List.generate(sizes.length, (index) {
+                          final size = sizes[index];
+                          final isSelected = current.size == size;
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              right: index == sizes.length - 1 ? 0 : 10,
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                final sameSize = variants
+                                    .where((variant) => variant.size == size)
+                                    .toList();
+                                final matchedColor = sameSize.indexWhere(
+                                  (variant) => variant.color == current.color,
                                 );
-                                quantity = quantity.clamp(
-                                  1,
-                                  variants[selectedVariant].stock,
-                                );
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(22),
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.primaryGreen
-                                    : Colors.white,
-                                shape: BoxShape.circle,
-                                border: Border.all(
+                                setModalState(() {
+                                  selectedVariant = variants.indexOf(
+                                    sameSize[matchedColor == -1
+                                        ? 0
+                                        : matchedColor],
+                                  );
+                                  quantity = quantity.clamp(
+                                    1,
+                                    variants[selectedVariant].stock,
+                                  );
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(22),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
                                   color: isSelected
                                       ? AppColors.primaryGreen
-                                      : Colors.grey.shade300,
-                                ),
-                              ),
-                              child: Text(
-                                size,
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : AppColors.darkText,
-                                  fontFamily: AppFonts.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 12),
-                    Divider(color: Colors.grey.shade200, height: 1),
-                    const SizedBox(height: 12),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Color',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 78,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: colors.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemBuilder: (context, index) {
-                          final colorName = colors[index];
-                          final isSelected = current.color == colorName;
-                          return InkWell(
-                            onTap: () {
-                              final match = variants.firstWhere(
-                                (variant) =>
-                                    variant.size == current.size &&
-                                    variant.color == colorName,
-                              );
-                              setModalState(() {
-                                selectedVariant = variants.indexOf(match);
-                                quantity = quantity.clamp(
-                                  1,
-                                  variants[selectedVariant].stock,
-                                );
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(18),
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: _colorFromName(colorName),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? AppColors.darkText
-                                          : Colors.grey.shade300,
-                                      width: isSelected ? 2 : 1,
-                                    ),
+                                      : Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? AppColors.primaryGreen
+                                        : Colors.grey.shade300,
                                   ),
-                                  child: isSelected
-                                      ? Icon(
-                                          Icons.check,
-                                          size: 18,
-                                          color:
-                                              _colorFromName(
-                                                    colorName,
-                                                  ).computeLuminance() >
-                                                  0.8
-                                              ? AppColors.darkText
-                                              : Colors.white,
-                                        )
-                                      : null,
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  colorName,
+                                child: Text(
+                                  size,
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade700,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppColors.darkText,
                                     fontFamily: AppFonts.primary,
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           );
-                        },
+                        }),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Divider(color: Colors.grey.shade200, height: 1),
+                      const SizedBox(height: 12),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Color',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 78,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: colors.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final colorName = colors[index];
+                            final isSelected = current.color == colorName;
+                            return InkWell(
+                              onTap: () {
+                                final match = variants.firstWhere(
+                                  (variant) =>
+                                      variant.size == current.size &&
+                                      variant.color == colorName,
+                                );
+                                setModalState(() {
+                                  selectedVariant = variants.indexOf(match);
+                                  quantity = quantity.clamp(
+                                    1,
+                                    variants[selectedVariant].stock,
+                                  );
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(18),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: _colorFromName(colorName),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? AppColors.darkText
+                                            : Colors.grey.shade300,
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                    ),
+                                    child: isSelected
+                                        ? Icon(
+                                            Icons.check,
+                                            size: 18,
+                                            color:
+                                                _colorFromName(
+                                                      colorName,
+                                                    ).computeLuminance() >
+                                                    0.8
+                                                ? AppColors.darkText
+                                                : Colors.white,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    colorName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade700,
+                                      fontFamily: AppFonts.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     Divider(color: Colors.grey.shade200, height: 1),
                     const SizedBox(height: 14),
@@ -2376,21 +2384,6 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: AppColors.lightGrey,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          leading: _currentIndex == 0
-              ? Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primaryGreen,
-                    ),
-                    child: const Icon(Icons.eco, size: 18, color: Colors.white),
-                  ),
-                )
-              : null,
-          leadingWidth: _currentIndex == 0 ? 52 : 0,
           title: _currentIndex == 2
               ? ValueListenableBuilder<List<CartItem>>(
                   valueListenable: CartService.instance.itemsNotifier,
@@ -2484,6 +2477,10 @@ class _BrandInfo {
     required this.name,
     required this.logoUrl,
   });
+}
+
+bool _isDefaultVariantValue(String value) {
+  return value.trim().toLowerCase() == 'default';
 }
 
 Color _colorFromName(String colorName) {
