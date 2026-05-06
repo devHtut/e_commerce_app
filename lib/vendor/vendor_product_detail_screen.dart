@@ -5,6 +5,7 @@ import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/edit_product_screen.dart';
+import '../widgets/price_formatter.dart';
 
 class VendorProductDetailScreen extends StatefulWidget {
   final String productId;
@@ -318,7 +319,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '\$${price.toStringAsFixed(2)}',
+                    formatKyat(price),
                     style: const TextStyle(
                       fontSize: 28,
                       color: AppColors.primaryGreen,

@@ -5,6 +5,7 @@ import '../auth/auth_user_service.dart';
 import '../customer/home_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
+import '../widgets/price_formatter.dart';
 import 'cart_item.dart';
 import 'cart_service.dart';
 import 'payment_screen.dart';
@@ -1676,7 +1677,7 @@ class _OrderItemTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '\$${item.subtotal.toStringAsFixed(2)}',
+                  formatKyat(item.subtotal),
                   style: const TextStyle(
                     fontFamily: AppFonts.primary,
                     color: AppColors.primaryGreen,
@@ -1741,7 +1742,7 @@ class _ReviewSummaryCard extends StatelessWidget {
           const SizedBox(height: 10),
           _SummaryRow(
             label: 'Subtotal ($itemCount items)',
-            value: '\$${subtotal.toStringAsFixed(2)}',
+            value: formatKyat(subtotal),
           ),
           const SizedBox(height: 8),
           _SummaryRow(label: 'Promo', value: promo),
@@ -1750,7 +1751,7 @@ class _ReviewSummaryCard extends StatelessWidget {
           const SizedBox(height: 10),
           _SummaryRow(
             label: 'Total Payment',
-            value: '\$${totalPayment.toStringAsFixed(2)}',
+            value: formatKyat(totalPayment),
             isTotal: true,
           ),
         ],

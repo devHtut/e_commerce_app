@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
+import '../widgets/price_formatter.dart';
 import '../widgets/search_box.dart';
 import 'create_product_screen.dart';
 import 'vendor_product_detail_screen.dart';
@@ -41,7 +42,8 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
         .where(
           (p) =>
               p.name.toLowerCase().contains(query) ||
-              p.price.toStringAsFixed(0).contains(query),
+              formatKyat(p.price).toLowerCase().contains(query) ||
+              p.price.round().toString().contains(query),
         )
         .toList();
   }
@@ -250,7 +252,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                                       subtitle: Padding(
                                         padding: const EdgeInsets.only(top: 6),
                                         child: Text(
-                                          '\$${product.price.toStringAsFixed(0)} • ${product.stock} in stocks',
+                                          '${formatKyat(product.price)} • ${product.stock} in stocks',
                                           style: const TextStyle(
                                             color: AppColors.subtleText,
                                             fontFamily: AppFonts.primary,

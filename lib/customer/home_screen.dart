@@ -15,6 +15,7 @@ import '../product/product_model.dart';
 import '../wishlist/wishlist_service.dart';
 import '../widgets/auto_banner_slider.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/price_formatter.dart';
 import '../widgets/product_card.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/order_readable_id_search.dart';
@@ -834,7 +835,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                '\$${current.price.toStringAsFixed(2)}',
+                                formatKyat(current.price),
                                 style: const TextStyle(
                                   fontSize: 22,
                                   color: AppColors.primaryGreen,
@@ -1437,9 +1438,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                             const SizedBox(height: 8),
                             Text(
-                              '\$${item.subtotal.toStringAsFixed(2)}',
+                              formatKyat(item.subtotal),
                               style: const TextStyle(
-                                fontSize: 34,
+                                fontSize: 25,
                                 color: AppColors.primaryGreen,
                                 fontWeight: FontWeight.w700,
                                 fontFamily: AppFonts.primary,
@@ -1494,11 +1495,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        'Checkout ($selectedCount) - \$${selectedTotal.toStringAsFixed(2)}',
+                        'Checkout ($selectedCount) - ${formatKyat(selectedTotal)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontFamily: AppFonts.primary,
-                          fontSize: 22,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -1640,7 +1641,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text(
           'Cancel Order',
           style: TextStyle(
-            color: Color(0xFFCF6E6E),
+            // color: Color(0xFFCF6E6E),
             fontFamily: AppFonts.primary,
             fontWeight: FontWeight.w700,
           ),
@@ -1663,7 +1664,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryGreen,
             ),
-            child: const Text('Yes, Cancel Order'),
+            child: const Text('Yes, Cancel Order', style: TextStyle(color: Colors.white),),
           ),
         ],
       ),
@@ -1694,7 +1695,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(
                 fontFamily: AppFonts.primary,
                 color: AppColors.darkText,
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1948,12 +1949,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                         ),
                                         Text(
-                                          '\$${order.total.toStringAsFixed(2)}',
+                                          formatKyat(order.total),
                                           style: const TextStyle(
                                             color: AppColors.primaryGreen,
                                             fontFamily: AppFonts.primary,
                                             fontWeight: FontWeight.w700,
-                                            fontSize: 30,
+                                            fontSize: 25,
                                           ),
                                         ),
                                         const SizedBox(height: 8),

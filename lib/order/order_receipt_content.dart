@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
+import '../widgets/price_formatter.dart';
 import 'order_service.dart';
 
 String _receiptStatusLabel(OrderStatus status) {
@@ -219,7 +220,7 @@ class OrderReceiptContent extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '\$${item.subtotal.toStringAsFixed(2)}',
+                        formatKyat(item.subtotal),
                         style: const TextStyle(
                           fontFamily: AppFonts.primary,
                           fontWeight: FontWeight.w700,
@@ -238,12 +239,12 @@ class OrderReceiptContent extends StatelessWidget {
           const SizedBox(height: 10),
           _rowLabelValue(
             'Subtotal (${order.items.length} items)',
-            '\$${subtotal.toStringAsFixed(2)}',
+            formatKyat(subtotal),
           ),
           const SizedBox(height: 6),
           _rowLabelValue(
             'Total',
-            '\$${subtotal.toStringAsFixed(2)}',
+            formatKyat(subtotal),
             emphasize: true,
           ),
           const SizedBox(height: 14),
@@ -273,7 +274,7 @@ class OrderReceiptContent extends StatelessWidget {
             const SizedBox(height: 4),
             _rowLabelValue('Transaction ID', payment.transactionId),
             const SizedBox(height: 4),
-            _rowLabelValue('Amount', '\$${payment.amount.toStringAsFixed(2)}'),
+            _rowLabelValue('Amount', formatKyat(payment.amount)),
             if (payment.screenshotUrl.isNotEmpty) ...[
               const SizedBox(height: 10),
               const Text(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
+import '../widgets/price_formatter.dart';
 import 'order_receipt_generator.dart';
 import 'order_service.dart';
 
@@ -199,7 +200,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '\$${item.subtotal.toStringAsFixed(2)}',
+                            formatKyat(item.subtotal),
                             style: const TextStyle(
                               color: AppColors.primaryGreen,
                               fontFamily: AppFonts.primary,
@@ -226,13 +227,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             children: [
               _summaryRow(
                 'Subtotal (${_order.items.length} items)',
-                '\$${subtotal.toStringAsFixed(2)}',
+                formatKyat(subtotal),
               ),
-              _summaryRow('Promo', '- \$${promo.toStringAsFixed(2)}'),
+              _summaryRow('Promo', formatDiscountKyat(promo)),
               const Divider(),
               _summaryRow(
                 'Total Payment',
-                '\$${total.toStringAsFixed(2)}',
+                formatKyat(total),
                 isTotal: true,
               ),
             ],
@@ -651,7 +652,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           _summaryRow('Method', payment.paymentMethod),
           _summaryRow('Status', payment.status.toUpperCase()),
           _summaryRow('Transaction ID', payment.transactionId),
-          _summaryRow('Amount', '\$${payment.amount.toStringAsFixed(2)}'),
+          _summaryRow('Amount', formatKyat(payment.amount)),
           const SizedBox(height: 10),
           const Text(
             'Payment Screenshot',

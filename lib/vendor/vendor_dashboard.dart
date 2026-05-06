@@ -11,6 +11,7 @@ import '../theme_config.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/order_readable_id_search.dart';
+import '../widgets/price_formatter.dart';
 import 'brand_account_settings_screen.dart';
 import 'shop_profile_screen.dart';
 import 'vendor_products_screen.dart';
@@ -729,7 +730,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                                             ),
                                           ),
                                           Text(
-                                            '\$${order.total.toStringAsFixed(2)}',
+                                            formatKyat(order.total),
                                             style: const TextStyle(
                                               color: AppColors.primaryGreen,
                                               fontFamily: AppFonts.primary,

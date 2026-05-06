@@ -3,6 +3,7 @@ import 'dart:async';
 
 import '../product/product_model.dart';
 import '../theme_config.dart';
+import 'price_formatter.dart';
 
 class ProductCard extends StatefulWidget {
   final ProductModel product;
@@ -144,7 +145,7 @@ class _ProductCardState extends State<ProductCard> {
           ),
           const SizedBox(height: 4),
           Text(
-            '\$${widget.product.price.toStringAsFixed(2)}',
+            formatKyat(widget.product.price),
             style: const TextStyle(
               fontSize: 18,
               color: AppColors.primaryGreen,

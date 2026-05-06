@@ -9,6 +9,7 @@ import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/price_formatter.dart';
 import '../customer/home_screen.dart';
 import 'cart_item.dart';
 import 'cart_service.dart';
@@ -164,16 +165,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 12),
           _SummaryRow(
             label: 'Subtotal (${widget.items.length} items)',
-            value: '\$${subtotal.toStringAsFixed(2)}',
+            value: formatKyat(subtotal),
           ),
           const SizedBox(height: 8),
-          _SummaryRow(label: 'Promo', value: '-\$${promo.toStringAsFixed(2)}'),
+          _SummaryRow(label: 'Promo', value: formatDiscountKyat(promo)),
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 12),
           _SummaryRow(
             label: 'Total Payment',
-            value: '\$${totalPayment.toStringAsFixed(2)}',
+            value: formatKyat(totalPayment),
             isTotal: true,
           ),
         ],
@@ -656,7 +657,7 @@ class _OrderItemTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '\$${item.subtotal.toStringAsFixed(2)}',
+                  formatKyat(item.subtotal),
                   style: const TextStyle(
                     fontFamily: AppFonts.primary,
                     color: AppColors.primaryGreen,

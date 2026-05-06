@@ -8,6 +8,7 @@ import '../vendor/shop_profile_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
+import '../widgets/price_formatter.dart';
 import 'product_model.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -271,7 +272,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           context,
           title: 'Cannot add to cart',
           message:
-              'You can\'t add to cart because of different brand. Please checkout first for the first item.',
+              'You can\'t add to cart because of different brand. Please checkout the existing items from the cart!',
           type: PopupType.error,
         );
         return null;
@@ -407,9 +408,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               Text('Stock  :  ${selectedVariant.stock}'),
                               const SizedBox(height: 8),
                               Text(
-                                '\$${displayPrice.toStringAsFixed(2)}',
+                                formatKyat(displayPrice),
                                 style: const TextStyle(
-                                  fontSize: 22,
+                                  fontSize: 25,
                                   color: AppColors.primaryGreen,
                                   fontWeight: FontWeight.w700,
                                   fontFamily: AppFonts.primary,
@@ -801,7 +802,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Text(_product.brand, style: AppTextStyles.body),
                   const SizedBox(height: 8),
                   Text(
-                    '\$${price.toStringAsFixed(2)}',
+                    formatKyat(price),
                     style: const TextStyle(
                       fontSize: 28,
                       color: AppColors.primaryGreen,
@@ -1169,7 +1170,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '\$${p.price.toStringAsFixed(2)}',
+                        formatKyat(p.price),
                         style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.primaryGreen,

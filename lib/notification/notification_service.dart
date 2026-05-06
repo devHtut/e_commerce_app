@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../widgets/price_formatter.dart';
+
 enum AppNotificationAudience { customer, vendor }
 
 class AppNotification {
@@ -194,10 +196,10 @@ class NotificationService {
       context: context,
       customerTitle: 'Payment submitted',
       customerMessage:
-          'Order ${context.shortOrderId} was placed for ${context.itemSummary}. Total: \$${context.total.toStringAsFixed(2)}. The vendor will review your payment soon.',
+          'Order ${context.shortOrderId} was placed for ${context.itemSummary}. Total: ${formatKyat(context.total)}. The vendor will review your payment soon.',
       vendorTitle: 'New paid order',
       vendorMessage:
-          '${context.customerName} paid for order ${context.shortOrderId}: ${context.itemSummary}. Total: \$${context.total.toStringAsFixed(2)}. Please review and confirm it.',
+          '${context.customerName} paid for order ${context.shortOrderId}: ${context.itemSummary}. Total: ${formatKyat(context.total)}. Please review and confirm it.',
       type: 'order_payment_submitted',
     );
   }
