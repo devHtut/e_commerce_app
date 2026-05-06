@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
@@ -68,7 +69,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
 
     final brandName = _brandNameController.text.trim();
     final description = _descriptionController.text.trim();
-    final prefix = _prefixController.text.trim();
+    final prefix = _prefixController.text.trim().toUpperCase();
     final currentUser = Supabase.instance.client.auth.currentUser;
 
     if (currentUser == null) {
@@ -301,11 +302,16 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                 CustomTextField(
                   controller: _prefixController,
                   hintText: 'e.g. PDT (shown as PDT- on orders)',
-                  maxLength: 8,
+                  maxLength: 3,
                   textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[A-Z]')),
+                    LengthLimitingTextInputFormatter(3),
+                  ],
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Prefix is required.';
+                    final prefix = value?.trim() ?? '';
+                    if (!RegExp(r'^[A-Z]{3}$').hasMatch(prefix)) {
+                      return 'Prefix must be 3 capital letters A-Z.';
                     }
                     return null;
                   },

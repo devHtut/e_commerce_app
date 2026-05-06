@@ -257,6 +257,10 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                                           ),
                                         ),
                                       ),
+                                      trailing: const Icon(
+                                        Icons.chevron_right,
+                                        color: AppColors.darkText,
+                                      ),
                                     ),
                                   );
                                 },
