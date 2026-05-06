@@ -562,16 +562,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 52,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                        width: 52,
-                        height: 52,
-                        color: Colors.grey.shade200,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.storefront_outlined,
-                          size: 28,
-                          color: AppColors.primaryGreen,
-                        ),
+                      width: 52,
+                      height: 52,
+                      color: Colors.grey.shade200,
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.storefront_outlined,
+                        size: 28,
+                        color: AppColors.primaryGreen,
                       ),
+                    ),
                   )
                 : Container(
                     width: 52,
@@ -1239,7 +1239,7 @@ class _HomeScreenState extends State<HomeScreen> {
           content: Container(
             height: 56,
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1248,13 +1248,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: Colors.white24,
-                  child: Icon(Icons.check, color: Colors.white, size: 18),
+                  child: Icon(Icons.check, color: AppColors.primaryGreen, size: 18),
                 ),
                 SizedBox(width: 12),
                 Text(
                   'Removed from Cart!',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.primaryGreen,
                     fontFamily: AppFonts.primary,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -1664,7 +1664,10 @@ class _HomeScreenState extends State<HomeScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryGreen,
             ),
-            child: const Text('Yes, Cancel Order', style: TextStyle(color: Colors.white),),
+            child: const Text(
+              'Yes, Cancel Order',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -2387,6 +2390,37 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _bottomNavIconWithBadge({required IconData icon, required int count}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon),
+        if (count > 0)
+          Positioned(
+            right: -6,
+            top: -4,
+            child: Container(
+              width: 16,
+              height: 16,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.errorRed,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                count > 9 ? '9+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -2412,46 +2446,70 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [_notificationButton()],
         ),
         body: _buildCurrentPage(),
-        bottomNavigationBar: Theme(
-          data: Theme.of(context).copyWith(
-            splashFactory: NoSplash.splashFactory,
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-          ),
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            selectedItemColor: AppColors.primaryGreen,
-            unselectedItemColor: Colors.grey,
-            type: BottomNavigationBarType.fixed,
-            onTap: _handleTabTap,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home),
-                label: 'Home',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.favorite_border),
-                activeIcon: Icon(Icons.favorite),
-                label: 'Wishlist',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.shopping_cart_outlined),
-                activeIcon: Icon(Icons.shopping_cart),
-                label: 'Cart',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.receipt_long_outlined),
-                activeIcon: Icon(Icons.receipt_long),
-                label: 'My Orders',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.account_circle_outlined),
-                activeIcon: Icon(Icons.account_circle),
-                label: 'Account',
-              ),
-            ],
-          ),
+        bottomNavigationBar: ValueListenableBuilder<List<CartItem>>(
+          valueListenable: CartService.instance.itemsNotifier,
+          builder: (context, cartItems, _) {
+            return ValueListenableBuilder<List<ProductModel>>(
+              valueListenable: WishlistService.instance.itemsNotifier,
+              builder: (context, wishlistItems, _) {
+                final cartCount = cartItems.length;
+                final wishlistCount = wishlistItems.length;
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    splashFactory: NoSplash.splashFactory,
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                  ),
+                  child: BottomNavigationBar(
+                    currentIndex: _currentIndex,
+                    selectedItemColor: AppColors.primaryGreen,
+                    unselectedItemColor: Colors.grey,
+                    type: BottomNavigationBarType.fixed,
+                    onTap: _handleTabTap,
+                    items: [
+                      const BottomNavigationBarItem(
+                        icon: Icon(Icons.home_outlined),
+                        activeIcon: Icon(Icons.home),
+                        label: 'Home',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: _bottomNavIconWithBadge(
+                          icon: Icons.favorite_border,
+                          count: wishlistCount,
+                        ),
+                        activeIcon: _bottomNavIconWithBadge(
+                          icon: Icons.favorite,
+                          count: wishlistCount,
+                        ),
+                        label: 'Wishlist',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: _bottomNavIconWithBadge(
+                          icon: Icons.shopping_cart_outlined,
+                          count: cartCount,
+                        ),
+                        activeIcon: _bottomNavIconWithBadge(
+                          icon: Icons.shopping_cart,
+                          count: cartCount,
+                        ),
+                        label: 'Cart',
+                      ),
+                      const BottomNavigationBarItem(
+                        icon: Icon(Icons.receipt_long_outlined),
+                        activeIcon: Icon(Icons.receipt_long),
+                        label: 'My Orders',
+                      ),
+                      const BottomNavigationBarItem(
+                        icon: Icon(Icons.account_circle_outlined),
+                        activeIcon: Icon(Icons.account_circle),
+                        label: 'Account',
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
     );

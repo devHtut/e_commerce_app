@@ -55,7 +55,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoad());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _ensureVendorThenLoad(),
+    );
   }
 
   Future<void> _ensureVendorThenLoad() async {
@@ -89,9 +91,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
           .order('name');
       _categories
         ..clear()
-        ..addAll((categoryRows as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map((e) => _CategoryOption(id: e['id'].toString(), name: e['name'].toString())));
+        ..addAll(
+          (categoryRows as List<dynamic>).cast<Map<String, dynamic>>().map(
+            (e) => _CategoryOption(
+              id: e['id'].toString(),
+              name: e['name'].toString(),
+            ),
+          ),
+        );
 
       final row = await Supabase.instance.client
           .from('products')
@@ -108,8 +115,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
       _selectedCategoryId = row['category_id']?.toString();
       final basePrice = (row['base_price'] as num?)?.toDouble() ?? 0;
 
-      final variants = (row['product_variants'] as List<dynamic>? ?? const <dynamic>[])
-          .cast<Map<String, dynamic>>();
+      final variants =
+          (row['product_variants'] as List<dynamic>? ?? const <dynamic>[])
+              .cast<Map<String, dynamic>>();
       final realVariants = variants.where((v) {
         final c = (v['color']?.toString() ?? 'default').toLowerCase();
         final s = (v['size']?.toString() ?? 'default').toLowerCase();
@@ -122,7 +130,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
       if (realVariants.isEmpty) {
         _hasVariants = false;
         final first = variants.isEmpty ? null : variants.first;
-        final price = basePrice +
+        final price =
+            basePrice +
             (((first?['price_adjustment'] as num?)?.toDouble() ?? 0));
         _simplePriceController.text = price.toStringAsFixed(0);
         _simplePromoController.text =
@@ -131,7 +140,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
             ((first?['stock_quantity'] as num?)?.toInt().toString() ?? '0');
 
         final simpleStorage = await _listStorageImages('default');
-        _simpleImages.addAll(simpleStorage.map((u) => _EditableImage.fromUrl(u)));
+        _simpleImages.addAll(
+          simpleStorage.map((u) => _EditableImage.fromUrl(u)),
+        );
       } else {
         _hasVariants = true;
         final colorMap = <String, List<Map<String, dynamic>>>{};
@@ -140,25 +151,35 @@ class _EditProductScreenState extends State<EditProductScreen> {
           colorMap.putIfAbsent(color, () => []).add(v);
         }
         for (final entry in colorMap.entries) {
-          final group = _ColorGroupDraft(color: entry.key, images: [], variants: []);
+          final group = _ColorGroupDraft(
+            color: entry.key,
+            images: [],
+            variants: [],
+          );
           final storageImages = await _listStorageImages(entry.key);
-          group.images.addAll(storageImages.map((u) => _EditableImage.fromUrl(u)));
+          group.images.addAll(
+            storageImages.map((u) => _EditableImage.fromUrl(u)),
+          );
           for (final v in entry.value) {
-            final price = basePrice +
+            final price =
+                basePrice +
                 (((v['price_adjustment'] as num?)?.toDouble() ?? 0));
             group.variants.add(
               _VariantDraft(
                 size: v['size']?.toString() ?? _sizeOptions.first,
                 stockController: TextEditingController(
-                  text: ((v['stock_quantity'] as num?)?.toInt() ?? 0).toString(),
+                  text: ((v['stock_quantity'] as num?)?.toInt() ?? 0)
+                      .toString(),
                 ),
-                priceController:
-                    TextEditingController(text: price.toStringAsFixed(0)),
+                priceController: TextEditingController(
+                  text: price.toStringAsFixed(0),
+                ),
                 promoPriceController: TextEditingController(
                   text: ((v['promo_price'] as num?)?.toString() ?? ''),
                 ),
-                skuController:
-                    TextEditingController(text: (v['sku']?.toString() ?? '')),
+                skuController: TextEditingController(
+                  text: (v['sku']?.toString() ?? ''),
+                ),
               ),
             );
           }
@@ -187,9 +208,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
           .list(path: 'product images/${widget.productId}/$folder');
       return files
           .where((f) => f.name.isNotEmpty)
-          .map((f) => Supabase.instance.client.storage
-              .from('media')
-              .getPublicUrl('product images/${widget.productId}/$folder/${f.name}'))
+          .map(
+            (f) => Supabase.instance.client.storage
+                .from('media')
+                .getPublicUrl(
+                  'product images/${widget.productId}/$folder/${f.name}',
+                ),
+          )
           .toList();
     } catch (_) {
       return [];
@@ -227,12 +252,15 @@ class _EditProductScreenState extends State<EditProductScreen> {
       final prices = variants.map((v) => v.price).toList()..sort();
       final basePrice = prices.first;
 
-      await Supabase.instance.client.from('products').update({
-        'title': _nameController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'category_id': _selectedCategoryId,
-        'base_price': basePrice,
-      }).eq('id', widget.productId);
+      await Supabase.instance.client
+          .from('products')
+          .update({
+            'title': _nameController.text.trim(),
+            'description': _descriptionController.text.trim(),
+            'category_id': _selectedCategoryId,
+            'base_price': basePrice,
+          })
+          .eq('id', widget.productId);
 
       await _deleteAllStorageImages();
       await Supabase.instance.client
@@ -242,7 +270,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
       final colorToUrls = await _uploadCurrentImages();
 
-      await Supabase.instance.client.from('product_variants').insert(
+      await Supabase.instance.client
+          .from('product_variants')
+          .insert(
             variants.map((v) {
               final image = (colorToUrls[v.color] ?? const []).isEmpty
                   ? null
@@ -350,7 +380,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
           }
           final path =
               'product images/${widget.productId}/${group.color}/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
-          await Supabase.instance.client.storage.from('media').uploadBinary(
+          await Supabase.instance.client.storage
+              .from('media')
+              .uploadBinary(
                 path,
                 image.bytes!,
                 fileOptions: FileOptions(
@@ -358,7 +390,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   contentType: _contentType(image.extension ?? ''),
                 ),
               );
-          urls.add(Supabase.instance.client.storage.from('media').getPublicUrl(path));
+          urls.add(
+            Supabase.instance.client.storage.from('media').getPublicUrl(path),
+          );
         }
         map[group.color] = urls;
       }
@@ -374,7 +408,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
       }
       final path =
           'product images/${widget.productId}/default/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
-      await Supabase.instance.client.storage.from('media').uploadBinary(
+      await Supabase.instance.client.storage
+          .from('media')
+          .uploadBinary(
             path,
             image.bytes!,
             fileOptions: FileOptions(
@@ -382,19 +418,21 @@ class _EditProductScreenState extends State<EditProductScreen> {
               contentType: _contentType(image.extension ?? ''),
             ),
           );
-      urls.add(Supabase.instance.client.storage.from('media').getPublicUrl(path));
+      urls.add(
+        Supabase.instance.client.storage.from('media').getPublicUrl(path),
+      );
     }
     map['Default'] = urls;
     return map;
   }
 
   String? _contentType(String ext) => switch (ext.toLowerCase()) {
-        'png' => 'image/png',
-        'jpg' || 'jpeg' => 'image/jpeg',
-        'webp' => 'image/webp',
-        'gif' => 'image/gif',
-        _ => null,
-      };
+    'png' => 'image/png',
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'webp' => 'image/webp',
+    'gif' => 'image/gif',
+    _ => null,
+  };
 
   String? _validatePrice(String? value) {
     final raw = (value ?? '').trim();
@@ -421,7 +459,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
     final promo = double.tryParse(raw);
     final price = double.tryParse(priceText.trim());
     if (promo == null || promo <= 0) return 'Invalid promo.';
-    if (price != null && promo >= price) return 'Promo must be lower than price.';
+    if (price != null && promo >= price)
+      return 'Promo must be lower than price.';
     return null;
   }
 
@@ -451,6 +490,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               children: [
                 CustomTextField(
                   controller: _nameController,
+                  labelText: 'Product name',
                   hintText: 'Product name',
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
@@ -458,6 +498,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 const SizedBox(height: 10),
                 CustomTextField(
                   controller: _descriptionController,
+                  labelText: 'Product description',
                   hintText: 'Product description',
                   maxLength: 500,
                   validator: (v) =>
@@ -467,13 +508,21 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 DropdownButtonFormField<String>(
                   value: _selectedCategoryId,
                   decoration: const InputDecoration(
+                    labelText: 'Category',
+                    labelStyle: TextStyle(
+                      color: AppColors.darkText,
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                     filled: true,
                     fillColor: Colors.white,
                     hintText: 'Choose category',
                   ),
                   items: _categories
-                      .map((e) =>
-                          DropdownMenuItem(value: e.id, child: Text(e.name)))
+                      .map(
+                        (e) =>
+                            DropdownMenuItem(value: e.id, child: Text(e.name)),
+                      )
                       .toList(),
                   onChanged: (v) => setState(() => _selectedCategoryId = v),
                 ),
@@ -524,6 +573,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               Expanded(
                 child: CustomTextField(
                   controller: _simplePriceController,
+                  labelText: 'Price',
                   hintText: 'Price',
                   keyboardType: TextInputType.number,
                   inputFormatters: [
@@ -537,13 +587,15 @@ class _EditProductScreenState extends State<EditProductScreen> {
               Expanded(
                 child: CustomTextField(
                   controller: _simplePromoController,
+                  labelText: 'Promo',
                   hintText: 'Promo',
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                     LengthLimitingTextInputFormatter(7),
                   ],
-                  validator: (v) => _validatePromo(v, _simplePriceController.text),
+                  validator: (v) =>
+                      _validatePromo(v, _simplePriceController.text),
                 ),
               ),
             ],
@@ -551,6 +603,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
           const SizedBox(height: 8),
           CustomTextField(
             controller: _simpleStockController,
+            labelText: 'Stock quantity',
             hintText: 'Stock',
             keyboardType: TextInputType.number,
             inputFormatters: [
@@ -610,21 +663,32 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       child: DropdownButtonFormField<String>(
                         value: group.color,
                         decoration: const InputDecoration(
+                          labelText: 'Color',
+                          labelStyle: TextStyle(
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                           filled: true,
                           fillColor: AppColors.lightGrey,
                         ),
                         items: _colorOptions
-                            .map((e) =>
-                                DropdownMenuItem(value: e, child: Text(e)))
+                            .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            )
                             .toList(),
-                        onChanged: (v) => setState(() => group.color = v ?? group.color),
+                        onChanged: (v) =>
+                            setState(() => group.color = v ?? group.color),
                       ),
                     ),
                     if (_variantGroups.length > 1)
                       IconButton(
                         onPressed: () =>
                             setState(() => _variantGroups.removeAt(groupIndex)),
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
                       ),
                   ],
                 ),
@@ -654,12 +718,22 @@ class _EditProductScreenState extends State<EditProductScreen> {
                               child: DropdownButtonFormField<String>(
                                 value: v.size,
                                 decoration: const InputDecoration(
+                                  labelText: 'Size',
+                                  labelStyle: TextStyle(
+                                    color: AppColors.darkText,
+                                    fontFamily: AppFonts.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                   filled: true,
                                   fillColor: Colors.white,
                                 ),
                                 items: _sizeOptions
-                                    .map((e) =>
-                                        DropdownMenuItem(value: e, child: Text(e)))
+                                    .map(
+                                      (e) => DropdownMenuItem(
+                                        value: e,
+                                        child: Text(e),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (value) =>
                                     setState(() => v.size = value ?? v.size),
@@ -669,6 +743,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                             Expanded(
                               child: CustomTextField(
                                 controller: v.stockController,
+                                labelText: 'Stock',
                                 hintText: 'Stock',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
@@ -686,10 +761,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
                             Expanded(
                               child: CustomTextField(
                                 controller: v.priceController,
+                                labelText: 'Price',
                                 hintText: 'Price',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                   LengthLimitingTextInputFormatter(7),
                                 ],
                                 validator: _validatePrice,
@@ -699,10 +777,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
                             Expanded(
                               child: CustomTextField(
                                 controller: v.promoPriceController,
+                                labelText: 'Promo',
                                 hintText: 'Promo (optional)',
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                   LengthLimitingTextInputFormatter(7),
                                 ],
                                 validator: (val) =>
@@ -714,6 +795,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         const SizedBox(height: 8),
                         CustomTextField(
                           controller: v.skuController,
+                          labelText: 'SKU',
                           hintText: 'SKU (optional)',
                         ),
                         Row(
@@ -727,7 +809,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
                                       size: _sizeOptions.first,
                                       stockController: TextEditingController(),
                                       priceController: TextEditingController(),
-                                      promoPriceController: TextEditingController(),
+                                      promoPriceController:
+                                          TextEditingController(),
                                       skuController: TextEditingController(),
                                     ),
                                   );
@@ -739,7 +822,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                             if (group.variants.length > 1)
                               TextButton(
                                 onPressed: () => setState(() {
-                                  final removed = group.variants.removeAt(variantIndex);
+                                  final removed = group.variants.removeAt(
+                                    variantIndex,
+                                  );
                                   removed.dispose();
                                 }),
                                 child: const Text('Remove'),
@@ -820,20 +905,14 @@ class _EditableImage {
   final String? extension;
   final Uint8List? bytes;
   final String? url;
-  const _EditableImage({
-    this.name,
-    this.extension,
-    this.bytes,
-    this.url,
-  });
+  const _EditableImage({this.name, this.extension, this.bytes, this.url});
 
   factory _EditableImage.fromUrl(String url) => _EditableImage(url: url);
   factory _EditableImage.fromBytes({
     required String name,
     required Uint8List bytes,
     required String extension,
-  }) =>
-      _EditableImage(name: name, bytes: bytes, extension: extension);
+  }) => _EditableImage(name: name, bytes: bytes, extension: extension);
 }
 
 class _ImagePickerGrid extends StatelessWidget {
@@ -897,7 +976,11 @@ class _ImagePickerGrid extends StatelessWidget {
                           color: Colors.black54,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                       ),
                     ),
                   ),
@@ -924,4 +1007,3 @@ class _ImagePickerGrid extends StatelessWidget {
     );
   }
 }
-
