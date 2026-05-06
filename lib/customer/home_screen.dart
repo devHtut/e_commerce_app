@@ -456,7 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .from('brands')
           .select('id, brand_name, logo_url')
           .order('created_at', ascending: false)
-          .limit(5);
+          .limit(10);
       final brands = (rows as List<dynamic>)
           .cast<Map<String, dynamic>>()
           .where((row) => row['id'] != null)
@@ -513,31 +513,25 @@ class _HomeScreenState extends State<HomeScreen> {
               fontFamily: AppFonts.primary,
             ),
           )
-        else if (_brands.isEmpty)
-          const Text(
-            'No brands available right now.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.darkText,
-              fontFamily: AppFonts.primary,
-            ),
-          )
         else
           SizedBox(
-            height: 118,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: List.generate(_brands.length, (index) {
-                final brand = _brands[index];
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: index == _brands.length - 1 ? 0 : 8,
-                    ),
-                    child: _buildBrandTile(brand),
-                  ),
-                );
-              }),
+            height: 168,
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: 10,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.86,
+              ),
+              itemBuilder: (context, index) {
+                if (index < _brands.length) {
+                  return _buildBrandTile(_brands[index]);
+                }
+                return const _BrandComingSoonTile();
+              },
             ),
           ),
       ],
@@ -545,51 +539,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBrandTile(_BrandInfo brand) {
-    return Material(
-      color: Colors.white,
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ShopProfileScreen(brandId: brand.id),
+          ),
+        );
+      },
       borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ShopProfileScreen(brandId: brand.id),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: brand.logoUrl.isNotEmpty
-                    ? Image.network(
-                        brand.logoUrl,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: brand.logoUrl.isNotEmpty
+                ? Image.network(
+                    brand.logoUrl,
+                    width: 52,
+                    height: 52,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
                         width: 52,
                         height: 52,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 52,
-                          height: 52,
-                          color: Colors.grey.shade200,
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.storefront_outlined,
-                            size: 28,
-                            color: AppColors.primaryGreen,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
+                        color: Colors.grey.shade200,
                         alignment: Alignment.center,
                         child: const Icon(
                           Icons.storefront_outlined,
@@ -597,23 +571,36 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: AppColors.primaryGreen,
                         ),
                       ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                brand.name,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.darkText,
-                  fontFamily: AppFonts.primary,
-                ),
-              ),
-            ],
+                  )
+                : Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.storefront_outlined,
+                      size: 28,
+                      color: AppColors.primaryGreen,
+                    ),
+                  ),
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            brand.name,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2498,6 +2485,46 @@ class _BrandInfo {
     required this.name,
     required this.logoUrl,
   });
+}
+
+class _BrandComingSoonTile extends StatelessWidget {
+  const _BrandComingSoonTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.storefront_outlined,
+            size: 24,
+            color: AppColors.subtleText,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Coming soon',
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: AppColors.subtleText,
+            fontFamily: AppFonts.primary,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 bool _isDefaultVariantValue(String value) {
