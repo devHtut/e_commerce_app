@@ -160,6 +160,14 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  void _continueAsGuest() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -236,6 +244,30 @@ class _SignInScreenState extends State<SignInScreen> {
                         text: "Sign in",
                         onPressed: _signInWithEmail,
                       ),
+              ),
+
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : _continueAsGuest,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.primaryGreen),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Text(
+                    'Continue as Guest',
+                    style: TextStyle(
+                      color: AppColors.primaryGreen,
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 16),
