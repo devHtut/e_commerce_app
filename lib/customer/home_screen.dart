@@ -295,6 +295,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openChat() async {
+    await showCustomPopup(
+      context,
+      title: 'Chat',
+      message: 'Customer chat is coming soon.',
+      type: PopupType.success,
+    );
+  }
+
   void _showLogoutConfirmation() {
     showModalBottomSheet<void>(
       context: context,
@@ -1303,6 +1312,8 @@ class _HomeScreenState extends State<HomeScreen> {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final item = items[index];
+                final hasSize = !_isDefaultVariantValue(item.size);
+                final hasColor = !_isDefaultVariantValue(item.colorName);
                 return Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -1381,39 +1392,43 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              'Size: ${item.size}',
-                              style: TextStyle(
-                                fontFamily: AppFonts.primary,
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Text(
-                                  'Color: ${item.colorName} ',
-                                  style: TextStyle(
-                                    fontFamily: AppFonts.primary,
-                                    fontSize: 14,
-                                    color: Colors.grey.shade600,
-                                  ),
+                            if (hasSize) ...[
+                              Text(
+                                'Size: ${item.size}',
+                                style: TextStyle(
+                                  fontFamily: AppFonts.primary,
+                                  fontSize: 14,
+                                  color: Colors.grey.shade600,
                                 ),
-                                Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: Color(item.colorValue),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+                            if (hasColor) ...[
+                              Row(
+                                children: [
+                                  Text(
+                                    'Color: ${item.colorName} ',
+                                    style: TextStyle(
+                                      fontFamily: AppFonts.primary,
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: Color(item.colorValue),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                            ],
                             Text(
                               'Qty: ${item.quantity}',
                               style: TextStyle(
@@ -2376,6 +2391,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _chatButton() {
+    return IconButton(
+      onPressed: _openChat,
+      tooltip: 'Chat',
+      icon: const Icon(Icons.chat_bubble_outline, color: AppColors.darkText),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -2384,6 +2407,8 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: AppColors.lightGrey,
         appBar: AppBar(
           automaticallyImplyLeading: false,
+          leading: _currentIndex == 0 ? _chatButton() : null,
+          leadingWidth: _currentIndex == 0 ? 56 : 0,
           title: _currentIndex == 2
               ? ValueListenableBuilder<List<CartItem>>(
                   valueListenable: CartService.instance.itemsNotifier,
