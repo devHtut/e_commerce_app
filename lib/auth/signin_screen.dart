@@ -264,8 +264,6 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 ],
               ),
-
-              // Add "or" divider and Social login buttons here...
             ],
           ),
         ),

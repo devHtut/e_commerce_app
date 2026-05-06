@@ -110,23 +110,29 @@ class _ProductCardState extends State<ProductCard> {
                   //     ),
                   //   ),
                   // ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Material(
-                      color: Colors.black87,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        onPressed: widget.onWishlistTap,
-                        icon: Icon(
-                          widget.isWishlisted ? Icons.favorite : Icons.favorite_border,
-                          color: widget.isWishlisted ? Colors.red : Colors.white,
+                  if (widget.onWishlistTap != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Material(
+                        color: Colors.black87,
+                        shape: const CircleBorder(),
+                        child: IconButton(
+                          onPressed: widget.onWishlistTap,
+                          icon: Icon(
+                            widget.isWishlisted
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color: widget.isWishlisted
+                                ? Colors.red
+                                : Colors.white,
+                          ),
+                          tooltip: widget.isWishlisted
+                              ? 'Remove from wishlist'
+                              : 'Add to wishlist',
                         ),
-                        tooltip:
-                            widget.isWishlisted ? 'Remove from wishlist' : 'Add to wishlist',
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

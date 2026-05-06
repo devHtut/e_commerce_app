@@ -42,7 +42,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     if (widget.embedded) {
       _embeddedVendorAccessPending = true;
       WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _startEmbeddedVendor(),
+        (_) => _startEmbeddedVendor(),
       );
     } else {
       _loadShop();
@@ -107,9 +107,9 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
       final productRows = await client
           .from('products')
           .select(
-        'id, brand_id, category_id, title, description, base_price, created_at, '
+            'id, brand_id, category_id, title, description, base_price, created_at, '
             'categories(name), brands(brand_name,logo_url), product_variants(image_url)',
-      )
+          )
           .eq('brand_id', brandRow['id'].toString())
           .order('created_at', ascending: false);
 
@@ -118,12 +118,12 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           .map(ProductModel.fromSupabaseRow)
           .toList();
       final categories =
-      products
-          .map((product) => product.category.trim())
-          .where((category) => category.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
+          products
+              .map((product) => product.category.trim())
+              .where((category) => category.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
 
       if (!mounted) return;
       setState(() {
@@ -157,7 +157,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         filtered.sort((a, b) => a.price.compareTo(b.price));
       case _ShopSort.topRated:
       case _ShopSort.popularity:
-        // filtered.sort((a, b) => b.rating.compareTo(a.rating));
+      // filtered.sort((a, b) => b.rating.compareTo(a.rating));
       case _ShopSort.latestArrival:
       case _ShopSort.discount:
       case _ShopSort.mostSuitable:
@@ -343,17 +343,20 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                   final product = _visibleProducts[index];
                   return ProductCard(
                     product: product,
-                    isWishlisted: WishlistService.instance.isWishlisted(
-                      product.id,
-                    ),
-                    onWishlistTap: () async {
-                      if (Supabase.instance.client.auth.currentUser == null) {
-                        await GuestAuthGatePanel.show(context);
-                        return;
-                      }
-                      await WishlistService.instance.toggle(product);
-                      if (mounted) setState(() {});
-                    },
+                    isWishlisted: widget.embedded
+                        ? false
+                        : WishlistService.instance.isWishlisted(product.id),
+                    onWishlistTap: widget.embedded
+                        ? null
+                        : () async {
+                            if (Supabase.instance.client.auth.currentUser ==
+                                null) {
+                              await GuestAuthGatePanel.show(context);
+                              return;
+                            }
+                            await WishlistService.instance.toggle(product);
+                            if (mounted) setState(() {});
+                          },
                     onTap: () {
                       Navigator.push(
                         context,
@@ -389,18 +392,18 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
               ClipOval(
                 child: shop.logoUrl.isEmpty
                     ? Container(
-                  width: 72,
-                  height: 72,
-                  color: Colors.grey.shade200,
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.storefront_outlined, size: 34),
-                )
+                        width: 72,
+                        height: 72,
+                        color: Colors.grey.shade200,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.storefront_outlined, size: 34),
+                      )
                     : Image.network(
-                  shop.logoUrl,
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
-                ),
+                        shop.logoUrl,
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                      ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -596,15 +599,15 @@ class _SortRadioDot extends StatelessWidget {
       ),
       child: selected
           ? Center(
-        child: Container(
-          width: 12,
-          height: 12,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primaryGreen,
-          ),
-        ),
-      )
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryGreen,
+                ),
+              ),
+            )
           : null,
     );
   }
@@ -636,9 +639,9 @@ class _ShopInfo {
   });
 
   factory _ShopInfo.fromRows(
-      Map<String, dynamic> brand,
-      Map<String, dynamic>? vendor,
-      ) {
+    Map<String, dynamic> brand,
+    Map<String, dynamic>? vendor,
+  ) {
     String text(Map<String, dynamic>? row, String key) {
       return row?[key]?.toString().trim() ?? '';
     }
