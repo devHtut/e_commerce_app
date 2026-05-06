@@ -360,11 +360,11 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                     const Text('Color', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 10),
                     SizedBox(
-                      height: 58,
+                      height: 60,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: _colors.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
                         itemBuilder: (_, i) {
                           final c = _colors[i];
                           final selected = _selectedColor == c;
@@ -385,21 +385,26 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                             child: Column(
                               children: [
                                 Container(
-                                  width: 34,
-                                  height: 34,
+                                  width: 48,
+                                  height: 48,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: _colorFromName(c),
                                     border: Border.all(
                                       color: selected
                                           ? AppColors.darkText
-                                          : Colors.transparent,
-                                      width: 2,
+                                          : Colors.grey.shade300,
+                                      width: selected ? 2 : 1,
                                     ),
                                   ),
+                                  child: selected
+                                      ? const Icon(
+                                          Icons.check,
+                                          size: 18,
+                                          color: Colors.white,
+                                        )
+                                      : null,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(c, style: const TextStyle(fontSize: 10)),
                               ],
                             ),
                           );
