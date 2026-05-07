@@ -33,7 +33,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   List<ProductModel> _products = [];
   List<String> _categories = const ['Discover'];
   int _selectedCategoryIndex = 0;
-  _ShopSort _sort = _ShopSort.mostSuitable;
+  _ShopSort? _sort;
   bool _embeddedVendorAccessPending = false;
 
   @override
@@ -130,9 +130,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         _shop = _ShopInfo.fromRows(brandRow!, vendorRow);
         _products = products;
         _categories = ['Discover', ...categories];
-        if (_selectedCategoryIndex >= _categories.length) {
-          _selectedCategoryIndex = 0;
-        }
+        _selectedCategoryIndex = 0;
       });
     } catch (_) {
       if (!mounted) return;
@@ -155,12 +153,8 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         filtered.sort((a, b) => b.price.compareTo(a.price));
       case _ShopSort.priceLowToHigh:
         filtered.sort((a, b) => a.price.compareTo(b.price));
-      case _ShopSort.topRated:
-      case _ShopSort.popularity:
-      // filtered.sort((a, b) => b.rating.compareTo(a.rating));
       case _ShopSort.latestArrival:
-      case _ShopSort.discount:
-      case _ShopSort.mostSuitable:
+      case null:
         break;
     }
 
@@ -664,13 +658,9 @@ class _ShopInfo {
 }
 
 enum _ShopSort {
-  mostSuitable('Most Suitable'),
-  popularity('Popularity'),
-  topRated('Top Rated'),
   priceHighToLow('Price High to Low'),
   priceLowToHigh('Price Low to High'),
-  latestArrival('Latest Arrival'),
-  discount('Discount');
+  latestArrival('Latest Arrival');
 
   final String label;
   const _ShopSort(this.label);
