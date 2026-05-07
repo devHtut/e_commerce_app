@@ -11,6 +11,7 @@ import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/discard_changes_dialog.dart';
 
 class BrandProfileScreen extends StatefulWidget {
   const BrandProfileScreen({super.key});
@@ -30,7 +31,11 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
   String? _existingLogoUrl;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _allowPop = false;
   bool _vendorAccessOk = false;
+  String _initialBrandName = '';
+  String _initialDescription = '';
+  String _initialPrefix = '';
 
   @override
   void initState() {
@@ -63,6 +68,9 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
     _descriptionController.text = brand?['description']?.toString() ?? '';
     _prefixController.text = brand?['prefix']?.toString().toUpperCase() ?? '';
     _existingLogoUrl = brand?['logo_url']?.toString();
+    _initialBrandName = _brandNameController.text;
+    _initialDescription = _descriptionController.text;
+    _initialPrefix = _prefixController.text;
 
     setState(() {
       _vendorAccessOk = true;
@@ -82,6 +90,30 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
       _selectedLogo = selected;
       _logoPreviewBytes = selected.bytes;
     });
+  }
+
+  bool get _hasDraftInput {
+    return _brandNameController.text.trim() != _initialBrandName.trim() ||
+        _descriptionController.text.trim() != _initialDescription.trim() ||
+        _prefixController.text.trim().toUpperCase() !=
+            _initialPrefix.trim().toUpperCase() ||
+        _selectedLogo != null;
+  }
+
+  Future<void> _requestLeave() async {
+    if (_isSaving) return;
+    if (!_hasDraftInput ||
+        await showDiscardChangesDialog(
+          context,
+          title: 'Discard brand changes?',
+        )) {
+      if (!mounted) return;
+      setState(() => _allowPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pop(context);
+      });
+    }
   }
 
   Future<void> _saveBrandProfile() async {
@@ -146,7 +178,11 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
       );
 
       if (!mounted) return;
-      Navigator.pop(context, true);
+      setState(() => _allowPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pop(context, true);
+      });
     } on AuthException catch (e) {
       await _showErrorPopup(e.message);
     } catch (_) {
@@ -211,180 +247,190 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        title: const Text(
-          'Manage Brand Profile',
-          style: AppTextStyles.appBarTitle,
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _requestLeave();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: _requestLeave,
+            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+          ),
+          title: const Text(
+            'Manage Brand Profile',
+            style: AppTextStyles.appBarTitle,
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Brand Details',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.darkText,
-                    fontFamily: AppFonts.primary,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Brand Details',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkText,
+                      fontFamily: AppFonts.primary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Update your brand name, logo and description so customers can recognize your store.',
-                  style: AppTextStyles.body,
-                ),
-                const SizedBox(height: 24),
-                Center(
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        onTap: _pickLogo,
-                        child: Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            Container(
-                              width: 124,
-                              height: 124,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                border: Border.all(
-                                  color: Colors.grey.shade300,
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: ClipOval(child: _buildLogoPreview()),
-                            ),
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.primaryGreen,
-                                border: Border.all(
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Update your brand name, logo and description so customers can recognize your store.',
+                    style: AppTextStyles.body,
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _pickLogo,
+                          child: Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              Container(
+                                width: 124,
+                                height: 124,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
                                   color: Colors.white,
-                                  width: 3,
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipOval(child: _buildLogoPreview()),
+                              ),
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.primaryGreen,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_outlined,
+                                  color: Colors.white,
+                                  size: 18,
                                 ),
                               ),
-                              child: const Icon(
-                                Icons.camera_alt_outlined,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _existingLogoUrl == null && _selectedLogo == null
-                            ? 'Tap to upload logo'
-                            : 'Tap to change logo',
-                        style: const TextStyle(
-                          fontFamily: AppFonts.primary,
-                          color: AppColors.subtleText,
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(height: 10),
+                        Text(
+                          _existingLogoUrl == null && _selectedLogo == null
+                              ? 'Tap to upload logo'
+                              : 'Tap to change logo',
+                          style: const TextStyle(
+                            fontFamily: AppFonts.primary,
+                            color: AppColors.subtleText,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Brand Name',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppFonts.primary,
+                      color: AppColors.darkText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    controller: _brandNameController,
+                    hintText: 'Enter brand name',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Brand name is required.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Order ID prefix',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppFonts.primary,
+                      color: AppColors.darkText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    controller: _prefixController,
+                    hintText: 'e.g. PDT (shown as PDT- on orders)',
+                    maxLength: 3,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[A-Z]')),
+                      LengthLimitingTextInputFormatter(3),
                     ],
+                    validator: (value) {
+                      final prefix = value?.trim() ?? '';
+                      if (!RegExp(r'^[A-Z]{3}$').hasMatch(prefix)) {
+                        return 'Prefix must be 3 capital letters A-Z.';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Brand Name',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppFonts.primary,
-                    color: AppColors.darkText,
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Brand Description',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppFonts.primary,
+                      color: AppColors.darkText,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                CustomTextField(
-                  controller: _brandNameController,
-                  hintText: 'Enter brand name',
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Brand name is required.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Order ID prefix',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppFonts.primary,
-                    color: AppColors.darkText,
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    controller: _descriptionController,
+                    hintText: 'Tell us about your brand',
+                    maxLength: 200,
+                    keyboardType: TextInputType.multiline,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Description is required.';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(height: 8),
-                CustomTextField(
-                  controller: _prefixController,
-                  hintText: 'e.g. PDT (shown as PDT- on orders)',
-                  maxLength: 3,
-                  textCapitalization: TextCapitalization.characters,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[A-Z]')),
-                    LengthLimitingTextInputFormatter(3),
-                  ],
-                  validator: (value) {
-                    final prefix = value?.trim() ?? '';
-                    if (!RegExp(r'^[A-Z]{3}$').hasMatch(prefix)) {
-                      return 'Prefix must be 3 capital letters A-Z.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Brand Description',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppFonts.primary,
-                    color: AppColors.darkText,
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: _isSaving
+                        ? const Center(child: CircularProgressIndicator())
+                        : CustomButton(
+                            text: 'Save Changes',
+                            onPressed: _saveBrandProfile,
+                          ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                CustomTextField(
-                  controller: _descriptionController,
-                  hintText: 'Tell us about your brand',
-                  maxLength: 200,
-                  keyboardType: TextInputType.multiline,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Description is required.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: _isSaving
-                      ? const Center(child: CircularProgressIndicator())
-                      : CustomButton(
-                          text: 'Save Changes',
-                          onPressed: _saveBrandProfile,
-                        ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

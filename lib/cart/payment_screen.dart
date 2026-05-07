@@ -9,6 +9,7 @@ import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/discard_changes_dialog.dart';
 import '../widgets/price_formatter.dart';
 import '../customer/home_screen.dart';
 import 'cart_item.dart';
@@ -36,6 +37,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Uint8List? _screenshotPreview;
   bool _isLoading = true;
   bool _isProcessing = false;
+  bool _allowPop = false;
 
   @override
   void initState() {
@@ -86,6 +88,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() {
       _selectedScreenshot = selected;
       _screenshotPreview = selected.bytes;
+    });
+  }
+
+  bool get _hasDraftInput {
+    return _transactionController.text.trim().isNotEmpty ||
+        _selectedScreenshot != null;
+  }
+
+  Future<void> _requestLeave() async {
+    if (_isProcessing) return;
+    if (!_hasDraftInput ||
+        await showDiscardChangesDialog(
+          context,
+          title: 'Discard payment?',
+          message:
+              'Your payment information is not submitted yet. Are you sure you want to leave this screen?',
+        )) {
+      _popAfterAllow();
+    }
+  }
+
+  void _popAfterAllow() {
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pop(context);
     });
   }
 
@@ -198,8 +227,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await showCustomPopup(
         context,
         title: 'Validation failed',
-        message:
-            'Please enter the last 6 digits of the transaction id.',
+        message: 'Please enter the last 6 digits of the transaction id.',
         type: PopupType.error,
       );
       return;
@@ -216,8 +244,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         await showCustomPopup(
           context,
           title: 'Upload failed',
-          message:
-              'Unable to read the selected screenshot file.',
+          message: 'Unable to read the selected screenshot file.',
           type: PopupType.error,
         );
         return;
@@ -341,6 +368,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
 
       if (!mounted) return;
+      _allowPop = true;
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -372,208 +400,221 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Payment',
-          style: TextStyle(
-            fontFamily: AppFonts.primary,
-            color: AppColors.darkText,
-            fontWeight: FontWeight.bold,
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _requestLeave();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            onPressed: _requestLeave,
+            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+          ),
+          title: const Text(
+            'Payment',
+            style: TextStyle(
+              fontFamily: AppFonts.primary,
+              color: AppColors.darkText,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Complete your payment',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.darkText,
-                        fontFamily: AppFonts.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Choose one of the Payment Method and upload a screenshot after make payment!',
-                      style: AppTextStyles.body,
-                    ),
-                    const SizedBox(height: 24),
-                    _buildOrderSection(),
-                    const SizedBox(height: 16),
-                    _buildReviewSummary(
-                      widget.items.fold<double>(
-                        0,
-                        (sum, item) => sum + item.product.price * item.quantity,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Payment Method',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontFamily: AppFonts.primary,
-                        color: AppColors.darkText,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_paymentMethods.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
+        body: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Complete your payment',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.darkText,
+                          fontFamily: AppFonts.primary,
                         ),
-                        child: const Text(
-                          'No payment methods available for this brand.',
-                          style: TextStyle(color: AppColors.subtleText),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Choose one of the Payment Method and upload a screenshot after make payment!',
+                        style: AppTextStyles.body,
+                      ),
+                      const SizedBox(height: 24),
+                      _buildOrderSection(),
+                      const SizedBox(height: 16),
+                      _buildReviewSummary(
+                        widget.items.fold<double>(
+                          0,
+                          (sum, item) =>
+                              sum + item.product.price * item.quantity,
                         ),
-                      )
-                    else
-                      DropdownButtonFormField<String>(
-                        value: _selectedPaymentMethodId,
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Payment Method',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontFamily: AppFonts.primary,
+                          color: AppColors.darkText,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_paymentMethods.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: const Text(
+                            'No payment methods available for this brand.',
+                            style: TextStyle(color: AppColors.subtleText),
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<String>(
+                          value: _selectedPaymentMethodId,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
+                          ),
+                          items: _paymentMethods.map((payment) {
+                            return DropdownMenuItem(
+                              value: payment['id'].toString(),
+                              child: Text(
+                                '${payment['payment_type']} - ${payment['account_name']} (${payment['account_number']})',
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedPaymentMethodId = value);
+                          },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a payment method.';
+                            }
+                            return null;
+                          },
+                        ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Please check the Account Number and Name before transfer',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.errorRed,
+                          fontFamily: AppFonts.primary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Transaction ID (last 6 digits)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontFamily: AppFonts.primary,
+                          color: AppColors.darkText,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _transactionController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
                         decoration: InputDecoration(
+                          hintText: 'Enter last 6 transaction digits',
+                          counterText: '',
+                          filled: true,
+                          fillColor: Colors.white,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 14,
-                          ),
-                        ),
-                        items: _paymentMethods.map((payment) {
-                          return DropdownMenuItem(
-                            value: payment['id'].toString(),
-                            child: Text(
-                              '${payment['payment_type']} - ${payment['account_name']} (${payment['account_number']})',
+                          focusedBorder: const OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                            borderSide: BorderSide(
+                              color: AppColors.primaryGreen,
                             ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() => _selectedPaymentMethodId = value);
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select a payment method.';
-                          }
-                          return null;
-                        },
-                      ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Please check the Account Number and Name before transfer',
-                      style: TextStyle(
-                        fontStyle: FontStyle.italic,
-                        color: AppColors.errorRed,
-                        fontFamily: AppFonts.primary,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Transaction ID (last 6 digits)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontFamily: AppFonts.primary,
-                        color: AppColors.darkText,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _transactionController,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      decoration: InputDecoration(
-                        hintText: 'Enter last 6 transaction digits',
-                        counterText: '',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: const OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                          borderSide: BorderSide(color: AppColors.primaryGreen),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Payment Screenshot',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontFamily: AppFonts.primary,
-                        color: AppColors.darkText,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: _pickScreenshot,
-                      child: Container(
-                        width: double.infinity,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Payment Screenshot',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontFamily: AppFonts.primary,
+                          color: AppColors.darkText,
                         ),
-                        child: _screenshotPreview == null
-                            ? const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.camera_alt_outlined,
-                                    size: 40,
-                                    color: AppColors.subtleText,
-                                  ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'Tap to upload screenshot',
-                                    style: TextStyle(
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: _pickScreenshot,
+                        child: Container(
+                          width: double.infinity,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: _screenshotPreview == null
+                              ? const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.camera_alt_outlined,
+                                      size: 40,
                                       color: AppColors.subtleText,
                                     ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Tap to upload screenshot',
+                                      style: TextStyle(
+                                        color: AppColors.subtleText,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.memory(
+                                    _screenshotPreview!,
+                                    fit: BoxFit.cover,
                                   ),
-                                ],
-                              )
-                            : ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.memory(
-                                  _screenshotPreview!,
-                                  fit: BoxFit.cover,
                                 ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: _isProcessing
+                            ? const Center(child: CircularProgressIndicator())
+                            : CustomButton(
+                                text: 'Make Payment',
+                                onPressed: _makePayment,
                               ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: _isProcessing
-                          ? const Center(child: CircularProgressIndicator())
-                          : CustomButton(
-                              text: 'Make Payment',
-                              onPressed: _makePayment,
-                            ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

@@ -31,6 +31,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   bool _loading = true;
   bool _saving = false;
+  bool _allowPop = false;
   bool _hasVariants = true;
   String? _selectedCategoryId;
   final List<_CategoryOption> _categories = [];
@@ -65,6 +66,69 @@ class _EditProductScreenState extends State<EditProductScreen> {
     if (!mounted || !ok) return;
     setState(() => _vendorAccessOk = true);
     _load();
+  }
+
+  Future<bool> _confirmDiscardChanges() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            'Discard changes?',
+            style: TextStyle(
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: const Text(
+            'Your product changes are not saved yet. Are you sure you want to leave this screen?',
+            style: TextStyle(
+              color: AppColors.subtleText,
+              fontFamily: AppFonts.primary,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Keep Editing'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFCF5F5F),
+              ),
+              child: const Text(
+                'Discard',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    return discard == true;
+  }
+
+  Future<void> _requestLeave() async {
+    if (_saving) return;
+    if (await _confirmDiscardChanges()) {
+      _popAfterAllow();
+    }
+  }
+
+  void _popAfterAllow([Object? result]) {
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pop(context, result);
+    });
   }
 
   @override
@@ -195,7 +259,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
         type: PopupType.error,
       );
       if (!mounted) return;
-      Navigator.pop(context);
+      _popAfterAllow();
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -298,7 +362,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
         type: PopupType.success,
       );
       if (!mounted) return;
-      Navigator.pop(context, true);
+      _popAfterAllow(true);
     } on PostgrestException catch (e) {
       if (!mounted) return;
       await showCustomPopup(
@@ -473,77 +537,89 @@ class _EditProductScreenState extends State<EditProductScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        elevation: 0,
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        title: const Text('Edit Product'),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                CustomTextField(
-                  controller: _nameController,
-                  labelText: 'Product name',
-                  hintText: 'Product name',
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: 10),
-                CustomTextField(
-                  controller: _descriptionController,
-                  labelText: 'Product description',
-                  hintText: 'Product description',
-                  maxLength: 500,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: _selectedCategoryId,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    labelStyle: TextStyle(
-                      color: AppColors.darkText,
-                      fontFamily: AppFonts.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Choose category',
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _requestLeave();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          elevation: 0,
+          centerTitle: true,
+          backgroundColor: Colors.transparent,
+          leading: IconButton(
+            onPressed: _requestLeave,
+            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+          ),
+          title: const Text('Edit Product'),
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  CustomTextField(
+                    controller: _nameController,
+                    labelText: 'Product name',
+                    hintText: 'Product name',
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
-                  items: _categories
-                      .map(
-                        (e) =>
-                            DropdownMenuItem(value: e.id, child: Text(e.name)),
-                      )
-                      .toList(),
-                  onChanged: (v) => setState(() => _selectedCategoryId = v),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _hasVariants,
-                  title: const Text('Has variants'),
-                  onChanged: (v) => setState(() => _hasVariants = v),
-                ),
-                const SizedBox(height: 8),
-                _hasVariants ? _buildVariantEditor() : _buildSimpleEditor(),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: _saving
-                      ? const Center(child: CircularProgressIndicator())
-                      : CustomButton(text: 'Save', onPressed: _save),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    controller: _descriptionController,
+                    labelText: 'Product description',
+                    hintText: 'Product description',
+                    maxLength: 500,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: _selectedCategoryId,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      labelStyle: TextStyle(
+                        color: AppColors.darkText,
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Choose category',
+                    ),
+                    items: _categories
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e.id,
+                            child: Text(e.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedCategoryId = v),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _hasVariants,
+                    title: const Text('Has variants'),
+                    onChanged: (v) => setState(() => _hasVariants = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _hasVariants ? _buildVariantEditor() : _buildSimpleEditor(),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: _saving
+                        ? const Center(child: CircularProgressIndicator())
+                        : CustomButton(text: 'Save', onPressed: _save),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -7,6 +7,7 @@ import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/discard_changes_dialog.dart';
 import 'vendor_social_links_screen.dart';
 
 class _VendorPaymentEntry {
@@ -47,7 +48,9 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _allowPop = false;
   bool _vendorAccessOk = false;
+  String _initialDraftSignature = '';
   Map<String, dynamic>? _brand;
   List<String> _paymentTypes = [];
   final List<_VendorPaymentEntry> _paymentEntries = [];
@@ -55,7 +58,9 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoad());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _ensureVendorThenLoad(),
+    );
   }
 
   Future<void> _ensureVendorThenLoad() async {
@@ -133,6 +138,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
         }
         _phoneController.text = vendor?['phone']?.toString() ?? '';
         _addressController.text = vendor?['address']?.toString() ?? '';
+        _initialDraftSignature = _draftSignature;
         _isLoading = false;
       });
     } catch (e) {
@@ -332,6 +338,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
 
       if (!mounted) return;
       if (widget.continueToSocialLinks) {
+        _allowPop = true;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -339,7 +346,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
           ),
         );
       } else {
-        Navigator.pop(context);
+        _popAfterAllow();
       }
     } catch (e) {
       if (!mounted) return;
@@ -354,139 +361,182 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
     }
   }
 
+  String get _draftSignature {
+    final paymentSignature = _paymentEntries
+        .map(
+          (entry) =>
+              '${entry.paymentType ?? ''}|${entry.accountNameController.text.trim()}|${entry.accountNumberController.text.trim()}',
+        )
+        .join('::');
+    return '${_phoneController.text.trim()}|${_addressController.text.trim()}|$paymentSignature';
+  }
+
+  bool get _hasDraftInput => _draftSignature != _initialDraftSignature;
+
+  Future<void> _requestLeave() async {
+    if (_isSaving) return;
+    if (!_hasDraftInput ||
+        await showDiscardChangesDialog(
+          context,
+          title: 'Discard business details?',
+        )) {
+      _popAfterAllow();
+    }
+  }
+
+  void _popAfterAllow() {
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pop(context);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        title: const Text('Business Details', style: AppTextStyles.appBarTitle),
-      ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Complete your vendor setup',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'We already saved your brand identity. Now add your business location and payment details.',
-                        style: AppTextStyles.body,
-                      ),
-                      const SizedBox(height: 24),
-                      if (_brand != null) _buildBrandHeader(),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Phone Number',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontFamily: AppFonts.primary,
-                          color: AppColors.darkText,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _phoneController,
-                        hintText: 'Enter phone number',
-                        keyboardType: TextInputType.phone,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Phone number is required.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Address',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontFamily: AppFonts.primary,
-                          color: AppColors.darkText,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _addressController,
-                        hintText: 'Enter business address',
-                        maxLength: 200,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Address is required.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Payment Methods',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontFamily: AppFonts.primary,
-                          color: AppColors.darkText,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ..._paymentEntries
-                          .asMap()
-                          .entries
-                          .map(
-                            (entry) =>
-                                _buildPaymentEntry(entry.key, entry.value),
-                          )
-                          .toList(),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _paymentEntries.add(_VendorPaymentEntry());
-                                });
-                              },
-                              icon: const Icon(Icons.add),
-                              label: const Text('Add payment method'),
-                            ),
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _requestLeave();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: _requestLeave,
+            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+          ),
+          title: const Text(
+            'Business Details',
+            style: AppTextStyles.appBarTitle,
+          ),
+        ),
+        body: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Complete your vendor setup',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: _isSaving
-                            ? const Center(child: CircularProgressIndicator())
-                            : CustomButton(
-                                text: widget.continueToSocialLinks
-                                    ? 'Continue'
-                                    : 'Save',
-                                onPressed: _saveVendorBusinessInfo,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'We already saved your brand identity. Now add your business location and payment details.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: 24),
+                        if (_brand != null) _buildBrandHeader(),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Phone Number',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppFonts.primary,
+                            color: AppColors.darkText,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          controller: _phoneController,
+                          hintText: 'Enter phone number',
+                          keyboardType: TextInputType.phone,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Phone number is required.';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Address',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppFonts.primary,
+                            color: AppColors.darkText,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          controller: _addressController,
+                          hintText: 'Enter business address',
+                          maxLength: 200,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Address is required.';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Payment Methods',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppFonts.primary,
+                            color: AppColors.darkText,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ..._paymentEntries
+                            .asMap()
+                            .entries
+                            .map(
+                              (entry) =>
+                                  _buildPaymentEntry(entry.key, entry.value),
+                            )
+                            .toList(),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _paymentEntries.add(_VendorPaymentEntry());
+                                  });
+                                },
+                                icon: const Icon(Icons.add),
+                                label: const Text('Add payment method'),
                               ),
-                      ),
-                    ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: _isSaving
+                              ? const Center(child: CircularProgressIndicator())
+                              : CustomButton(
+                                  text: widget.continueToSocialLinks
+                                      ? 'Continue'
+                                      : 'Save',
+                                  onPressed: _saveVendorBusinessInfo,
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+        ),
       ),
     );
   }

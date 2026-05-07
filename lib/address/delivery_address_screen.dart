@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
+import '../widgets/discard_changes_dialog.dart';
 
 class DeliveryAddress {
   final String id;
@@ -498,6 +499,7 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
   late final TextEditingController _addressController;
   late final TextEditingController _noteController;
   late bool _isPrimary;
+  bool _allowPop = false;
 
   @override
   void initState() {
@@ -521,6 +523,37 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
     super.dispose();
   }
 
+  bool get _hasDraftInput {
+    final initial = widget.initialAddress;
+    return _labelController.text.trim() != (initial?.label ?? '').trim() ||
+        _nameController.text.trim() != (initial?.recipientName ?? '').trim() ||
+        _phoneController.text.trim() != (initial?.phone ?? '').trim() ||
+        _addressController.text.trim() !=
+            (initial?.streetAddress ?? '').trim() ||
+        _isPrimary != (initial?.isPrimary ?? true);
+  }
+
+  Future<void> _requestLeave() async {
+    if (!_hasDraftInput ||
+        await showDiscardChangesDialog(
+          context,
+          title: 'Discard address?',
+          message:
+              'Your address details are not saved yet. Are you sure you want to leave this screen?',
+        )) {
+      _popAfterAllow();
+    }
+  }
+
+  void _popAfterAllow([Object? result]) {
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pop(context, result);
+    });
+  }
+
   void _saveAddress() {
     final label = _labelController.text.trim();
     final name = _nameController.text.trim();
@@ -529,8 +562,7 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
     if (label.isEmpty || name.isEmpty || phone.isEmpty || street.isEmpty)
       return;
 
-    Navigator.pop(
-      context,
+    _popAfterAllow(
       DeliveryAddress(
         id:
             widget.initialAddress?.id ??
@@ -547,110 +579,116 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditMode = widget.initialAddress != null;
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.close, color: AppColors.darkText),
-        ),
-        title: Text(
-          isEditMode ? 'Address Details' : 'Add New Address',
-          style: const TextStyle(
-            color: AppColors.darkText,
-            fontFamily: AppFonts.primary,
-            fontWeight: FontWeight.w700,
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _requestLeave();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            onPressed: _requestLeave,
+            icon: const Icon(Icons.close, color: AppColors.darkText),
           ),
-        ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                children: [
-                  const _FieldLabel(label: 'Address Labels'),
-                  _InputBox(
-                    controller: _labelController,
-                    hintText: 'Home / Work Office',
-                  ),
-                  const SizedBox(height: 14),
-                  const _FieldLabel(label: "လက်ခံမည့်သူ အမည်"),
-                  _InputBox(
-                    controller: _nameController,
-                    hintText: 'Recipient name',
-                  ),
-                  const SizedBox(height: 14),
-                  const _FieldLabel(label: "လက်ခံမည့်သူ ဖုန်းနံပါတ်"),
-                  _InputBox(
-                    controller: _phoneController,
-                    hintText: 'Phone number',
-                  ),
-                  const SizedBox(height: 14),
-                  const _FieldLabel(label: 'လိပ်စာ'),
-                  _InputBox(
-                    controller: _addressController,
-                    hintText: 'လမ်းအမည်၊ မြို့အမည်',
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 14),
-                  CheckboxListTile(
-                    value: _isPrimary,
-                    activeColor: AppColors.primaryGreen,
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    onChanged: (value) =>
-                        setState(() => _isPrimary = value ?? false),
-                    title: const Text(
-                      'Set As Primary Address',
-                      style: TextStyle(
-                        color: AppColors.darkText,
-                        fontFamily: AppFonts.primary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          title: Text(
+            isEditMode ? 'Address Details' : 'Add New Address',
+            style: const TextStyle(
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+              fontWeight: FontWeight.w700,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: SafeArea(
-                top: false,
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _saveAddress,
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: AppColors.primaryGreen,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
+          ),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  children: [
+                    const _FieldLabel(label: 'Address Labels'),
+                    _InputBox(
+                      controller: _labelController,
+                      hintText: 'Home / Work Office',
+                    ),
+                    const SizedBox(height: 14),
+                    const _FieldLabel(label: "လက်ခံမည့်သူ အမည်"),
+                    _InputBox(
+                      controller: _nameController,
+                      hintText: 'Recipient name',
+                    ),
+                    const SizedBox(height: 14),
+                    const _FieldLabel(label: "လက်ခံမည့်သူ ဖုန်းနံပါတ်"),
+                    _InputBox(
+                      controller: _phoneController,
+                      hintText: 'Phone number',
+                    ),
+                    const SizedBox(height: 14),
+                    const _FieldLabel(label: 'လိပ်စာ'),
+                    _InputBox(
+                      controller: _addressController,
+                      hintText: 'လမ်းအမည်၊ မြို့အမည်',
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 14),
+                    CheckboxListTile(
+                      value: _isPrimary,
+                      activeColor: AppColors.primaryGreen,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged: (value) =>
+                          setState(() => _isPrimary = value ?? false),
+                      title: const Text(
+                        'Set As Primary Address',
+                        style: TextStyle(
+                          color: AppColors.darkText,
+                          fontFamily: AppFonts.primary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      isEditMode
-                          ? 'Save'
-                          : 'Select Location & Continue Fill Address',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: AppFonts.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _saveAddress,
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: AppColors.primaryGreen,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: Text(
+                        isEditMode
+                            ? 'Save'
+                            : 'Select Location & Continue Fill Address',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

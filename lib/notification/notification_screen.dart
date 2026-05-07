@@ -76,7 +76,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   String get _title {
     return widget.audience == AppNotificationAudience.vendor
-        ? 'Vendor Notifications'
+        ? 'Notifications'
         : 'Notifications';
   }
 

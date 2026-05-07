@@ -7,6 +7,7 @@ import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/discard_changes_dialog.dart';
 import 'vendor_dashboard.dart';
 
 class VendorSocialLinksScreen extends StatefulWidget {
@@ -27,13 +28,19 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _allowPop = false;
   bool _vendorAccessOk = false;
   Map<String, dynamic>? _brand;
+  String _initialFacebook = '';
+  String _initialInstagram = '';
+  String _initialTiktok = '';
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoad());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _ensureVendorThenLoad(),
+    );
   }
 
   Future<void> _ensureVendorThenLoad() async {
@@ -74,6 +81,9 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
         _facebookController.text = vendor?['facebook_url']?.toString() ?? '';
         _instagramController.text = vendor?['instagram_url']?.toString() ?? '';
         _tiktokController.text = vendor?['tiktok_url']?.toString() ?? '';
+        _initialFacebook = _facebookController.text;
+        _initialInstagram = _instagramController.text;
+        _initialTiktok = _tiktokController.text;
         _isLoading = false;
       });
     } catch (e) {
@@ -115,7 +125,7 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
       );
 
       if (!mounted) return;
-      _finish();
+      _finishAfterAllow();
     } catch (e) {
       if (!mounted) return;
       await showCustomPopup(
@@ -130,7 +140,33 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
   }
 
   void _skipSocialLinks() {
-    _finish();
+    _finishAfterAllow();
+  }
+
+  bool get _hasDraftInput {
+    return _facebookController.text.trim() != _initialFacebook.trim() ||
+        _instagramController.text.trim() != _initialInstagram.trim() ||
+        _tiktokController.text.trim() != _initialTiktok.trim();
+  }
+
+  Future<void> _requestLeave() async {
+    if (_isSaving) return;
+    if (!_hasDraftInput ||
+        await showDiscardChangesDialog(
+          context,
+          title: 'Discard social links?',
+        )) {
+      _finishAfterAllow();
+    }
+  }
+
+  void _finishAfterAllow() {
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _finish();
+    });
   }
 
   void _finish() {
@@ -151,97 +187,109 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        title: const Text(
-          'Social Media Links',
-          style: AppTextStyles.appBarTitle,
-        ),
-        automaticallyImplyLeading: !widget.isOnboarding,
-      ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _requestLeave();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          leading: widget.isOnboarding
+              ? null
+              : IconButton(
+                  onPressed: _requestLeave,
+                  icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
                 ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Add social media links',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Help customers find your brand on social platforms. '
-                        'You can skip this now and update it later in account settings.',
-                        style: AppTextStyles.body,
-                      ),
-                      const SizedBox(height: 24),
-                      if (_brand != null) _buildBrandHeader(),
-                      const SizedBox(height: 24),
-                      _buildFieldLabel('Facebook URL'),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _facebookController,
-                        hintText: 'https://facebook.com/yourpage',
-                        keyboardType: TextInputType.url,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildFieldLabel('Instagram URL'),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _instagramController,
-                        hintText: 'https://instagram.com/yourpage',
-                        keyboardType: TextInputType.url,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildFieldLabel('TikTok URL'),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: _tiktokController,
-                        hintText: 'https://tiktok.com/@yourpage',
-                        keyboardType: TextInputType.url,
-                      ),
-                      const SizedBox(height: 28),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: _isSaving
-                            ? const Center(child: CircularProgressIndicator())
-                            : CustomButton(
-                                text: widget.isOnboarding
-                                    ? 'Save & Finish'
-                                    : 'Save Links',
-                                onPressed: _saveSocialLinks,
-                              ),
-                      ),
-                      if (widget.isOnboarding) ...[
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: OutlinedButton(
-                            onPressed: _isSaving ? null : _skipSocialLinks,
-                            child: const Text('Skip for now'),
+          title: const Text(
+            'Social Media Links',
+            style: AppTextStyles.appBarTitle,
+          ),
+          automaticallyImplyLeading: !widget.isOnboarding,
+        ),
+        body: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Add social media links',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Help customers find your brand on social platforms. '
+                          'You can skip this now and update it later in account settings.',
+                          style: AppTextStyles.body,
+                        ),
+                        const SizedBox(height: 24),
+                        if (_brand != null) _buildBrandHeader(),
+                        const SizedBox(height: 24),
+                        _buildFieldLabel('Facebook URL'),
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          controller: _facebookController,
+                          hintText: 'https://facebook.com/yourpage',
+                          keyboardType: TextInputType.url,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildFieldLabel('Instagram URL'),
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          controller: _instagramController,
+                          hintText: 'https://instagram.com/yourpage',
+                          keyboardType: TextInputType.url,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildFieldLabel('TikTok URL'),
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          controller: _tiktokController,
+                          hintText: 'https://tiktok.com/@yourpage',
+                          keyboardType: TextInputType.url,
+                        ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: _isSaving
+                              ? const Center(child: CircularProgressIndicator())
+                              : CustomButton(
+                                  text: widget.isOnboarding
+                                      ? 'Save & Finish'
+                                      : 'Save Links',
+                                  onPressed: _saveSocialLinks,
+                                ),
+                        ),
+                        if (widget.isOnboarding) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: OutlinedButton(
+                              onPressed: _isSaving ? null : _skipSocialLinks,
+                              child: const Text('Skip for now'),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
+        ),
       ),
     );
   }

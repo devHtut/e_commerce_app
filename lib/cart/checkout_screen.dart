@@ -5,6 +5,7 @@ import '../auth/auth_user_service.dart';
 import '../customer/home_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
+import '../widgets/discard_changes_dialog.dart';
 import '../widgets/price_formatter.dart';
 import 'cart_item.dart';
 import 'cart_service.dart';
@@ -1258,6 +1259,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   late final TextEditingController _addressController;
   late final TextEditingController _cityController;
   late bool _isPrimary;
+  bool _allowPop = false;
 
   bool get _isEditMode => widget.initialAddress != null;
 
@@ -1337,6 +1339,39 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     }
   }
 
+  bool get _hasDraftInput {
+    final initial = widget.initialAddress;
+    return _labelController.text.trim() != (initial?.label ?? 'Work').trim() ||
+        _phoneController.text.trim() !=
+            (initial?.phone ?? '+1 111 467 378 399').trim() ||
+        _addressController.text.trim() !=
+            (initial?.streetAddress ?? '75 9th Ave, New York, NY 10011, USA')
+                .trim() ||
+        _cityController.text.trim() != (initial?.city ?? 'New York').trim() ||
+        _isPrimary != (initial?.isPrimary ?? true);
+  }
+
+  Future<void> _requestLeave() async {
+    if (!_hasDraftInput ||
+        await showDiscardChangesDialog(
+          context,
+          title: 'Discard address?',
+          message:
+              'Your address details are not saved yet. Are you sure you want to leave this screen?',
+        )) {
+      _popAfterAllow();
+    }
+  }
+
+  void _popAfterAllow([Object? result]) {
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pop(context, result);
+    });
+  }
+
   Future<void> _saveAddress() async {
     final label = _labelController.text.trim();
     final phone = _phoneController.text.trim();
@@ -1360,119 +1395,125 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
 
     final savedAddress = await _persistAddressToDatabase(id, payload);
     if (savedAddress != null && mounted) {
-      Navigator.pop(context, savedAddress);
+      _popAfterAllow(savedAddress);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: Icon(
-            _isEditMode ? Icons.close : Icons.close,
-            color: AppColors.darkText,
-          ),
-        ),
-        title: Text(
-          _isEditMode ? 'Address Details' : 'Add New Address',
-          style: const TextStyle(
-            color: AppColors.darkText,
-            fontFamily: AppFonts.primary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                children: [
-                  _FieldLabel(label: 'Address Labels'),
-                  _InputBox(
-                    controller: _labelController,
-                    hintText: 'Home / Work Office',
-                  ),
-                  const SizedBox(height: 14),
-                  _FieldLabel(label: "Recipient's Phone Number"),
-                  _InputBox(
-                    controller: _phoneController,
-                    hintText: 'Phone number',
-                  ),
-                  const SizedBox(height: 14),
-                  _FieldLabel(label: 'City'),
-                  _InputBox(controller: _cityController, hintText: 'City'),
-                  const SizedBox(height: 14),
-                  _FieldLabel(label: 'Address'),
-                  _InputBox(
-                    controller: _addressController,
-                    hintText: 'Street, ZIP',
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 14),
-                  CheckboxListTile(
-                    value: _isPrimary,
-                    activeColor: AppColors.primaryGreen,
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    onChanged: (value) {
-                      setState(() {
-                        _isPrimary = value ?? false;
-                      });
-                    },
-                    title: const Text(
-                      'Set As Primary Address',
-                      style: TextStyle(
-                        color: AppColors.darkText,
-                        fontFamily: AppFonts.primary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _requestLeave();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            onPressed: _requestLeave,
+            icon: Icon(
+              _isEditMode ? Icons.close : Icons.close,
+              color: AppColors.darkText,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: SafeArea(
-                top: false,
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _saveAddress,
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: AppColors.primaryGreen,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
+          ),
+          title: Text(
+            _isEditMode ? 'Address Details' : 'Add New Address',
+            style: const TextStyle(
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  children: [
+                    _FieldLabel(label: 'Address Labels'),
+                    _InputBox(
+                      controller: _labelController,
+                      hintText: 'Home / Work Office',
+                    ),
+                    const SizedBox(height: 14),
+                    _FieldLabel(label: "Recipient's Phone Number"),
+                    _InputBox(
+                      controller: _phoneController,
+                      hintText: 'Phone number',
+                    ),
+                    const SizedBox(height: 14),
+                    _FieldLabel(label: 'City'),
+                    _InputBox(controller: _cityController, hintText: 'City'),
+                    const SizedBox(height: 14),
+                    _FieldLabel(label: 'Address'),
+                    _InputBox(
+                      controller: _addressController,
+                      hintText: 'Street, ZIP',
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 14),
+                    CheckboxListTile(
+                      value: _isPrimary,
+                      activeColor: AppColors.primaryGreen,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged: (value) {
+                        setState(() {
+                          _isPrimary = value ?? false;
+                        });
+                      },
+                      title: const Text(
+                        'Set As Primary Address',
+                        style: TextStyle(
+                          color: AppColors.darkText,
+                          fontFamily: AppFonts.primary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      _isEditMode
-                          ? 'Save'
-                          : 'Select Location & Continue Fill Address',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: AppFonts.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _saveAddress,
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: AppColors.primaryGreen,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: Text(
+                        _isEditMode
+                            ? 'Save'
+                            : 'Select Location & Continue Fill Address',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

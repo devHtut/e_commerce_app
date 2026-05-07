@@ -67,7 +67,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
   }
 
   static const List<String> _titles = [
-    'Vendor Dashboard',
+    'Dashboard',
     'Products',
     'Shop Profile',
     'Orders',

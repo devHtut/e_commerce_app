@@ -11,6 +11,7 @@ import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/discard_changes_dialog.dart';
 
 class ProfileInfoScreen extends StatefulWidget {
   const ProfileInfoScreen({
@@ -35,6 +36,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   Uint8List? _avatarPreviewBytes;
   String? _avatarUrl;
   bool _isSaving = false;
+  bool _allowPop = false;
   late final String _randomLetter;
 
   @override
@@ -70,6 +72,32 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     final text = _fullNameController.text.trim();
     if (text.isEmpty) return _randomLetter;
     return text[0].toUpperCase();
+  }
+
+  bool get _hasDraftInput {
+    return _fullNameController.text.trim() !=
+            (widget.initialFullName ?? '').trim() ||
+        _selectedAvatar != null;
+  }
+
+  Future<void> _requestLeave() async {
+    if (_isSaving) return;
+    if (!_hasDraftInput ||
+        await showDiscardChangesDialog(
+          context,
+          title: 'Discard profile changes?',
+        )) {
+      _popAfterAllow();
+    }
+  }
+
+  void _popAfterAllow() {
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pop(context);
+    });
   }
 
   Future<void> _saveProfile() async {
@@ -138,13 +166,14 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
 
       if (!mounted) return;
       if (widget.returnToHomeAfterSave) {
+        _allowPop = true;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
         );
       } else {
-        Navigator.pop(context);
+        _popAfterAllow();
       }
     } catch (e) {
       if (!mounted) return;
@@ -161,173 +190,185 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        title: Text(
-          widget.initialFullName == null ? 'Complete Profile' : 'Edit Profile',
-          style: AppTextStyles.appBarTitle,
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _requestLeave();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: _requestLeave,
+            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+          ),
+          title: Text(
+            widget.initialFullName == null
+                ? 'Complete Profile'
+                : 'Edit Profile',
+            style: AppTextStyles.appBarTitle,
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tell us about yourself',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.darkText,
-                    fontFamily: AppFonts.primary,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tell us about yourself',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkText,
+                      fontFamily: AppFonts.primary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Add your full name and optional avatar so your delivery and account look great.',
-                  style: AppTextStyles.body,
-                ),
-                const SizedBox(height: 24),
-                Center(
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        onTap: _pickAvatar,
-                        child: Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            Container(
-                              width: 124,
-                              height: 124,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                border: Border.all(
-                                  color: Colors.grey.shade300,
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 8),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Add your full name and optional avatar so your delivery and account look great.',
+                    style: AppTextStyles.body,
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _pickAvatar,
+                          child: Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              Container(
+                                width: 124,
+                                height: 124,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                    width: 1.5,
                                   ),
-                                ],
-                              ),
-                              child: ClipOval(
-                                child: _avatarPreviewBytes != null
-                                    ? Image.memory(
-                                        _avatarPreviewBytes!,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : (_avatarUrl != null &&
-                                          _avatarUrl!.isNotEmpty)
-                                    ? Image.network(
-                                        _avatarUrl!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) {
-                                          return Container(
-                                            color: Colors.grey.shade100,
-                                            alignment: Alignment.center,
-                                            child: Text(
-                                              _displayLetter,
-                                              style: const TextStyle(
-                                                fontSize: 42,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.primaryGreen,
-                                                fontFamily: AppFonts.primary,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipOval(
+                                  child: _avatarPreviewBytes != null
+                                      ? Image.memory(
+                                          _avatarPreviewBytes!,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : (_avatarUrl != null &&
+                                            _avatarUrl!.isNotEmpty)
+                                      ? Image.network(
+                                          _avatarUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) {
+                                            return Container(
+                                              color: Colors.grey.shade100,
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                _displayLetter,
+                                                style: const TextStyle(
+                                                  fontSize: 42,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.primaryGreen,
+                                                  fontFamily: AppFonts.primary,
+                                                ),
                                               ),
+                                            );
+                                          },
+                                        )
+                                      : Container(
+                                          color: Colors.grey.shade100,
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            _displayLetter,
+                                            style: const TextStyle(
+                                              fontSize: 42,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primaryGreen,
+                                              fontFamily: AppFonts.primary,
                                             ),
-                                          );
-                                        },
-                                      )
-                                    : Container(
-                                        color: Colors.grey.shade100,
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          _displayLetter,
-                                          style: const TextStyle(
-                                            fontSize: 42,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primaryGreen,
-                                            fontFamily: AppFonts.primary,
                                           ),
                                         ),
-                                      ),
-                              ),
-                            ),
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.primaryGreen,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 3,
                                 ),
                               ),
-                              child: const Icon(
-                                Icons.camera_alt_outlined,
-                                color: Colors.white,
-                                size: 18,
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.primaryGreen,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_outlined,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _selectedAvatar == null
-                            ? 'Tap to upload avatar (optional)'
-                            : 'Tap to change avatar',
-                        style: const TextStyle(
-                          fontFamily: AppFonts.primary,
-                          color: AppColors.subtleText,
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(height: 10),
+                        Text(
+                          _selectedAvatar == null
+                              ? 'Tap to upload avatar (optional)'
+                              : 'Tap to change avatar',
+                          style: const TextStyle(
+                            fontFamily: AppFonts.primary,
+                            color: AppColors.subtleText,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Full Name',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppFonts.primary,
-                    color: AppColors.darkText,
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Full Name',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppFonts.primary,
+                      color: AppColors.darkText,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                CustomTextField(
-                  controller: _fullNameController,
-                  hintText: 'Your full name',
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Full name is required.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: _isSaving
-                      ? const Center(child: CircularProgressIndicator())
-                      : CustomButton(
-                          text: widget.initialFullName == null
-                              ? 'Save Profile'
-                              : 'Update Profile',
-                          onPressed: _saveProfile,
-                        ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    controller: _fullNameController,
+                    hintText: 'Your full name',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Full name is required.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: _isSaving
+                        ? const Center(child: CircularProgressIndicator())
+                        : CustomButton(
+                            text: widget.initialFullName == null
+                                ? 'Save Profile'
+                                : 'Update Profile',
+                            onPressed: _saveProfile,
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
