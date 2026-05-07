@@ -1870,12 +1870,36 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   if (order.status == OrderStatus.pending)
                                     PopupMenuButton<String>(
+                                      color: Colors.white,
+                                      elevation: 8,
+                                      offset: const Offset(0, 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
                                       onSelected: (_) =>
                                           _showCancelOrderDialog(order),
                                       itemBuilder: (_) => const [
                                         PopupMenuItem(
                                           value: 'cancel',
-                                          child: Text('Cancel Order'),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.cancel_outlined,
+                                                color: Color(0xFFCF5F5F),
+                                                size: 20,
+                                              ),
+                                              SizedBox(width: 10),
+                                              Text(
+                                                'Cancel Order',
+                                                style: TextStyle(
+                                                  color: Color(0xFFCF5F5F),
+                                                  fontFamily: AppFonts.primary,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -2476,6 +2500,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: AppTextStyles.appBarTitle,
                     );
                   },
+                )
+              : _currentIndex == 0
+              ? Image.asset(
+                  '../assets/logo.png',
+                  height: 50,
+                  fit: BoxFit.contain,
+                  semanticLabel: 'BurmaBrands',
                 )
               : Text(_appBarTitle(), style: AppTextStyles.appBarTitle),
           centerTitle: true,

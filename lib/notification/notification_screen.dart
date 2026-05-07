@@ -14,6 +14,8 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   late Future<List<AppNotification>> _notificationsFuture;
+  final Set<String> _locallyReadNotificationIds = <String>{};
+  bool _allReadLocally = false;
 
   @override
   void initState() {
@@ -34,14 +36,42 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _markAllRead() async {
-    await NotificationService.instance.markAllAsRead(audience: widget.audience);
-    await _refresh();
+    setState(() {
+      _allReadLocally = true;
+      _locallyReadNotificationIds.clear();
+    });
+    NotificationService.instance.unreadCountNotifier.value = 0;
+
+    try {
+      await NotificationService.instance.markAllAsRead(
+        audience: widget.audience,
+      );
+      await _refresh();
+    } catch (e) {
+      debugPrint('Unable to mark all notifications read: $e');
+    }
   }
 
   Future<void> _markRead(AppNotification notification) async {
-    if (!notification.isUnread) return;
-    await NotificationService.instance.markAsRead(notification.id);
-    await _refresh();
+    if (!_isUnread(notification)) return;
+    setState(() => _locallyReadNotificationIds.add(notification.id));
+    final unreadCount = NotificationService.instance.unreadCountNotifier.value;
+    if (unreadCount > 0) {
+      NotificationService.instance.unreadCountNotifier.value = unreadCount - 1;
+    }
+
+    try {
+      await NotificationService.instance.markAsRead(notification.id);
+      await _refresh();
+    } catch (e) {
+      debugPrint('Unable to mark notification read: $e');
+    }
+  }
+
+  bool _isUnread(AppNotification notification) {
+    return notification.isUnread &&
+        !_allReadLocally &&
+        !_locallyReadNotificationIds.contains(notification.id);
   }
 
   String get _title {
@@ -118,6 +148,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 final notification = notifications[index];
                 return _NotificationTile(
                   notification: notification,
+                  isUnread: _isUnread(notification),
                   onTap: () => _markRead(notification),
                 );
               },
@@ -131,13 +162,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
 class _NotificationTile extends StatelessWidget {
   final AppNotification notification;
+  final bool isUnread;
   final VoidCallback onTap;
 
-  const _NotificationTile({required this.notification, required this.onTap});
+  const _NotificationTile({
+    required this.notification,
+    required this.isUnread,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final unread = notification.isUnread;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -147,7 +182,7 @@ class _NotificationTile extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: unread
+            color: isUnread
                 ? AppColors.primaryGreen.withValues(alpha: 0.32)
                 : Colors.transparent,
           ),
@@ -188,7 +223,7 @@ class _NotificationTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (unread)
+                      if (isUnread)
                         Container(
                           width: 8,
                           height: 8,
