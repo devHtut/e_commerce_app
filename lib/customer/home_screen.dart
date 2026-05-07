@@ -1451,26 +1451,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      Column(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit_outlined,
-                              color: AppColors.darkText,
-                            ),
-                            onPressed: () => _showEditProductVariantSheet(item),
-                            tooltip: 'Edit',
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Color(0xFFDC9696),
-                            ),
-                            onPressed: () => _confirmAndRemoveCartItem(item),
-                            tooltip: 'Remove',
-                          ),
-                        ],
-                      ),
+                      _buildCartItemActions(item),
                     ],
                   ),
                 );
@@ -2386,6 +2367,62 @@ class _HomeScreenState extends State<HomeScreen> {
       onPressed: _openChat,
       tooltip: 'Chat',
       icon: const Icon(Icons.chat_bubble_outline, color: AppColors.darkText),
+    );
+  }
+
+  Widget _buildCartItemActions(CartItem item) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8F6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E8E1)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _cartActionIconButton(
+            icon: Icons.edit_outlined,
+            iconColor: AppColors.primaryGreen,
+            splashColor: AppColors.primaryGreen.withValues(alpha: 0.10),
+            tooltip: 'Edit',
+            onTap: () => _showEditProductVariantSheet(item),
+          ),
+          Container(width: 26, height: 1, color: const Color(0xFFE5E8E1)),
+          _cartActionIconButton(
+            icon: Icons.delete_outline,
+            iconColor: const Color(0xFFC76F6F),
+            splashColor: const Color(0xFFC76F6F).withValues(alpha: 0.10),
+            tooltip: 'Remove',
+            onTap: () => _confirmAndRemoveCartItem(item),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cartActionIconButton({
+    required IconData icon,
+    required Color iconColor,
+    required Color splashColor,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(15),
+          splashColor: splashColor,
+          highlightColor: splashColor,
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Icon(icon, color: iconColor, size: 21),
+          ),
+        ),
+      ),
     );
   }
 
