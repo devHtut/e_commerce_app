@@ -200,7 +200,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Sign in to access your personalized shopping experience.',
+                          'Sign in to access your shopping experience.',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.body,
                         ),
