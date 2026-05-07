@@ -997,13 +997,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           alignment: Alignment.center,
-                          child: const Text(
+                          child: Text(
                             'Buy Now',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                            style: AppTextStyles.button.copyWith(
                               color: AppColors.primaryGreen,
-                              fontFamily: AppFonts.primary,
                             ),
                           ),
                         ),
@@ -1021,13 +1018,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           alignment: Alignment.center,
-                          child: const Text(
+                          child: Text(
                             'Add to Cart',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                            style: AppTextStyles.button.copyWith(
                               color: Colors.white,
-                              fontFamily: AppFonts.primary,
                             ),
                           ),
                         ),

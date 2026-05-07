@@ -688,7 +688,7 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
           Expanded(
@@ -697,7 +697,7 @@ class _SummaryRow extends StatelessWidget {
               style: TextStyle(
                 fontFamily: AppFonts.primary,
                 color: AppColors.darkText,
-                fontSize: isTotal ? 16 : 14,
+                fontSize: isTotal ? 16 : 15,
                 fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
@@ -707,7 +707,7 @@ class _SummaryRow extends StatelessWidget {
             style: TextStyle(
               fontFamily: AppFonts.primary,
               color: AppColors.darkText,
-              fontSize: isTotal ? 16 : 14,
+              fontSize: isTotal ? 16 : 15,
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.w500,
             ),
           ),

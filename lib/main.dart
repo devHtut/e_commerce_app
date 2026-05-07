@@ -73,6 +73,15 @@ class MyApp extends StatelessWidget {
           titleTextStyle: AppTextStyles.appBarTitle,
           iconTheme: IconThemeData(color: AppColors.darkText),
         ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(textStyle: AppTextStyles.button),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(textStyle: AppTextStyles.button),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(textStyle: AppTextStyles.button),
+        ),
       ),
       home: FutureBuilder<Widget>(
         future: _resolveStartScreen(),

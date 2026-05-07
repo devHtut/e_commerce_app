@@ -14,7 +14,7 @@ class AppFonts {
 
 class AppTextStyles {
   static const TextStyle appBarTitle = TextStyle(
-    fontSize: 20,
+    fontSize: 25,
     fontWeight: FontWeight.bold,
     color: Colors.black87,
     fontFamily: AppFonts.primary,
@@ -30,6 +30,12 @@ class AppTextStyles {
   static const TextStyle body = TextStyle(
     fontSize: 16,
     color: Colors.black54,
+    fontFamily: AppFonts.primary,
+  );
+
+  static const TextStyle button = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
     fontFamily: AppFonts.primary,
   );
 }

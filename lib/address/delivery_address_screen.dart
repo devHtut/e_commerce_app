@@ -179,7 +179,6 @@ class _DeliveryAddressScreenState extends State<DeliveryAddressScreen> {
                         color: Colors.white,
                         fontFamily: AppFonts.primary,
                         fontWeight: FontWeight.w700,
-                        fontSize: 18,
                       ),
                     ),
                   ),
@@ -196,10 +195,7 @@ class _DeliveryAddressScreenState extends State<DeliveryAddressScreen> {
 class ManageAddressesScreen extends StatefulWidget {
   final List<DeliveryAddress> initialAddresses;
 
-  const ManageAddressesScreen({
-    super.key,
-    required this.initialAddresses,
-  });
+  const ManageAddressesScreen({super.key, required this.initialAddresses});
 
   @override
   State<ManageAddressesScreen> createState() => _ManageAddressesScreenState();
@@ -225,8 +221,9 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
   void _deleteAddress(String id) {
     if (_addresses.length <= 1) return;
     setState(() {
-      final deletedWasPrimary =
-          _addresses.any((address) => address.id == id && address.isPrimary);
+      final deletedWasPrimary = _addresses.any(
+        (address) => address.id == id && address.isPrimary,
+      );
       _addresses = _addresses.where((address) => address.id != id).toList();
       if (deletedWasPrimary && _addresses.isNotEmpty) {
         _addresses[0] = _addresses[0].copyWith(isPrimary: true);
@@ -238,8 +235,9 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
     setState(() {
       final index = _addresses.indexWhere((item) => item.id == address.id);
       if (address.isPrimary) {
-        _addresses =
-            _addresses.map((item) => item.copyWith(isPrimary: false)).toList();
+        _addresses = _addresses
+            .map((item) => item.copyWith(isPrimary: false))
+            .toList();
       }
       if (index == -1) {
         _addresses.insert(0, address);
@@ -264,7 +262,9 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
   Future<void> _openEditAddress(DeliveryAddress current) async {
     final updated = await Navigator.push<DeliveryAddress>(
       context,
-      MaterialPageRoute(builder: (_) => AddressDetailsScreen(initialAddress: current)),
+      MaterialPageRoute(
+        builder: (_) => AddressDetailsScreen(initialAddress: current),
+      ),
     );
     if (updated == null || !mounted) return;
     _upsertAddress(updated);
@@ -388,7 +388,10 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                     const SizedBox(width: 8),
                     if (address.isPrimary)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.primaryGreen),
                           borderRadius: BorderRadius.circular(6),
@@ -404,7 +407,11 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                         ),
                       ),
                     const Spacer(),
-                    const Icon(Icons.share_outlined, color: AppColors.darkText, size: 20),
+                    const Icon(
+                      Icons.share_outlined,
+                      color: AppColors.darkText,
+                      size: 20,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -478,10 +485,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
 class AddressDetailsScreen extends StatefulWidget {
   final DeliveryAddress? initialAddress;
 
-  const AddressDetailsScreen({
-    super.key,
-    this.initialAddress,
-  });
+  const AddressDetailsScreen({super.key, this.initialAddress});
 
   @override
   State<AddressDetailsScreen> createState() => _AddressDetailsScreenState();
@@ -502,8 +506,9 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
     _labelController = TextEditingController(text: initial?.label ?? '');
     _nameController = TextEditingController(text: initial?.recipientName ?? '');
     _phoneController = TextEditingController(text: initial?.phone ?? '');
-    _addressController =
-        TextEditingController(text: initial?.streetAddress ?? '');
+    _addressController = TextEditingController(
+      text: initial?.streetAddress ?? '',
+    );
     _isPrimary = initial?.isPrimary ?? true;
   }
 
@@ -521,12 +526,14 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final street = _addressController.text.trim();
-    if (label.isEmpty || name.isEmpty || phone.isEmpty || street.isEmpty) return;
+    if (label.isEmpty || name.isEmpty || phone.isEmpty || street.isEmpty)
+      return;
 
     Navigator.pop(
       context,
       DeliveryAddress(
-        id: widget.initialAddress?.id ??
+        id:
+            widget.initialAddress?.id ??
             'addr_${DateTime.now().microsecondsSinceEpoch}',
         label: label,
         recipientName: name,
@@ -567,13 +574,22 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                 children: [
                   const _FieldLabel(label: 'Address Labels'),
-                  _InputBox(controller: _labelController, hintText: 'Home / Work Office'),
+                  _InputBox(
+                    controller: _labelController,
+                    hintText: 'Home / Work Office',
+                  ),
                   const SizedBox(height: 14),
                   const _FieldLabel(label: "လက်ခံမည့်သူ အမည်"),
-                  _InputBox(controller: _nameController, hintText: 'Recipient name'),
+                  _InputBox(
+                    controller: _nameController,
+                    hintText: 'Recipient name',
+                  ),
                   const SizedBox(height: 14),
                   const _FieldLabel(label: "လက်ခံမည့်သူ ဖုန်းနံပါတ်"),
-                  _InputBox(controller: _phoneController, hintText: 'Phone number'),
+                  _InputBox(
+                    controller: _phoneController,
+                    hintText: 'Phone number',
+                  ),
                   const SizedBox(height: 14),
                   const _FieldLabel(label: 'လိပ်စာ'),
                   _InputBox(
@@ -587,7 +603,8 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
                     activeColor: AppColors.primaryGreen,
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
-                    onChanged: (value) => setState(() => _isPrimary = value ?? false),
+                    onChanged: (value) =>
+                        setState(() => _isPrimary = value ?? false),
                     title: const Text(
                       'Set As Primary Address',
                       style: TextStyle(
@@ -618,7 +635,9 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
                       ),
                     ),
                     child: Text(
-                      isEditMode ? 'Save' : 'Select Location & Continue Fill Address',
+                      isEditMode
+                          ? 'Save'
+                          : 'Select Location & Continue Fill Address',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
@@ -682,7 +701,10 @@ class _ChooseAddressCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   if (address.isPrimary)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: AppColors.primaryGreen),
                         borderRadius: BorderRadius.circular(6),
@@ -698,7 +720,11 @@ class _ChooseAddressCard extends StatelessWidget {
                       ),
                     ),
                   const Spacer(),
-                  const Icon(Icons.share_outlined, color: AppColors.darkText, size: 20),
+                  const Icon(
+                    Icons.share_outlined,
+                    color: AppColors.darkText,
+                    size: 20,
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -790,7 +816,10 @@ class _InputBox extends StatelessWidget {
         ),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),

@@ -308,7 +308,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         color: Colors.white,
                         fontFamily: AppFonts.primary,
                         fontWeight: FontWeight.w700,
-                        fontSize: 18,
                       ),
                     ),
                   ),
@@ -340,7 +339,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         color: AppColors.primaryGreen,
                         fontFamily: AppFonts.primary,
                         fontWeight: FontWeight.w700,
-                        fontSize: 18,
                       ),
                     ),
                   ),
@@ -441,7 +439,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         color: Colors.white,
                         fontFamily: AppFonts.primary,
                         fontWeight: FontWeight.w700,
-                        fontSize: 18,
                       ),
                     ),
                   ),
@@ -815,7 +812,6 @@ class _ChooseDeliveryAddressScreenState
                         color: Colors.white,
                         fontFamily: AppFonts.primary,
                         fontWeight: FontWeight.w700,
-                        fontSize: 18,
                       ),
                     ),
                   ),
@@ -1269,9 +1265,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   void initState() {
     super.initState();
     final initial = widget.initialAddress;
-    _labelController = TextEditingController(
-      text: initial?.label ?? 'Work',
-    );
+    _labelController = TextEditingController(text: initial?.label ?? 'Work');
     _phoneController = TextEditingController(
       text: initial?.phone ?? '+1 111 467 378 399',
     );

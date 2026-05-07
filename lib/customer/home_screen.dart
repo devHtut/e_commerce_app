@@ -1085,7 +1085,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: TextStyle(
                                   color: AppColors.primaryGreen,
                                   fontFamily: AppFonts.primary,
-                                  fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -1128,7 +1127,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontFamily: AppFonts.primary,
-                                  fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -1248,7 +1246,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: Colors.white24,
-                  child: Icon(Icons.check, color: AppColors.primaryGreen, size: 18),
+                  child: Icon(
+                    Icons.check,
+                    color: AppColors.primaryGreen,
+                    size: 18,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text(
@@ -1496,11 +1498,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       alignment: Alignment.center,
                       child: Text(
                         'Checkout ($selectedCount) - ${formatKyat(selectedTotal)}',
-                        style: const TextStyle(
+                        style: AppTextStyles.button.copyWith(
                           color: Colors.white,
-                          fontFamily: AppFonts.primary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
