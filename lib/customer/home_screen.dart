@@ -49,8 +49,11 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _brandsError;
   List<_BrandInfo> _brands = [];
   List<String> _categories = const ['Discover'];
+  final List<String> _recentSearches = [];
   bool get _isLoggedIn => Supabase.instance.client.auth.currentUser != null;
 
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _customerOrderSearchController =
       TextEditingController();
   String _customerOrderSearchNeedle = '';
@@ -59,6 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _searchFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadProducts();
     _loadBrands();
     if (_isLoggedIn) {
@@ -73,6 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     _customerOrderSearchController.dispose();
     super.dispose();
   }
@@ -171,6 +179,64 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ProductModel> get _newArrivalProducts => _products.take(4).toList();
   List<ProductModel> get _hotDealProducts =>
       _products.reversed.take(4).toList();
+
+  List<ProductModel> get _searchResults {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _products;
+    return _products
+        .where((product) => _matchesProductSearch(product, query))
+        .toList();
+  }
+
+  bool get _isSearchMode =>
+      _searchFocusNode.hasFocus || _searchQuery.trim().isNotEmpty;
+
+  bool _matchesProductSearch(ProductModel product, String query) {
+    return product.name.toLowerCase().contains(query) ||
+        product.brand.toLowerCase().contains(query) ||
+        product.category.toLowerCase().contains(query) ||
+        product.description.toLowerCase().contains(query);
+  }
+
+  void _updateSearchQuery(String value) {
+    setState(() => _searchQuery = value);
+  }
+
+  void _submitSearch(String value) {
+    final query = value.trim();
+    if (query.isEmpty) return;
+    setState(() {
+      _searchQuery = query;
+      _recentSearches.removeWhere(
+        (recent) => recent.toLowerCase() == query.toLowerCase(),
+      );
+      _recentSearches.insert(0, query);
+      if (_recentSearches.length > 6) {
+        _recentSearches.removeRange(6, _recentSearches.length);
+      }
+    });
+  }
+
+  void _selectRecentSearch(String query) {
+    _searchController.text = query;
+    _searchController.selection = TextSelection.collapsed(offset: query.length);
+    _searchFocusNode.requestFocus();
+    setState(() => _searchQuery = query);
+  }
+
+  void _removeRecentSearch(String query) {
+    setState(() => _recentSearches.remove(query));
+  }
+
+  void _clearRecentSearches() {
+    setState(_recentSearches.clear);
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+    _searchFocusNode.unfocus();
+  }
 
   Future<void> _loadAccountInfo() async {
     if (!_isLoggedIn) return;
@@ -444,6 +510,162 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHomeSearchBox() {
+    return SearchBox(
+      controller: _searchController,
+      focusNode: _searchFocusNode,
+      hintText: 'Search anything you want ...',
+      onChanged: _updateSearchQuery,
+      onSubmitted: _submitSearch,
+      suffixIcon: _searchQuery.trim().isNotEmpty
+          ? IconButton(
+        onPressed: _clearSearch,
+        tooltip: 'Clear search',
+        icon: const Icon(
+          Icons.close,
+          color: AppColors.darkText,
+        ),
+      )
+          : null,
+    );
+  }
+
+  Widget _buildSearchModeContent() {
+    final query = _searchQuery.trim();
+    final results = _searchResults;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_recentSearches.isNotEmpty) ...[
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Recent Searches',
+                  style: TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _clearRecentSearches,
+                tooltip: 'Clear recent searches',
+                icon: const Icon(Icons.close, color: AppColors.darkText),
+              ),
+            ],
+          ),
+          const Divider(height: 1),
+          ..._recentSearches.map(_buildRecentSearchRow),
+          const SizedBox(height: 18),
+        ],
+        if (query.isEmpty) ...[
+          if (_hotDealProducts.isNotEmpty)
+            _buildHorizontalProductSection(
+              title: 'Hot Deals This Week',
+              products: _hotDealProducts,
+            ),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Results for "$query"',
+                  style: const TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '${results.length} found',
+                style: const TextStyle(
+                  color: AppColors.primaryGreen,
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (results.isEmpty)
+            const _HomeEmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'No products found',
+              message: 'Try searching by product name, brand, or category.',
+            )
+          else
+            _buildProductGrid(results),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildRecentSearchRow(String query) {
+    return InkWell(
+      onTap: () => _selectRecentSearch(query),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                query,
+                style: const TextStyle(
+                  color: AppColors.subtleText,
+                  fontFamily: AppFonts.primary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => _removeRecentSearch(query),
+              tooltip: 'Remove search',
+              icon: const Icon(Icons.close, color: AppColors.darkText),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductGrid(List<ProductModel> products) {
+    return GridView.builder(
+      itemCount: products.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.58,
+      ),
+      itemBuilder: (context, index) {
+        final product = products[index];
+        return ProductCard(
+          product: product,
+          isWishlisted: WishlistService.instance.isWishlisted(product.id),
+          onTap: () {
+            _submitSearch(_searchQuery);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProductDetailScreen(product: product),
+              ),
+            );
+          },
+          onWishlistTap: () => _toggleWishlist(product),
+        );
+      },
     );
   }
 
@@ -2035,102 +2257,74 @@ class _HomeScreenState extends State<HomeScreen> {
         return SingleChildScrollView(
           padding: const EdgeInsets.all(12),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SearchBox(
-                hintText: 'Search Trends...',
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
-              ),
+              _buildHomeSearchBox(),
               const SizedBox(height: 12),
-              AutoBannerSlider(banners: _banners),
-              const SizedBox(height: 12),
-              _buildBrandsSection(),
-              const SizedBox(height: 12),
-              _buildHorizontalProductSection(
-                title: 'New Arrival',
-                products: _newArrivalProducts,
-              ),
-              const SizedBox(height: 14),
-              _buildHorizontalProductSection(
-                title: 'Hot Deals for this week',
-                products: _hotDealProducts,
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                height: 44,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final isSelected = index == _selectedCategoryIndex;
-                    return ChoiceChip(
-                      label: Text(
-                        _categories[index],
-                        style: TextStyle(
-                          fontFamily: AppFonts.primary,
-                          color: isSelected ? Colors.white : AppColors.darkText,
-                          fontWeight: FontWeight.w600,
+              if (_isSearchMode)
+                _buildSearchModeContent()
+              else ...[
+                AutoBannerSlider(banners: _banners),
+                const SizedBox(height: 12),
+                _buildBrandsSection(),
+                const SizedBox(height: 12),
+                _buildHorizontalProductSection(
+                  title: 'New Arrival',
+                  products: _newArrivalProducts,
+                ),
+                const SizedBox(height: 14),
+                _buildHorizontalProductSection(
+                  title: 'Hot Deals for this week',
+                  products: _hotDealProducts,
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 44,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _categories.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final isSelected = index == _selectedCategoryIndex;
+                      return ChoiceChip(
+                        label: Text(
+                          _categories[index],
+                          style: TextStyle(
+                            fontFamily: AppFonts.primary,
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.darkText,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      selected: isSelected,
-                      onSelected: (_) {
-                        setState(() {
-                          _selectedCategoryIndex = index;
-                        });
-                      },
-                      selectedColor: AppColors.primaryGreen,
-                      backgroundColor: Colors.transparent,
-                      side: BorderSide(
-                        color: isSelected
-                            ? AppColors.primaryGreen
-                            : Colors.black26,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      showCheckmark: false,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-              GridView.builder(
-                itemCount: _filteredProducts.length,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.58,
-                ),
-                itemBuilder: (context, index) {
-                  final product = _filteredProducts[index];
-                  return ProductCard(
-                    product: product,
-                    isWishlisted: WishlistService.instance.isWishlisted(
-                      product.id,
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProductDetailScreen(product: product),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedCategoryIndex = index;
+                          });
+                        },
+                        selectedColor: AppColors.primaryGreen,
+                        backgroundColor: Colors.transparent,
+                        side: BorderSide(
+                          color: isSelected
+                              ? AppColors.primaryGreen
+                              : Colors.black26,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        showCheckmark: false,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
                         ),
                       );
                     },
-                    onWishlistTap: () => _toggleWishlist(product),
-                  );
-                },
-              ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildProductGrid(_filteredProducts),
+              ],
             ],
           ),
         );
@@ -2649,6 +2843,56 @@ class _BrandComingSoonTile extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _HomeEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+
+  const _HomeEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 36),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 42, color: AppColors.primaryGreen),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.subtleText,
+              fontFamily: AppFonts.primary,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

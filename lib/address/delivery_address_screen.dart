@@ -407,11 +407,11 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                         ),
                       ),
                     const Spacer(),
-                    const Icon(
-                      Icons.share_outlined,
-                      color: AppColors.darkText,
-                      size: 20,
-                    ),
+                    // const Icon(
+                    //   Icons.share_outlined,
+                    //   color: AppColors.darkText,
+                    //   size: 20,
+                    // ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -720,11 +720,11 @@ class _ChooseAddressCard extends StatelessWidget {
                       ),
                     ),
                   const Spacer(),
-                  const Icon(
-                    Icons.share_outlined,
-                    color: AppColors.darkText,
-                    size: 20,
-                  ),
+                  // const Icon(
+                  //   Icons.share_outlined,
+                  //   color: AppColors.darkText,
+                  //   size: 20,
+                  // ),
                 ],
               ),
               const SizedBox(height: 8),

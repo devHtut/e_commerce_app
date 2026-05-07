@@ -686,12 +686,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text('Product'),
-        actions: const [
-          Icon(Icons.share_outlined, color: AppColors.darkText),
-          SizedBox(width: 12),
-          Icon(Icons.more_vert, color: AppColors.darkText),
-          SizedBox(width: 12),
-        ],
+        // actions: const [
+        //   Icon(Icons.share_outlined, color: AppColors.darkText),
+        //   SizedBox(width: 12),
+        //   Icon(Icons.more_vert, color: AppColors.darkText),
+        //   SizedBox(width: 12),
+        // ],
       ),
       body: Column(
         children: [
