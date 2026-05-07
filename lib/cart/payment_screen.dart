@@ -67,9 +67,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final payments = await AuthUserService.getVendorPaymentsByBrand(brandId);
       setState(() {
         _paymentMethods = payments;
-        if (payments.isNotEmpty) {
-          _selectedPaymentMethodId = payments.first['id'].toString();
-        }
         _isLoading = false;
       });
     } catch (e) {
@@ -211,6 +208,128 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  Map<String, dynamic>? get _selectedPaymentMethod {
+    for (final payment in _paymentMethods) {
+      if (payment['id'].toString() == _selectedPaymentMethodId) {
+        return payment;
+      }
+    }
+    return null;
+  }
+
+  String? _paymentIconAsset(String paymentType) {
+    switch (paymentType.trim().toLowerCase()) {
+      case 'kbz pay':
+        return 'assets/images/KBZPay.png';
+      case 'wave pay':
+        return 'assets/images/WavePay.png';
+      case 'aya pay':
+        return 'assets/images/AYAPay.png';
+      case 'cb pay':
+        return 'assets/images/CBPay.png';
+      default:
+        return null;
+    }
+  }
+
+  Widget _buildPaymentMethodLogo(String paymentType, {double size = 52}) {
+    final asset = _paymentIconAsset(paymentType);
+
+    if (asset == null) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(
+          color: AppColors.lightGrey,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.account_balance_wallet_outlined,
+          color: AppColors.primaryGreen,
+          size: 26,
+        ),
+      );
+    }
+
+    return Image.asset(
+      asset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      errorBuilder: (_, error, stackTrace) {
+        return Container(
+          width: size,
+          height: size,
+          decoration: const BoxDecoration(
+            color: AppColors.lightGrey,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.account_balance_wallet_outlined,
+            color: AppColors.primaryGreen,
+            size: 26,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentMethodSelector() {
+    if (_paymentMethods.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Text(
+          'No payment methods available for this brand.',
+          style: TextStyle(color: AppColors.subtleText),
+        ),
+      );
+    }
+
+    final selectedPayment = _selectedPaymentMethod;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final tileWidth = (constraints.maxWidth - 12) / 2;
+
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _paymentMethods.map((payment) {
+                return _PaymentMethodTile(
+                  width: tileWidth,
+                  payment: payment,
+                  isSelected:
+                      payment['id'].toString() == _selectedPaymentMethodId,
+                  logo: _buildPaymentMethodLogo(
+                    payment['payment_type']?.toString() ?? '',
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _selectedPaymentMethodId = payment['id'].toString();
+                    });
+                  },
+                );
+              }).toList(),
+            );
+          },
+        ),
+        if (selectedPayment != null) ...[
+          const SizedBox(height: 14),
+          _PaymentMethodDetails(payment: selectedPayment),
+        ],
+      ],
+    );
+  }
+
   Future<void> _makePayment() async {
     final transactionId = _transactionController.text.trim();
     if (_selectedPaymentMethodId == null || _selectedScreenshot == null) {
@@ -218,7 +337,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         context,
         title: 'Validation failed',
         message:
-            'Choose one of the Payment Method and upload a screenshot after make payment!',
+            'Select a payment method and upload a screenshot after making payment.',
         type: PopupType.error,
       );
       return;
@@ -445,7 +564,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Choose one of the Payment Method and upload a screenshot after make payment!',
+                        'Select a payment method, transfer to the shown account, then upload your payment screenshot.',
                         style: AppTextStyles.body,
                       ),
                       const SizedBox(height: 24),
@@ -468,53 +587,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      if (_paymentMethods.isEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: const Text(
-                            'No payment methods available for this brand.',
-                            style: TextStyle(color: AppColors.subtleText),
-                          ),
-                        )
-                      else
-                        DropdownButtonFormField<String>(
-                          value: _selectedPaymentMethodId,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                          ),
-                          items: _paymentMethods.map((payment) {
-                            return DropdownMenuItem(
-                              value: payment['id'].toString(),
-                              child: Text(
-                                '${payment['payment_type']} - ${payment['account_name']} (${payment['account_number']})',
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() => _selectedPaymentMethodId = value);
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select a payment method.';
-                            }
-                            return null;
-                          },
-                        ),
+                      _buildPaymentMethodSelector(),
                       const SizedBox(height: 16),
                       const Text(
-                        'Please check the Account Number and Name before transfer',
+                        'Please check the account name and account number before transfer.',
                         style: TextStyle(
                           fontStyle: FontStyle.italic,
                           color: AppColors.errorRed,
@@ -620,6 +696,173 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 }
 
+class _PaymentMethodTile extends StatelessWidget {
+  final double width;
+  final Map<String, dynamic> payment;
+  final bool isSelected;
+  final Widget logo;
+  final VoidCallback onTap;
+
+  const _PaymentMethodTile({
+    required this.width,
+    required this.payment,
+    required this.isSelected,
+    required this.logo,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final paymentType = payment['payment_type']?.toString() ?? '';
+
+    return SizedBox(
+      width: width,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        label: paymentType,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              height: 104,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primaryGreen
+                      : Colors.grey.shade300,
+                  width: isSelected ? 1.8 : 1,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primaryGreen.withAlpha(31),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  logo,
+                  const SizedBox(height: 8),
+                  Text(
+                    paymentType.isEmpty ? 'Payment' : paymentType,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppFonts.primary,
+                      color: isSelected
+                          ? AppColors.primaryGreen
+                          : AppColors.darkText,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentMethodDetails extends StatelessWidget {
+  final Map<String, dynamic> payment;
+
+  const _PaymentMethodDetails({required this.payment});
+
+  @override
+  Widget build(BuildContext context) {
+    final paymentType = payment['payment_type']?.toString() ?? '-';
+    final accountName = payment['account_name']?.toString() ?? '-';
+    final accountNumber = payment['account_number']?.toString() ?? '-';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primaryGreen.withAlpha(89)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Transfer Details',
+            style: TextStyle(
+              fontFamily: AppFonts.primary,
+              color: AppColors.darkText,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          _PaymentDetailRow(label: 'Payment Method', value: paymentType),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          _PaymentDetailRow(label: 'Account Name', value: accountName),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          _PaymentDetailRow(label: 'Account Number', value: accountNumber),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _PaymentDetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: AppFonts.primary,
+            color: AppColors.subtleText,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        SelectableText(
+          value.isEmpty ? '-' : value,
+          style: const TextStyle(
+            fontFamily: AppFonts.primary,
+            color: AppColors.darkText,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _OrderItemTile extends StatelessWidget {
   final CartItem item;
 
@@ -639,7 +882,7 @@ class _OrderItemTile extends StatelessWidget {
               width: 72,
               height: 86,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, error, stackTrace) => Container(
                 width: 72,
                 height: 86,
                 color: Colors.grey.shade300,
