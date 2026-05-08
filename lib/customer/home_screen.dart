@@ -2281,8 +2281,6 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHomeSearchBox(),
-              const SizedBox(height: 12),
               if (_isSearchMode)
                 _buildSearchModeContent()
               else ...[
@@ -2728,6 +2726,15 @@ class _HomeScreenState extends State<HomeScreen> {
               : Text(_appBarTitle(), style: AppTextStyles.appBarTitle),
           centerTitle: true,
           actions: [_notificationButton()],
+          bottom: _currentIndex == 0
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(68),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: _buildHomeSearchBox(),
+                  ),
+                )
+              : null,
         ),
         body: _buildCurrentPage(),
         bottomNavigationBar: ValueListenableBuilder<List<CartItem>>(
@@ -2742,7 +2749,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 final visibleWishlistCount = _isLoggedIn ? wishlistCount : 0;
                 final bottomInset = MediaQuery.paddingOf(context).bottom;
                 final navBackground =
-                    Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
+                    Theme.of(
+                      context,
+                    ).bottomNavigationBarTheme.backgroundColor ??
                     Theme.of(context).canvasColor;
 
                 return Material(
