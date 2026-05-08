@@ -275,29 +275,29 @@ class OrderReceiptContent extends StatelessWidget {
             _rowLabelValue('Transaction ID', payment.transactionId),
             const SizedBox(height: 4),
             _rowLabelValue('Amount', formatKyat(payment.amount)),
-            if (payment.screenshotUrl.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              const Text(
-                'Payment screenshot',
-                style: TextStyle(
-                  fontFamily: AppFonts.primary,
-                  fontSize: 11,
-                  color: AppColors.subtleText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  payment.screenshotUrl,
-                  height: 100,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            ],
+            // if (payment.screenshotUrl.isNotEmpty) ...[
+            //   const SizedBox(height: 10),
+            //   const Text(
+            //     'Payment screenshot',
+            //     style: TextStyle(
+            //       fontFamily: AppFonts.primary,
+            //       fontSize: 11,
+            //       color: AppColors.subtleText,
+            //       fontWeight: FontWeight.w600,
+            //     ),
+            //   ),
+            //   const SizedBox(height: 6),
+            //   ClipRRect(
+            //     borderRadius: BorderRadius.circular(8),
+            //     child: Image.network(
+            //       payment.screenshotUrl,
+            //       height: 100,
+            //       width: double.infinity,
+            //       fit: BoxFit.cover,
+            //       errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            //     ),
+            //   ),
+            // ],
           ],
           const SizedBox(height: 20),
           Center(

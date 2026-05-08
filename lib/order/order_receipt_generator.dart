@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'order_receipt_content.dart';
 import 'order_service.dart';
@@ -12,7 +10,10 @@ import 'order_service.dart';
 class OrderReceiptGenerator {
   OrderReceiptGenerator._();
 
-  static Future<void> precacheImages(BuildContext context, OrderModel order) async {
+  static Future<void> precacheImages(
+    BuildContext context,
+    OrderModel order,
+  ) async {
     final urls = <String>{};
     if (order.items.isNotEmpty) {
       final logo = order.items.first.product.brandLogoUrl;
@@ -30,7 +31,10 @@ class OrderReceiptGenerator {
     }
   }
 
-  static Future<Uint8List?> renderPng(BuildContext context, OrderModel order) async {
+  static Future<Uint8List?> renderPng(
+    BuildContext context,
+    OrderModel order,
+  ) async {
     final key = GlobalKey();
     final overlayState = Overlay.of(context, rootOverlay: true);
     late OverlayEntry entry;
@@ -64,19 +68,5 @@ class OrderReceiptGenerator {
       entry.remove();
     }
     return bytes;
-  }
-
-  static Future<File?> savePng(Uint8List bytes, String readableId) async {
-    final base = await getApplicationDocumentsDirectory();
-    final folder = Directory('${base.path}${Platform.pathSeparator}receipts');
-    if (!await folder.exists()) {
-      await folder.create(recursive: true);
-    }
-    final safe = readableId.replaceAll(RegExp(r'[^\w\-]+'), '_');
-    final name =
-        'receipt_${safe.isEmpty ? DateTime.now().millisecondsSinceEpoch : safe}.png';
-    final file = File('${folder.path}${Platform.pathSeparator}$name');
-    await file.writeAsBytes(bytes, flush: true);
-    return file;
   }
 }

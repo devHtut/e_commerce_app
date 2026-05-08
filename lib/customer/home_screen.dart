@@ -2720,7 +2720,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               : _currentIndex == 0
               ? Image.asset(
-                  '../assets/logo.png',
+                  'assets/logo.png',
                   height: 50,
                   fit: BoxFit.contain,
                   semanticLabel: 'BurmaBrands',
