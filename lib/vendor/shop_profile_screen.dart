@@ -39,6 +39,9 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   @override
   void initState() {
     super.initState();
+    if (Supabase.instance.client.auth.currentUser != null) {
+      WishlistService.instance.loadWishlistItems();
+    }
     if (widget.embedded) {
       _embeddedVendorAccessPending = true;
       WidgetsBinding.instance.addPostFrameCallback(
@@ -348,7 +351,11 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                               await GuestAuthGatePanel.show(context);
                               return;
                             }
-                            await WishlistService.instance.toggle(product);
+                            try {
+                              await WishlistService.instance.toggle(product);
+                            } catch (e) {
+                              debugPrint('Unable to update wishlist: $e');
+                            }
                             if (mounted) setState(() {});
                           },
                     onTap: () {

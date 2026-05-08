@@ -74,6 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
         audience: AppNotificationAudience.customer,
       );
       CartService.instance.loadCartItems();
+      WishlistService.instance.loadWishlistItems();
     } else {
       WishlistService.instance.clear();
       CartService.instance.clear();
@@ -854,19 +855,29 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _currentIndex = 1);
       return;
     }
-    final added = await WishlistService.instance.toggle(product);
-    if (!mounted) return;
-    if (added) {
+    try {
+      final added = await WishlistService.instance.toggle(product);
+      if (!mounted) return;
+      setState(() {});
+      if (added) {
+        await showCustomPopup(
+          context,
+          title: 'Saved',
+          message: '${product.name} added to wishlist.',
+          type: PopupType.success,
+        );
+      } else {
+        _showRemovedFromWishlistToast();
+      }
+    } catch (e) {
+      if (!mounted) return;
       await showCustomPopup(
         context,
-        title: 'Saved',
-        message: '${product.name} added to wishlist.',
-        type: PopupType.success,
+        title: 'Wishlist failed',
+        message: 'Unable to update wishlist. Please try again.',
+        type: PopupType.error,
       );
-    } else {
-      _showRemovedFromWishlistToast();
     }
-    if (mounted) setState(() {});
   }
 
   void _showRemovedFromWishlistToast() {
@@ -947,6 +958,9 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     if (index == 2 && _isLoggedIn) {
       await CartService.instance.loadCartItems();
+    }
+    if (index == 1 && _isLoggedIn) {
+      await WishlistService.instance.loadWishlistItems();
     }
     if (index == 3 && _isLoggedIn) {
       await OrderService.instance.loadOrders();
