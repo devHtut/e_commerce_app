@@ -2740,57 +2740,73 @@ class _HomeScreenState extends State<HomeScreen> {
                 final visibleCartCount = _isLoggedIn ? cartCount : 0;
                 final wishlistCount = wishlistItems.length;
                 final visibleWishlistCount = _isLoggedIn ? wishlistCount : 0;
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    splashFactory: NoSplash.splashFactory,
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                  ),
-                  child: BottomNavigationBar(
-                    currentIndex: _currentIndex,
-                    selectedItemColor: AppColors.primaryGreen,
-                    unselectedItemColor: Colors.grey,
-                    type: BottomNavigationBarType.fixed,
-                    onTap: _handleTabTap,
-                    items: [
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.home_outlined),
-                        activeIcon: Icon(Icons.home),
-                        label: 'Home',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: _bottomNavIconWithBadge(
-                          icon: Icons.favorite_border,
-                          count: visibleWishlistCount,
+                final bottomInset = MediaQuery.paddingOf(context).bottom;
+                final navBackground =
+                    Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
+                    Theme.of(context).canvasColor;
+
+                return Material(
+                  color: navBackground,
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: bottomInset + 12),
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeBottom: true,
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          splashFactory: NoSplash.splashFactory,
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
                         ),
-                        activeIcon: _bottomNavIconWithBadge(
-                          icon: Icons.favorite,
-                          count: visibleWishlistCount,
+                        child: BottomNavigationBar(
+                          currentIndex: _currentIndex,
+                          elevation: 0,
+                          selectedItemColor: AppColors.primaryGreen,
+                          unselectedItemColor: Colors.grey,
+                          type: BottomNavigationBarType.fixed,
+                          onTap: _handleTabTap,
+                          items: [
+                            const BottomNavigationBarItem(
+                              icon: Icon(Icons.home_outlined),
+                              activeIcon: Icon(Icons.home),
+                              label: 'Home',
+                            ),
+                            BottomNavigationBarItem(
+                              icon: _bottomNavIconWithBadge(
+                                icon: Icons.favorite_border,
+                                count: visibleWishlistCount,
+                              ),
+                              activeIcon: _bottomNavIconWithBadge(
+                                icon: Icons.favorite,
+                                count: visibleWishlistCount,
+                              ),
+                              label: 'Wishlist',
+                            ),
+                            BottomNavigationBarItem(
+                              icon: _bottomNavIconWithBadge(
+                                icon: Icons.shopping_cart_outlined,
+                                count: visibleCartCount,
+                              ),
+                              activeIcon: _bottomNavIconWithBadge(
+                                icon: Icons.shopping_cart,
+                                count: visibleCartCount,
+                              ),
+                              label: 'Cart',
+                            ),
+                            const BottomNavigationBarItem(
+                              icon: Icon(Icons.receipt_long_outlined),
+                              activeIcon: Icon(Icons.receipt_long),
+                              label: 'My Orders',
+                            ),
+                            const BottomNavigationBarItem(
+                              icon: Icon(Icons.account_circle_outlined),
+                              activeIcon: Icon(Icons.account_circle),
+                              label: 'Account',
+                            ),
+                          ],
                         ),
-                        label: 'Wishlist',
                       ),
-                      BottomNavigationBarItem(
-                        icon: _bottomNavIconWithBadge(
-                          icon: Icons.shopping_cart_outlined,
-                          count: visibleCartCount,
-                        ),
-                        activeIcon: _bottomNavIconWithBadge(
-                          icon: Icons.shopping_cart,
-                          count: visibleCartCount,
-                        ),
-                        label: 'Cart',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.receipt_long_outlined),
-                        activeIcon: Icon(Icons.receipt_long),
-                        label: 'My Orders',
-                      ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.account_circle_outlined),
-                        activeIcon: Icon(Icons.account_circle),
-                        label: 'Account',
-                      ),
-                    ],
+                    ),
                   ),
                 );
               },

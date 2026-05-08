@@ -15,19 +15,35 @@ class AppBottomNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        splashFactory: NoSplash.splashFactory,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-      ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        selectedItemColor: AppColors.primaryGreen,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        onTap: onTap,
-        items: items,
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final navBackground =
+        Theme.of(context).bottomNavigationBarTheme.backgroundColor ??
+        Theme.of(context).canvasColor;
+
+    return Material(
+      color: navBackground,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset + 12),
+        child: MediaQuery.removePadding(
+          context: context,
+          removeBottom: true,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              splashFactory: NoSplash.splashFactory,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+            ),
+            child: BottomNavigationBar(
+              currentIndex: currentIndex,
+              elevation: 0,
+              selectedItemColor: AppColors.primaryGreen,
+              unselectedItemColor: Colors.grey,
+              type: BottomNavigationBarType.fixed,
+              onTap: onTap,
+              items: items,
+            ),
+          ),
+        ),
       ),
     );
   }
