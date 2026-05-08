@@ -1,4 +1,4 @@
-name: e_commerce_app
+name: shopping_app
 description: "Myanmar local brand online shopping platform."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -71,6 +71,7 @@ flutter:
   assets:
      - assets/images/
      - assets/logo.png
+     - assets/icon_logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -188,7 +188,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Image.asset(
-                          '../assets/icon_logo.png',
+                          'assets/icon_logo.png',
                           height: 96,
                           fit: BoxFit.contain,
                         ),
