@@ -11,7 +11,12 @@ class WishlistService {
   final ValueNotifier<List<ProductModel>> itemsNotifier =
       ValueNotifier<List<ProductModel>>(<ProductModel>[]);
 
+  void clear() {
+    itemsNotifier.value = <ProductModel>[];
+  }
+
   bool isWishlisted(String productId) {
+    if (Supabase.instance.client.auth.currentUser == null) return false;
     return itemsNotifier.value.any((item) => item.id == productId);
   }
 
@@ -19,24 +24,24 @@ class WishlistService {
     final items = List<ProductModel>.from(itemsNotifier.value);
     final index = items.indexWhere((item) => item.id == product.id);
     final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      clear();
+      return false;
+    }
     if (index == -1) {
-      if (user != null) {
-        await Supabase.instance.client.from('wishlist').insert({
-          'user_id': user.id,
-          'product_id': product.id,
-        });
-      }
+      await Supabase.instance.client.from('wishlist').insert({
+        'user_id': user.id,
+        'product_id': product.id,
+      });
       items.insert(0, product);
       itemsNotifier.value = items;
       return true;
     }
-    if (user != null) {
-      await Supabase.instance.client
-          .from('wishlist')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('product_id', product.id);
-    }
+    await Supabase.instance.client
+        .from('wishlist')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('product_id', product.id);
     items.removeAt(index);
     itemsNotifier.value = items;
     return false;
@@ -44,13 +49,15 @@ class WishlistService {
 
   Future<void> remove(String productId) async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      await Supabase.instance.client
-          .from('wishlist')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('product_id', productId);
+    if (user == null) {
+      clear();
+      return;
     }
+    await Supabase.instance.client
+        .from('wishlist')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('product_id', productId);
     final items = List<ProductModel>.from(itemsNotifier.value)
       ..removeWhere((item) => item.id == productId);
     itemsNotifier.value = items;

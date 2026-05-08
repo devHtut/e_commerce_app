@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/signin_screen.dart';
 import '../auth/vendor_access.dart';
+import '../notification/notification_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import 'brand_business_info_screen.dart';
@@ -51,6 +52,7 @@ class _BrandAccountSettingsScreenState
 
   Future<void> _logout() async {
     await Supabase.instance.client.auth.signOut();
+    NotificationService.instance.clearUnreadCount();
     if (!mounted) return;
     await showCustomPopup(
       context,

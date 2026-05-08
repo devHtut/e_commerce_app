@@ -15,6 +15,11 @@ class CartService {
 
   final Set<String> _expiryWarningSentItemIds = {};
 
+  void clear() {
+    _expiryWarningSentItemIds.clear();
+    itemsNotifier.value = <CartItem>[];
+  }
+
   Future<void> addItem({
     required ProductModel product,
     required String variantId,
@@ -87,7 +92,10 @@ class CartService {
 
   Future<void> loadCartItems() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      clear();
+      return;
+    }
 
     try {
       final rows = await Supabase.instance.client

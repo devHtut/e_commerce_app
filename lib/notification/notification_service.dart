@@ -59,6 +59,10 @@ class NotificationService {
 
   SupabaseClient get _client => Supabase.instance.client;
 
+  void clearUnreadCount() {
+    unreadCountNotifier.value = 0;
+  }
+
   Future<void> createWelcomeNotification({
     required bool isVendor,
     String? userId,

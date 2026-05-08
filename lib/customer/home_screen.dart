@@ -74,6 +74,10 @@ class _HomeScreenState extends State<HomeScreen> {
         audience: AppNotificationAudience.customer,
       );
       CartService.instance.loadCartItems();
+    } else {
+      WishlistService.instance.clear();
+      CartService.instance.clear();
+      NotificationService.instance.clearUnreadCount();
     }
   }
 
@@ -522,13 +526,10 @@ class _HomeScreenState extends State<HomeScreen> {
       onSubmitted: _submitSearch,
       suffixIcon: _searchQuery.trim().isNotEmpty
           ? IconButton(
-        onPressed: _clearSearch,
-        tooltip: 'Clear search',
-        icon: const Icon(
-          Icons.close,
-          color: AppColors.darkText,
-        ),
-      )
+              onPressed: _clearSearch,
+              tooltip: 'Clear search',
+              icon: const Icon(Icons.close, color: AppColors.darkText),
+            )
           : null,
     );
   }
@@ -830,6 +831,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _logout() async {
     await Supabase.instance.client.auth.signOut();
+    WishlistService.instance.clear();
+    CartService.instance.clear();
+    NotificationService.instance.clearUnreadCount();
     if (!mounted) return;
     await showCustomPopup(
       context,
@@ -917,11 +921,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _appBarTitle() {
     if (_currentIndex == 2) {
-      final count = CartService.instance.itemsNotifier.value.length;
+      final count = _isLoggedIn
+          ? CartService.instance.itemsNotifier.value.length
+          : 0;
       return 'Cart ($count)';
     }
     if (_currentIndex == 1) {
-      final count = WishlistService.instance.itemsNotifier.value.length;
+      final count = _isLoggedIn
+          ? WishlistService.instance.itemsNotifier.value.length
+          : 0;
       return 'Wishlist ($count)';
     }
     if (_currentIndex == 3) {
@@ -2541,6 +2549,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return ValueListenableBuilder<int>(
       valueListenable: NotificationService.instance.unreadCountNotifier,
       builder: (context, unreadCount, _) {
+        final visibleUnreadCount = _isLoggedIn ? unreadCount : 0;
         return IconButton(
           onPressed: _openNotifications,
           tooltip: 'Notifications',
@@ -2551,7 +2560,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icons.notifications_none_rounded,
                 color: AppColors.darkText,
               ),
-              if (unreadCount > 0)
+              if (visibleUnreadCount > 0)
                 Positioned(
                   right: -2,
                   top: -3,
@@ -2564,7 +2573,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Text(
-                      unreadCount > 9 ? '9+' : '$unreadCount',
+                      visibleUnreadCount > 9 ? '9+' : '$visibleUnreadCount',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 9,
@@ -2714,7 +2723,9 @@ class _HomeScreenState extends State<HomeScreen> {
               valueListenable: WishlistService.instance.itemsNotifier,
               builder: (context, wishlistItems, _) {
                 final cartCount = cartItems.length;
+                final visibleCartCount = _isLoggedIn ? cartCount : 0;
                 final wishlistCount = wishlistItems.length;
+                final visibleWishlistCount = _isLoggedIn ? wishlistCount : 0;
                 return Theme(
                   data: Theme.of(context).copyWith(
                     splashFactory: NoSplash.splashFactory,
@@ -2736,22 +2747,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       BottomNavigationBarItem(
                         icon: _bottomNavIconWithBadge(
                           icon: Icons.favorite_border,
-                          count: wishlistCount,
+                          count: visibleWishlistCount,
                         ),
                         activeIcon: _bottomNavIconWithBadge(
                           icon: Icons.favorite,
-                          count: wishlistCount,
+                          count: visibleWishlistCount,
                         ),
                         label: 'Wishlist',
                       ),
                       BottomNavigationBarItem(
                         icon: _bottomNavIconWithBadge(
                           icon: Icons.shopping_cart_outlined,
-                          count: cartCount,
+                          count: visibleCartCount,
                         ),
                         activeIcon: _bottomNavIconWithBadge(
                           icon: Icons.shopping_cart,
-                          count: cartCount,
+                          count: visibleCartCount,
                         ),
                         label: 'Cart',
                       ),
