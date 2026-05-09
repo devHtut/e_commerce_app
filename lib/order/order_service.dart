@@ -203,7 +203,9 @@ class OrderService {
     if (shippingAddressIds.isNotEmpty) {
       final addressRows = await Supabase.instance.client
           .from('user_addresses')
-          .select('id,label,phone_number,address_line,city')
+          .select(
+            'id,label,phone_number,address_line,region,district,township,city',
+          )
           .filter('id', 'in', shippingAddressIds);
 
       for (final addressRow in addressRows as List<dynamic>) {
@@ -326,6 +328,21 @@ class OrderService {
       final city = shippingData != null
           ? shippingData['city']?.toString() ?? ''
           : '';
+      final township = shippingData != null
+          ? shippingData['township']?.toString() ?? city
+          : '';
+      final district = shippingData != null
+          ? shippingData['district']?.toString() ?? ''
+          : '';
+      final region = shippingData != null
+          ? shippingData['region']?.toString() ?? ''
+          : '';
+      final addressLine = [
+        street,
+        township,
+        district,
+        region,
+      ].where((item) => item.isNotEmpty).join(', ');
 
       if (items.isNotEmpty) {
         orders.add(
@@ -340,7 +357,7 @@ class OrderService {
                 profileData?['full_name']?.toString() ?? '',
             shippingAddressPhone:
                 shippingData?['phone_number']?.toString() ?? '',
-            shippingAddressStreet: '$street${city.isNotEmpty ? ', $city' : ''}',
+            shippingAddressStreet: addressLine,
             payment: paymentMap[orderId],
             statusHistory: historyMap[orderId] ?? const [],
           ),

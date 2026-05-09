@@ -275,7 +275,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final rows = await Supabase.instance.client
           .from('user_addresses')
-          .select('id,label,phone_number,address_line,city,is_default')
+          .select(
+            'id,label,phone_number,address_line,region,district,township,city,is_default',
+          )
           .eq('user_id', user.id)
           .order('is_default', ascending: false);
 
@@ -284,6 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .map((row) {
             final street = row['address_line']?.toString() ?? '';
             final city = row['city']?.toString() ?? '';
+            final township = row['township']?.toString() ?? city;
             return DeliveryAddress(
               id:
                   row['id']?.toString() ??
@@ -291,7 +294,10 @@ class _HomeScreenState extends State<HomeScreen> {
               label: row['label']?.toString() ?? 'Home',
               recipientName: fullName,
               phone: row['phone_number']?.toString() ?? '',
-              streetAddress: '$street${city.isNotEmpty ? ', $city' : ''}',
+              streetAddress: street,
+              region: row['region']?.toString() ?? '',
+              district: row['district']?.toString() ?? '',
+              township: township,
               isPrimary: (row['is_default'] as bool?) ?? false,
             );
           })
@@ -1489,10 +1495,10 @@ class _HomeScreenState extends State<HomeScreen> {
               children: const [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: Colors.white24,
+                  backgroundColor: AppColors.primaryGreen,
                   child: Icon(
                     Icons.check,
-                    color: AppColors.primaryGreen,
+                    color: Colors.white24,
                     size: 18,
                   ),
                 ),

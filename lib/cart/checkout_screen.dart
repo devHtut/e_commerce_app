@@ -3,12 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
 import '../customer/home_screen.dart';
-import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/discard_changes_dialog.dart';
 import '../widgets/price_formatter.dart';
+import '../address/myanmar_location_data.dart';
 import 'cart_item.dart';
-import 'cart_service.dart';
 import 'payment_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -52,7 +51,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final fullName = profile?['full_name']?.toString() ?? '';
       final rows = await Supabase.instance.client
           .from('user_addresses')
-          .select('id,label,phone_number,address_line,city,is_default')
+          .select(
+            'id,label,phone_number,address_line,region,district,township,city,is_default',
+          )
           .eq('user_id', user.id)
           .order('is_default', ascending: false);
       final addresses = (rows as List<dynamic>)
@@ -60,6 +61,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .map((row) {
             final street = row['address_line']?.toString() ?? '';
             final city = row['city']?.toString() ?? '';
+            final township = row['township']?.toString() ?? city;
             return _DeliveryAddress(
               id:
                   row['id']?.toString() ??
@@ -67,8 +69,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               label: row['label']?.toString() ?? 'Home',
               recipientName: fullName,
               phone: row['phone_number']?.toString() ?? '',
-              streetAddress: '$street${city.isNotEmpty ? ', $city' : ''}',
-              city: city,
+              streetAddress: street,
+              region: row['region']?.toString() ?? '',
+              district: row['district']?.toString() ?? '',
+              township: township,
               isPrimary: (row['is_default'] as bool?) ?? false,
             );
           })
@@ -129,7 +133,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       'label': address.label,
       'phone_number': address.phone,
       'address_line': address.streetAddress,
-      'city': address.city,
+      'region': address.region,
+      'district': address.district,
+      'township': address.township,
+      'city': address.township,
       'is_default': address.isPrimary,
     };
     try {
@@ -459,7 +466,9 @@ class _DeliveryAddress {
   final String recipientName;
   final String phone;
   final String streetAddress;
-  final String city;
+  final String region;
+  final String district;
+  final String township;
   final bool isPrimary;
 
   const _DeliveryAddress({
@@ -468,7 +477,9 @@ class _DeliveryAddress {
     required this.recipientName,
     required this.phone,
     required this.streetAddress,
-    required this.city,
+    required this.region,
+    required this.district,
+    required this.township,
     this.isPrimary = false,
   });
 
@@ -478,7 +489,9 @@ class _DeliveryAddress {
     String? recipientName,
     String? phone,
     String? streetAddress,
-    String? city,
+    String? region,
+    String? district,
+    String? township,
     String? note,
     bool? isPrimary,
   }) {
@@ -488,9 +501,20 @@ class _DeliveryAddress {
       recipientName: recipientName ?? this.recipientName,
       phone: phone ?? this.phone,
       streetAddress: streetAddress ?? this.streetAddress,
-      city: city ?? this.city,
+      region: region ?? this.region,
+      district: district ?? this.district,
+      township: township ?? this.township,
       isPrimary: isPrimary ?? this.isPrimary,
     );
+  }
+
+  String get displayAddress {
+    return [
+      streetAddress,
+      township,
+      district,
+      region,
+    ].where((item) => item.isNotEmpty).join(', ');
   }
 }
 
@@ -586,7 +610,7 @@ class _SelectedDeliveryAddressTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      address.streetAddress,
+                      address.displayAddress,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -920,7 +944,7 @@ class _ChooseAddressCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                address.streetAddress,
+                address.displayAddress,
                 style: TextStyle(
                   color: Colors.grey.shade700,
                   fontFamily: AppFonts.primary,
@@ -1190,7 +1214,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  address.streetAddress,
+                  address.displayAddress,
                   style: TextStyle(
                     color: Colors.grey.shade700,
                     fontFamily: AppFonts.primary,
@@ -1257,8 +1281,10 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   late final TextEditingController _labelController;
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
-  late final TextEditingController _cityController;
-  late bool _isPrimary;
+  late Future<MyanmarLocationData> _locationData;
+  String? _selectedRegion;
+  String? _selectedDistrict;
+  String? _selectedTownship;
   bool _allowPop = false;
 
   bool get _isEditMode => widget.initialAddress != null;
@@ -1267,15 +1293,21 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
   void initState() {
     super.initState();
     final initial = widget.initialAddress;
-    _labelController = TextEditingController(text: initial?.label ?? 'Work');
-    _phoneController = TextEditingController(
-      text: initial?.phone ?? '+1 111 467 378 399',
-    );
+    _locationData = MyanmarLocationData.load();
+    _labelController = TextEditingController(text: initial?.label ?? '');
+    _phoneController = TextEditingController(text: initial?.phone ?? '');
     _addressController = TextEditingController(
-      text: initial?.streetAddress ?? '75 9th Ave, New York, NY 10011, USA',
+      text: initial?.streetAddress ?? '',
     );
-    _cityController = TextEditingController(text: initial?.city ?? 'New York');
-    _isPrimary = initial?.isPrimary ?? true;
+    _selectedRegion = initial?.region.isNotEmpty == true
+        ? initial!.region
+        : null;
+    _selectedDistrict = initial?.district.isNotEmpty == true
+        ? initial!.district
+        : null;
+    _selectedTownship = initial?.township.isNotEmpty == true
+        ? initial!.township
+        : null;
   }
 
   @override
@@ -1283,7 +1315,6 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     _labelController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _cityController.dispose();
     super.dispose();
   }
 
@@ -1316,7 +1347,9 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
           recipientName: await _getProfileFullName(),
           phone: payload['phone_number'].toString(),
           streetAddress: payload['address_line'].toString(),
-          city: payload['city'].toString(),
+          region: payload['region'].toString(),
+          district: payload['district'].toString(),
+          township: payload['township'].toString(),
           isPrimary: payload['is_default'] as bool,
         );
       }
@@ -1331,7 +1364,9 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
         recipientName: await _getProfileFullName(),
         phone: payload['phone_number'].toString(),
         streetAddress: payload['address_line'].toString(),
-        city: payload['city'].toString(),
+        region: payload['region'].toString(),
+        district: payload['district'].toString(),
+        township: payload['township'].toString(),
         isPrimary: payload['is_default'] as bool,
       );
     } catch (_) {
@@ -1341,14 +1376,13 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
 
   bool get _hasDraftInput {
     final initial = widget.initialAddress;
-    return _labelController.text.trim() != (initial?.label ?? 'Work').trim() ||
-        _phoneController.text.trim() !=
-            (initial?.phone ?? '+1 111 467 378 399').trim() ||
+    return _labelController.text.trim() != (initial?.label ?? '').trim() ||
+        _phoneController.text.trim() != (initial?.phone ?? '').trim() ||
         _addressController.text.trim() !=
-            (initial?.streetAddress ?? '75 9th Ave, New York, NY 10011, USA')
-                .trim() ||
-        _cityController.text.trim() != (initial?.city ?? 'New York').trim() ||
-        _isPrimary != (initial?.isPrimary ?? true);
+            (initial?.streetAddress ?? '').trim() ||
+        (_selectedRegion ?? '') != (initial?.region ?? '') ||
+        (_selectedDistrict ?? '') != (initial?.district ?? '') ||
+        (_selectedTownship ?? '') != (initial?.township ?? '');
   }
 
   Future<void> _requestLeave() async {
@@ -1376,8 +1410,15 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
     final label = _labelController.text.trim();
     final phone = _phoneController.text.trim();
     final street = _addressController.text.trim();
-    final city = _cityController.text.trim();
-    if (label.isEmpty || phone.isEmpty || street.isEmpty || city.isEmpty) {
+    final region = _selectedRegion ?? '';
+    final district = _selectedDistrict ?? '';
+    final township = _selectedTownship ?? '';
+    if (label.isEmpty ||
+        phone.isEmpty ||
+        street.isEmpty ||
+        region.isEmpty ||
+        district.isEmpty ||
+        township.isEmpty) {
       return;
     }
 
@@ -1389,8 +1430,11 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
       'label': label,
       'phone_number': phone,
       'address_line': street,
-      'city': city,
-      'is_default': _isPrimary,
+      'region': region,
+      'district': district,
+      'township': township,
+      'city': township,
+      'is_default': widget.initialAddress?.isPrimary ?? true,
     };
 
     final savedAddress = await _persistAddressToDatabase(id, payload);
@@ -1435,47 +1479,94 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                   children: [
-                    _FieldLabel(label: 'Address Labels'),
+                    const _FieldLabel(label: 'Address Label'),
                     _InputBox(
                       controller: _labelController,
                       hintText: 'Home / Work Office',
                     ),
                     const SizedBox(height: 14),
-                    _FieldLabel(label: "Recipient's Phone Number"),
+                    const _FieldLabel(label: 'Phone Number'),
                     _InputBox(
                       controller: _phoneController,
                       hintText: 'Phone number',
                     ),
                     const SizedBox(height: 14),
-                    _FieldLabel(label: 'City'),
-                    _InputBox(controller: _cityController, hintText: 'City'),
-                    const SizedBox(height: 14),
-                    _FieldLabel(label: 'Address'),
+                    const _FieldLabel(label: 'Street'),
                     _InputBox(
                       controller: _addressController,
-                      hintText: 'Street, ZIP',
+                      hintText: 'Street address',
                       maxLines: 2,
                     ),
                     const SizedBox(height: 14),
-                    CheckboxListTile(
-                      value: _isPrimary,
-                      activeColor: AppColors.primaryGreen,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: (value) {
-                        setState(() {
-                          _isPrimary = value ?? false;
-                        });
+                    FutureBuilder<MyanmarLocationData>(
+                      future: _locationData,
+                      builder: (context, snapshot) {
+                        final data = snapshot.data;
+                        final regions = data?.regions ?? const <String>[];
+                        final districts =
+                            data?.districtsFor(_selectedRegion) ??
+                            const <String>[];
+                        final townships =
+                            data?.townshipsFor(
+                              _selectedRegion,
+                              _selectedDistrict,
+                            ) ??
+                            const <String>[];
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _FieldLabel(label: 'Region'),
+                            _DropdownBox(
+                              value: regions.contains(_selectedRegion)
+                                  ? _selectedRegion
+                                  : null,
+                              hintText: 'Select region',
+                              items: regions,
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedRegion = value;
+                                  _selectedDistrict = null;
+                                  _selectedTownship = null;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            const _FieldLabel(label: 'District'),
+                            _DropdownBox(
+                              value: districts.contains(_selectedDistrict)
+                                  ? _selectedDistrict
+                                  : null,
+                              hintText: 'Select district',
+                              items: districts,
+                              onChanged: _selectedRegion == null
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedDistrict = value;
+                                        _selectedTownship = null;
+                                      });
+                                    },
+                            ),
+                            const SizedBox(height: 14),
+                            const _FieldLabel(label: 'Township'),
+                            _DropdownBox(
+                              value: townships.contains(_selectedTownship)
+                                  ? _selectedTownship
+                                  : null,
+                              hintText: 'Select township',
+                              items: townships,
+                              onChanged: _selectedDistrict == null
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedTownship = value;
+                                      });
+                                    },
+                            ),
+                          ],
+                        );
                       },
-                      title: const Text(
-                        'Set As Primary Address',
-                        style: TextStyle(
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -1558,6 +1649,63 @@ class _InputBox extends StatelessWidget {
     return TextField(
       controller: controller,
       maxLines: maxLines,
+      style: const TextStyle(
+        color: AppColors.darkText,
+        fontFamily: AppFonts.primary,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: Colors.grey.shade500,
+          fontFamily: AppFonts.primary,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: AppColors.primaryGreen),
+        ),
+      ),
+    );
+  }
+}
+
+class _DropdownBox extends StatelessWidget {
+  final String? value;
+  final String hintText;
+  final List<String> items;
+  final ValueChanged<String?>? onChanged;
+
+  const _DropdownBox({
+    required this.value,
+    required this.hintText,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
+      items: items
+          .map(
+            (item) => DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(),
+      onChanged: onChanged,
       style: const TextStyle(
         color: AppColors.darkText,
         fontFamily: AppFonts.primary,

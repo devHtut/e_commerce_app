@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
 import '../widgets/discard_changes_dialog.dart';
+import 'myanmar_location_data.dart';
 
 class DeliveryAddress {
   final String id;
@@ -9,6 +10,9 @@ class DeliveryAddress {
   final String recipientName;
   final String phone;
   final String streetAddress;
+  final String region;
+  final String district;
+  final String township;
   final bool isPrimary;
 
   const DeliveryAddress({
@@ -17,6 +21,9 @@ class DeliveryAddress {
     required this.recipientName,
     required this.phone,
     required this.streetAddress,
+    required this.region,
+    required this.district,
+    required this.township,
     this.isPrimary = false,
   });
 
@@ -26,6 +33,9 @@ class DeliveryAddress {
     String? recipientName,
     String? phone,
     String? streetAddress,
+    String? region,
+    String? district,
+    String? township,
     bool? isPrimary,
   }) {
     return DeliveryAddress(
@@ -34,8 +44,28 @@ class DeliveryAddress {
       recipientName: recipientName ?? this.recipientName,
       phone: phone ?? this.phone,
       streetAddress: streetAddress ?? this.streetAddress,
+      region: region ?? this.region,
+      district: district ?? this.district,
+      township: township ?? this.township,
       isPrimary: isPrimary ?? this.isPrimary,
     );
+  }
+
+  String get locationLine {
+    return [
+      township,
+      district,
+      region,
+    ].where((item) => item.isNotEmpty).join(', ');
+  }
+
+  String get displayAddress {
+    return [
+      streetAddress,
+      township,
+      district,
+      region,
+    ].where((item) => item.isNotEmpty).join(', ');
   }
 }
 
@@ -419,7 +449,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                 const Divider(height: 1),
                 const SizedBox(height: 10),
                 Text(
-                  '${address.recipientName}   (${address.phone})',
+                  address.phone,
                   style: const TextStyle(
                     color: AppColors.darkText,
                     fontFamily: AppFonts.primary,
@@ -429,7 +459,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  address.streetAddress,
+                  address.displayAddress,
                   style: TextStyle(
                     color: Colors.grey.shade700,
                     fontFamily: AppFonts.primary,
@@ -494,30 +524,38 @@ class AddressDetailsScreen extends StatefulWidget {
 
 class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
   late final TextEditingController _labelController;
-  late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
-  late final TextEditingController _noteController;
-  late bool _isPrimary;
+  late Future<MyanmarLocationData> _locationData;
+  String? _selectedRegion;
+  String? _selectedDistrict;
+  String? _selectedTownship;
   bool _allowPop = false;
 
   @override
   void initState() {
     super.initState();
     final initial = widget.initialAddress;
+    _locationData = MyanmarLocationData.load();
     _labelController = TextEditingController(text: initial?.label ?? '');
-    _nameController = TextEditingController(text: initial?.recipientName ?? '');
     _phoneController = TextEditingController(text: initial?.phone ?? '');
     _addressController = TextEditingController(
       text: initial?.streetAddress ?? '',
     );
-    _isPrimary = initial?.isPrimary ?? true;
+    _selectedRegion = initial?.region.isNotEmpty == true
+        ? initial!.region
+        : null;
+    _selectedDistrict = initial?.district.isNotEmpty == true
+        ? initial!.district
+        : null;
+    _selectedTownship = initial?.township.isNotEmpty == true
+        ? initial!.township
+        : null;
   }
 
   @override
   void dispose() {
     _labelController.dispose();
-    _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
     super.dispose();
@@ -526,11 +564,12 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
   bool get _hasDraftInput {
     final initial = widget.initialAddress;
     return _labelController.text.trim() != (initial?.label ?? '').trim() ||
-        _nameController.text.trim() != (initial?.recipientName ?? '').trim() ||
         _phoneController.text.trim() != (initial?.phone ?? '').trim() ||
         _addressController.text.trim() !=
             (initial?.streetAddress ?? '').trim() ||
-        _isPrimary != (initial?.isPrimary ?? true);
+        (_selectedRegion ?? '') != (initial?.region ?? '') ||
+        (_selectedDistrict ?? '') != (initial?.district ?? '') ||
+        (_selectedTownship ?? '') != (initial?.township ?? '');
   }
 
   Future<void> _requestLeave() async {
@@ -556,11 +595,19 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
 
   void _saveAddress() {
     final label = _labelController.text.trim();
-    final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final street = _addressController.text.trim();
-    if (label.isEmpty || name.isEmpty || phone.isEmpty || street.isEmpty)
+    final region = _selectedRegion ?? '';
+    final district = _selectedDistrict ?? '';
+    final township = _selectedTownship ?? '';
+    if (label.isEmpty ||
+        phone.isEmpty ||
+        street.isEmpty ||
+        region.isEmpty ||
+        district.isEmpty ||
+        township.isEmpty) {
       return;
+    }
 
     _popAfterAllow(
       DeliveryAddress(
@@ -568,10 +615,13 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
             widget.initialAddress?.id ??
             'addr_${DateTime.now().microsecondsSinceEpoch}',
         label: label,
-        recipientName: name,
+        recipientName: widget.initialAddress?.recipientName ?? '',
         phone: phone,
         streetAddress: street,
-        isPrimary: _isPrimary,
+        region: region,
+        district: district,
+        township: township,
+        isPrimary: widget.initialAddress?.isPrimary ?? false,
       ),
     );
   }
@@ -610,47 +660,94 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                   children: [
-                    const _FieldLabel(label: 'Address Labels'),
+                    const _FieldLabel(label: 'Address Label'),
                     _InputBox(
                       controller: _labelController,
                       hintText: 'Home / Work Office',
                     ),
                     const SizedBox(height: 14),
-                    const _FieldLabel(label: "လက်ခံမည့်သူ အမည်"),
-                    _InputBox(
-                      controller: _nameController,
-                      hintText: 'Recipient name',
-                    ),
-                    const SizedBox(height: 14),
-                    const _FieldLabel(label: "လက်ခံမည့်သူ ဖုန်းနံပါတ်"),
+                    const _FieldLabel(label: 'Phone Number'),
                     _InputBox(
                       controller: _phoneController,
                       hintText: 'Phone number',
                     ),
                     const SizedBox(height: 14),
-                    const _FieldLabel(label: 'လိပ်စာ'),
+                    const _FieldLabel(label: 'Street'),
                     _InputBox(
                       controller: _addressController,
-                      hintText: 'လမ်းအမည်၊ မြို့အမည်',
+                      hintText: 'Street address',
                       maxLines: 2,
                     ),
                     const SizedBox(height: 14),
-                    CheckboxListTile(
-                      value: _isPrimary,
-                      activeColor: AppColors.primaryGreen,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: (value) =>
-                          setState(() => _isPrimary = value ?? false),
-                      title: const Text(
-                        'Set As Primary Address',
-                        style: TextStyle(
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                    FutureBuilder<MyanmarLocationData>(
+                      future: _locationData,
+                      builder: (context, snapshot) {
+                        final data = snapshot.data;
+                        final regions = data?.regions ?? const <String>[];
+                        final districts =
+                            data?.districtsFor(_selectedRegion) ??
+                            const <String>[];
+                        final townships =
+                            data?.townshipsFor(
+                              _selectedRegion,
+                              _selectedDistrict,
+                            ) ??
+                            const <String>[];
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _FieldLabel(label: 'Region'),
+                            _DropdownBox(
+                              value: regions.contains(_selectedRegion)
+                                  ? _selectedRegion
+                                  : null,
+                              hintText: 'Select region',
+                              items: regions,
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedRegion = value;
+                                  _selectedDistrict = null;
+                                  _selectedTownship = null;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            const _FieldLabel(label: 'District'),
+                            _DropdownBox(
+                              value: districts.contains(_selectedDistrict)
+                                  ? _selectedDistrict
+                                  : null,
+                              hintText: 'Select district',
+                              items: districts,
+                              onChanged: _selectedRegion == null
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedDistrict = value;
+                                        _selectedTownship = null;
+                                      });
+                                    },
+                            ),
+                            const SizedBox(height: 14),
+                            const _FieldLabel(label: 'Township'),
+                            _DropdownBox(
+                              value: townships.contains(_selectedTownship)
+                                  ? _selectedTownship
+                                  : null,
+                              hintText: 'Select township',
+                              items: townships,
+                              onChanged: _selectedDistrict == null
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedTownship = value;
+                                      });
+                                    },
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -772,7 +869,7 @@ class _ChooseAddressCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${address.recipientName}   (${address.phone})',
+                      address.phone,
                       style: const TextStyle(
                         color: AppColors.darkText,
                         fontFamily: AppFonts.primary,
@@ -787,7 +884,7 @@ class _ChooseAddressCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                address.streetAddress,
+                address.displayAddress,
                 style: TextStyle(
                   color: Colors.grey.shade700,
                   fontFamily: AppFonts.primary,
@@ -841,6 +938,63 @@ class _InputBox extends StatelessWidget {
     return TextField(
       controller: controller,
       maxLines: maxLines,
+      style: const TextStyle(
+        color: AppColors.darkText,
+        fontFamily: AppFonts.primary,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: Colors.grey.shade500,
+          fontFamily: AppFonts.primary,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+          borderSide: BorderSide(color: AppColors.primaryGreen),
+        ),
+      ),
+    );
+  }
+}
+
+class _DropdownBox extends StatelessWidget {
+  final String? value;
+  final String hintText;
+  final List<String> items;
+  final ValueChanged<String?>? onChanged;
+
+  const _DropdownBox({
+    required this.value,
+    required this.hintText,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
+      items: items
+          .map(
+            (item) => DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(),
+      onChanged: onChanged,
       style: const TextStyle(
         color: AppColors.darkText,
         fontFamily: AppFonts.primary,
