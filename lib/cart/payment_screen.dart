@@ -412,9 +412,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final orderRow = await Supabase.instance.client
           .from('orders')
           .insert(orderPayload)
-          .select('id')
+          .select('id,readable_id')
           .single();
       orderId = orderRow['id']?.toString();
+      final readableId = orderRow['readable_id']?.toString();
       if (orderId == null || orderId.isEmpty) {
         throw Exception('Unable to create order');
       }
@@ -462,6 +463,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       OrderService.instance.placeOrder(
         widget.items,
         orderId: orderId,
+        readableId: readableId,
         status: OrderStatus.pending,
         payment: OrderPaymentDetails(
           id: paymentRow['id']?.toString() ?? '',
@@ -494,6 +496,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         (route) => false,
       );
     } catch (e) {
+      debugPrint('Payment failed: $e');
       if (stockReserved && orderId != null && orderId.isNotEmpty) {
         try {
           await OrderService.instance.restoreStockForOrder(orderId);
@@ -504,11 +507,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
         }
       }
       if (!mounted) return;
+      final errorMessage = e.toString();
       await showCustomPopup(
         context,
         title: 'Payment failed',
-        message: e.toString().toLowerCase().contains('stock')
+        message: errorMessage.toLowerCase().contains('stock')
             ? 'Not enough stock is available for this order.'
+            : errorMessage.contains('duplicate key') ||
+                  errorMessage.contains('violates foreign key')
+            ? errorMessage
             : 'Unable to process payment. Please try again.',
         type: PopupType.error,
       );

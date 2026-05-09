@@ -1498,7 +1498,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor: AppColors.primaryGreen,
                   child: Icon(
                     Icons.check,
-                    color: Colors.white24,
+                    color: Colors.white,
                     size: 18,
                   ),
                 ),
