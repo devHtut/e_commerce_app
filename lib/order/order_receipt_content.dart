@@ -42,10 +42,10 @@ class OrderReceiptContent extends StatelessWidget {
     final addressLine = order.shippingAddressStreet.isNotEmpty
         ? order.shippingAddressStreet
         : '—';
-    final dateStr =
-        '${order.createdAt.day}/${order.createdAt.month}/${order.createdAt.year}';
+    final createdAt = order.createdAt.toLocal();
+    final dateStr = '${createdAt.day}/${createdAt.month}/${createdAt.year}';
     final timeStr =
-        '${order.createdAt.hour.toString().padLeft(2, '0')}:${order.createdAt.minute.toString().padLeft(2, '0')}';
+        '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
 
     return Container(
       width: 380,
@@ -242,11 +242,7 @@ class OrderReceiptContent extends StatelessWidget {
             formatKyat(subtotal),
           ),
           const SizedBox(height: 6),
-          _rowLabelValue(
-            'Total',
-            formatKyat(subtotal),
-            emphasize: true,
-          ),
+          _rowLabelValue('Total', formatKyat(subtotal), emphasize: true),
           const SizedBox(height: 14),
           const Text(
             'Payment',
@@ -332,11 +328,7 @@ class OrderReceiptContent extends StatelessWidget {
     );
   }
 
-  Widget _rowLabelValue(
-    String label,
-    String value, {
-    bool emphasize = false,
-  }) {
+  Widget _rowLabelValue(String label, String value, {bool emphasize = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

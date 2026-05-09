@@ -247,10 +247,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 'Purchase Date',
                 '${_order.createdAt.day}/${_order.createdAt.month}/${_order.createdAt.year}',
               ),
-              _summaryRow(
-                'Purchase Time',
-                '${_order.createdAt.hour.toString().padLeft(2, '0')}:${_order.createdAt.minute.toString().padLeft(2, '0')}',
-              ),
+              _summaryRow('Purchase Time', _formatOrderTime(_order.createdAt)),
               if (_order.shippingAddressPhone.isNotEmpty)
                 _summaryRow('Contact', _order.shippingAddressPhone),
             ],
@@ -863,8 +860,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   String _formatOrderTime(DateTime date) {
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
+    final localDate = date.toLocal();
+    final hour = localDate.hour.toString().padLeft(2, '0');
+    final minute = localDate.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
 

@@ -262,7 +262,7 @@ class OrderService {
       final statusString = orderRow['status']?.toString() ?? 'pending';
       final createdAtString = orderRow['created_at']?.toString();
       final createdAt = createdAtString != null
-          ? DateTime.parse(createdAtString)
+          ? DateTime.parse(createdAtString).toLocal()
           : DateTime.now();
       final shippingAddressId = orderRow['shipping_address_id']?.toString();
 
@@ -563,7 +563,7 @@ class OrderService {
         if (orderId == null || changedAtString == null) continue;
         final entry = OrderStatusHistoryEntry(
           status: _statusFromDatabaseValue(row['status']?.toString() ?? ''),
-          changedAt: DateTime.parse(changedAtString),
+          changedAt: DateTime.parse(changedAtString).toLocal(),
         );
         historyMap.putIfAbsent(orderId, () => []).add(entry);
       }
