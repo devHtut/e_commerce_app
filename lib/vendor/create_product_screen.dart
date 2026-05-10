@@ -205,6 +205,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     required List<_PickedImage> target,
     required int maxCount,
   }) async {
+    if (_isSaving) return;
     final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: true,
@@ -222,6 +223,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         ),
       );
     }
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -229,64 +231,67 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     if (_isSaving) return;
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedCategoryId == null || _selectedCategoryId!.isEmpty) {
-      await showCustomPopup(
-        context,
-        title: 'Category required',
-        message: 'Please choose a category.',
-        type: PopupType.error,
-      );
-      return;
-    }
+    setState(() => _isSaving = true);
+    String? createdProductId;
+    final uploadedStoragePaths = <String>[];
 
-    if (_hasVariants) {
-      for (final group in _variantGroups) {
-        if (group.images.length > 3) {
+    try {
+      if (_selectedCategoryId == null || _selectedCategoryId!.isEmpty) {
+        await showCustomPopup(
+          context,
+          title: 'Category required',
+          message: 'Please choose a category.',
+          type: PopupType.error,
+        );
+        return;
+      }
+
+      if (_hasVariants) {
+        for (final group in _variantGroups) {
+          if (group.images.length > 3) {
+            await showCustomPopup(
+              context,
+              title: 'Too many photos',
+              message: 'Each variant color can have maximum 3 photos.',
+              type: PopupType.error,
+            );
+            return;
+          }
+        }
+      } else {
+        if (_simpleImages.length > 6) {
           await showCustomPopup(
             context,
             title: 'Too many photos',
-            message: 'Each variant color can have maximum 3 photos.',
+            message: 'A product without variants can have maximum 6 photos.',
             type: PopupType.error,
           );
           return;
         }
       }
-    } else {
-      if (_simpleImages.length > 6) {
+
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser == null) {
         await showCustomPopup(
           context,
-          title: 'Too many photos',
-          message: 'A product without variants can have maximum 6 photos.',
+          title: 'Sign in required',
+          message: 'Please sign in again.',
           type: PopupType.error,
         );
         return;
       }
-    }
 
-    final currentUser = Supabase.instance.client.auth.currentUser;
-    if (currentUser == null) {
-      await showCustomPopup(
-        context,
-        title: 'Sign in required',
-        message: 'Please sign in again.',
-        type: PopupType.error,
-      );
-      return;
-    }
+      final brand = await AuthUserService.getVendorBrand(currentUser.id);
+      if (brand == null) {
+        await showCustomPopup(
+          context,
+          title: 'Brand profile missing',
+          message: 'Please complete vendor info first.',
+          type: PopupType.error,
+        );
+        return;
+      }
 
-    final brand = await AuthUserService.getVendorBrand(currentUser.id);
-    if (brand == null) {
-      await showCustomPopup(
-        context,
-        title: 'Brand profile missing',
-        message: 'Please complete vendor info first.',
-        type: PopupType.error,
-      );
-      return;
-    }
-
-    setState(() => _isSaving = true);
-    try {
       final productName = _nameController.text.trim();
       final description = _descriptionController.text.trim();
 
@@ -294,6 +299,13 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       final prices = variants.map((v) => v.price).toList()..sort();
       final basePrice = prices.first;
       final totalStock = variants.fold<int>(0, (sum, v) => sum + v.stock);
+      final uploadFolderId =
+          '${currentUser.id}_${DateTime.now().microsecondsSinceEpoch}';
+
+      final colorImages = await _uploadImagesByColor(
+        uploadFolderId,
+        uploadedStoragePaths,
+      );
 
       final productRow = await Supabase.instance.client
           .from('products')
@@ -307,8 +319,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           .select('id')
           .single();
       final productId = productRow['id'].toString();
-
-      final colorImages = await _uploadImagesByColor(productId);
+      createdProductId = productId;
 
       await Supabase.instance.client
           .from('product_variants')
@@ -347,11 +358,27 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         ),
       );
     } on PostgrestException catch (e) {
+      await _cleanupFailedCreate(
+        productId: createdProductId,
+        storagePaths: uploadedStoragePaths,
+      );
       if (!mounted) return;
       await showCustomPopup(
         context,
         title: 'Unable to create product',
         message: e.message,
+        type: PopupType.error,
+      );
+    } catch (_) {
+      await _cleanupFailedCreate(
+        productId: createdProductId,
+        storagePaths: uploadedStoragePaths,
+      );
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Unable to create product',
+        message: 'Something went wrong. Please try again.',
         type: PopupType.error,
       );
     } finally {
@@ -395,8 +422,16 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     return variants;
   }
 
+  void _removeVariantGroupAt(int index) {
+    final removed = _variantGroups.removeAt(index);
+    for (final variant in removed.variants) {
+      variant.dispose();
+    }
+  }
+
   Future<Map<String, List<String>>> _uploadImagesByColor(
-    String productId,
+    String uploadFolderId,
+    List<String> uploadedStoragePaths,
   ) async {
     final result = <String, List<String>>{};
     if (_hasVariants) {
@@ -405,7 +440,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         for (var i = 0; i < group.images.length; i++) {
           final image = group.images[i];
           final path =
-              'product images/$productId/${group.color}/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+              'product images/$uploadFolderId/${group.color}/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
           await Supabase.instance.client.storage
               .from('media')
               .uploadBinary(
@@ -416,6 +451,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   contentType: _contentType(image.extension),
                 ),
               );
+          uploadedStoragePaths.add(path);
           urls.add(
             Supabase.instance.client.storage.from('media').getPublicUrl(path),
           );
@@ -429,7 +465,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     for (var i = 0; i < _simpleImages.length; i++) {
       final image = _simpleImages[i];
       final path =
-          'product images/$productId/default/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+          'product images/$uploadFolderId/default/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
       await Supabase.instance.client.storage
           .from('media')
           .uploadBinary(
@@ -440,12 +476,48 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
               contentType: _contentType(image.extension),
             ),
           );
+      uploadedStoragePaths.add(path);
       urls.add(
         Supabase.instance.client.storage.from('media').getPublicUrl(path),
       );
     }
     result['Default'] = urls;
     return result;
+  }
+
+  Future<void> _cleanupFailedCreate({
+    required String? productId,
+    required List<String> storagePaths,
+  }) async {
+    if (storagePaths.isNotEmpty) {
+      try {
+        await Supabase.instance.client.storage.from('media').remove(
+          storagePaths,
+        );
+      } catch (_) {
+        // Best-effort cleanup. The user-facing error is shown by _save().
+      }
+    }
+
+    if (productId == null) return;
+
+    try {
+      await Supabase.instance.client
+          .from('product_variants')
+          .delete()
+          .eq('product_id', productId);
+    } catch (_) {
+      // Best-effort cleanup. The user-facing error is shown by _save().
+    }
+
+    try {
+      await Supabase.instance.client
+          .from('products')
+          .delete()
+          .eq('id', productId);
+    } catch (_) {
+      // Best-effort cleanup. The user-facing error is shown by _save().
+    }
   }
 
   String? _contentType(String ext) => switch (ext) {
@@ -568,8 +640,10 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                             ),
                           )
                           .toList(),
-                      onChanged: (value) =>
-                          setState(() => _selectedCategoryId = value),
+                      onChanged: _isSaving
+                          ? null
+                          : (value) =>
+                                setState(() => _selectedCategoryId = value),
                       validator: (v) => (v == null || v.isEmpty)
                           ? 'Category is required.'
                           : null,
@@ -580,7 +654,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                     value: _hasVariants,
                     activeThumbColor: AppColors.primaryGreen,
                     title: const Text('Has variants (color + size)'),
-                    onChanged: (value) => setState(() => _hasVariants = value),
+                    onChanged: _isSaving
+                        ? null
+                        : (value) => setState(() => _hasVariants = value),
                   ),
                   const SizedBox(height: 6),
                   if (_hasVariants)
@@ -620,8 +696,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
             title: 'Product photos (max 6)',
             helper: '${_simpleImages.length}/6 selected',
             images: _simpleImages,
-            onAdd: () => _pickImages(target: _simpleImages, maxCount: 6),
-            onRemove: (i) => setState(() => _simpleImages.removeAt(i)),
+            onAdd: _isSaving
+                ? () {}
+                : () => _pickImages(target: _simpleImages, maxCount: 6),
+            onRemove: _isSaving
+                ? (_) {}
+                : (i) => setState(() => _simpleImages.removeAt(i)),
           ),
           const SizedBox(height: 10),
           Row(
@@ -679,25 +759,27 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton.icon(
-            onPressed: () {
-              setState(() {
-                _variantGroups.add(
-                  _ColorGroupDraft(
-                    color: _colorOptions.first,
-                    images: [],
-                    variants: [
-                      _VariantDraft(
-                        size: _sizeOptions.first,
-                        stockController: TextEditingController(),
-                        priceController: TextEditingController(),
-                        promoPriceController: TextEditingController(),
-                        skuController: TextEditingController(),
-                      ),
-                    ],
-                  ),
-                );
-              });
-            },
+            onPressed: _isSaving
+                ? null
+                : () {
+                    setState(() {
+                      _variantGroups.add(
+                        _ColorGroupDraft(
+                          color: _colorOptions.first,
+                          images: [],
+                          variants: [
+                            _VariantDraft(
+                              size: _sizeOptions.first,
+                              stockController: TextEditingController(),
+                              priceController: TextEditingController(),
+                              promoPriceController: TextEditingController(),
+                              skuController: TextEditingController(),
+                            ),
+                          ],
+                        ),
+                      );
+                    });
+                  },
             icon: const Icon(Icons.add),
             label: const Text('Add color group'),
           ),
@@ -734,14 +816,20 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                               (c) => DropdownMenuItem(value: c, child: Text(c)),
                             )
                             .toList(),
-                        onChanged: (value) =>
-                            setState(() => group.color = value ?? group.color),
+                        onChanged: _isSaving
+                            ? null
+                            : (value) => setState(
+                                () => group.color = value ?? group.color,
+                              ),
                       ),
                     ),
                     if (_variantGroups.length > 1)
                       IconButton(
-                        onPressed: () =>
-                            setState(() => _variantGroups.removeAt(groupIndex)),
+                        onPressed: _isSaving
+                            ? null
+                            : () => setState(
+                                () => _removeVariantGroupAt(groupIndex),
+                              ),
                         icon: const Icon(
                           Icons.delete_outline,
                           color: Colors.red,
@@ -754,8 +842,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   title: 'Photos (max 3 for this color)',
                   helper: '${group.images.length}/3 selected',
                   images: group.images,
-                  onAdd: () => _pickImages(target: group.images, maxCount: 3),
-                  onRemove: (i) => setState(() => group.images.removeAt(i)),
+                  onAdd: _isSaving
+                      ? () {}
+                      : () => _pickImages(target: group.images, maxCount: 3),
+                  onRemove: _isSaving
+                      ? (_) {}
+                      : (i) => setState(() => group.images.removeAt(i)),
                 ),
                 const SizedBox(height: 8),
                 ...List.generate(group.variants.length, (variantIndex) {
@@ -792,8 +884,11 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                                       ),
                                     )
                                     .toList(),
-                                onChanged: (value) =>
-                                    setState(() => v.size = value ?? v.size),
+                                onChanged: _isSaving
+                                    ? null
+                                    : (value) => setState(
+                                        () => v.size = value ?? v.size,
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -859,31 +954,38 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             TextButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  group.variants.add(
-                                    _VariantDraft(
-                                      size: _sizeOptions.first,
-                                      stockController: TextEditingController(),
-                                      priceController: TextEditingController(),
-                                      promoPriceController:
-                                          TextEditingController(),
-                                      skuController: TextEditingController(),
-                                    ),
-                                  );
-                                });
-                              },
+                              onPressed: _isSaving
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        group.variants.add(
+                                          _VariantDraft(
+                                            size: _sizeOptions.first,
+                                            stockController:
+                                                TextEditingController(),
+                                            priceController:
+                                                TextEditingController(),
+                                            promoPriceController:
+                                                TextEditingController(),
+                                            skuController:
+                                                TextEditingController(),
+                                          ),
+                                        );
+                                      });
+                                    },
                               icon: const Icon(Icons.add, size: 18),
                               label: const Text('Add size'),
                             ),
                             if (group.variants.length > 1)
                               TextButton(
-                                onPressed: () => setState(() {
-                                  final removed = group.variants.removeAt(
-                                    variantIndex,
-                                  );
-                                  removed.dispose();
-                                }),
+                                onPressed: _isSaving
+                                    ? null
+                                    : () => setState(() {
+                                        final removed = group.variants.removeAt(
+                                          variantIndex,
+                                        );
+                                        removed.dispose();
+                                      }),
                                 child: const Text('Remove'),
                               ),
                           ],
