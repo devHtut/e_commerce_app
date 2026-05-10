@@ -158,13 +158,13 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   Widget _paymentIconWidget(String type) {
     switch (type) {
       case 'KBZ Pay':
-        return Image.asset('../assets/images/KBZPay.png', fit: BoxFit.contain);
+        return Image.asset('assets/images/KBZPay.png', fit: BoxFit.contain);
       case 'Wave Pay':
-        return Image.asset('../assets/images/WavePay.png', fit: BoxFit.contain);
+        return Image.asset('assets/images/WavePay.png', fit: BoxFit.contain);
       case 'AYA Pay':
-        return Image.asset('../assets/images/AYAPay.png', fit: BoxFit.contain);
+        return Image.asset('assets/images/AYAPay.png', fit: BoxFit.contain);
       case 'CB Pay':
-        return Image.asset('../assets/images/CBPay.png', fit: BoxFit.contain);
+        return Image.asset('assets/images/CBPay.png', fit: BoxFit.contain);
       default:
         return const Icon(
           Icons.payment,
