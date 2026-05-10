@@ -1451,6 +1451,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
         if (!didPop) _requestLeave();
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: AppColors.lightGrey,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
