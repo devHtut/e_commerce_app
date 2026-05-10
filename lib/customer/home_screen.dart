@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   int _selectedCategoryIndex = 0;
   int _orderTabIndex = 0;
+  _HomeSort? _homeSort;
   String _searchQuery = '';
   bool _isLoadingProducts = true;
   bool _isAccountLoading = false;
@@ -168,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ProductModel> get _filteredProducts {
     final safeIndex = _selectedCategoryIndex.clamp(0, _categories.length - 1);
     final selectedCategory = _categories[safeIndex];
-    return _products.where((product) {
+    final filtered = _products.where((product) {
       final categoryMatch =
           selectedCategory == 'Discover' ||
           product.category == selectedCategory;
@@ -179,6 +180,18 @@ class _HomeScreenState extends State<HomeScreen> {
           product.brand.toLowerCase().contains(query);
       return categoryMatch && searchMatch;
     }).toList();
+
+    switch (_homeSort) {
+      case _HomeSort.priceHighToLow:
+        filtered.sort((a, b) => b.price.compareTo(a.price));
+      case _HomeSort.priceLowToHigh:
+        filtered.sort((a, b) => a.price.compareTo(b.price));
+      case _HomeSort.latestArrival:
+      case null:
+        break;
+    }
+
+    return filtered;
   }
 
   List<ProductModel> get _newArrivalProducts => _products.take(4).toList();
@@ -471,6 +484,138 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _openHomeSortSheet() async {
+    final selected = await showModalBottomSheet<_HomeSort>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  'Sort',
+                  style: TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 24,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                for (final option in _HomeSort.values)
+                  InkWell(
+                    onTap: () => Navigator.pop(context, option),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          _SortRadioDot(selected: option == _homeSort),
+                          const SizedBox(width: 16),
+                          Text(
+                            option.label,
+                            style: const TextStyle(
+                              color: AppColors.darkText,
+                              fontFamily: AppFonts.primary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || !mounted) return;
+    setState(() => _homeSort = selected);
+  }
+
+  Widget _buildCategoryControls() {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final isSelected = index == _selectedCategoryIndex;
+                return ChoiceChip(
+                  label: Text(
+                    _categories[index],
+                    style: TextStyle(
+                      fontFamily: AppFonts.primary,
+                      color: isSelected ? Colors.white : AppColors.darkText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedCategoryIndex = index;
+                    });
+                  },
+                  selectedColor: AppColors.primaryGreen,
+                  backgroundColor: Colors.transparent,
+                  side: BorderSide(
+                    color: isSelected ? AppColors.primaryGreen : Colors.black26,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  showCheckmark: false,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        IconButton.filledTonal(
+          onPressed: _openHomeSortSheet,
+          icon: const Icon(Icons.tune),
+          tooltip: 'Sort',
+          style: IconButton.styleFrom(
+            foregroundColor: AppColors.primaryGreen,
+            backgroundColor: Colors.white,
+            fixedSize: const Size(44, 44),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2339,50 +2484,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   products: _hotDealProducts,
                 ),
                 const SizedBox(height: 14),
-                SizedBox(
-                  height: 44,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _categories.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final isSelected = index == _selectedCategoryIndex;
-                      return ChoiceChip(
-                        label: Text(
-                          _categories[index],
-                          style: TextStyle(
-                            fontFamily: AppFonts.primary,
-                            color: isSelected
-                                ? Colors.white
-                                : AppColors.darkText,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          setState(() {
-                            _selectedCategoryIndex = index;
-                          });
-                        },
-                        selectedColor: AppColors.primaryGreen,
-                        backgroundColor: Colors.transparent,
-                        side: BorderSide(
-                          color: isSelected
-                              ? AppColors.primaryGreen
-                              : Colors.black26,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        showCheckmark: false,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                _buildCategoryControls(),
                 const SizedBox(height: 12),
                 _buildProductGrid(_filteredProducts),
               ],
@@ -2898,6 +3000,15 @@ class _BrandInfo {
   });
 }
 
+enum _HomeSort {
+  priceHighToLow('Price High to Low'),
+  priceLowToHigh('Price Low to High'),
+  latestArrival('Latest Arrival');
+
+  final String label;
+  const _HomeSort(this.label);
+}
+
 class _HorizontalScrollCue extends StatelessWidget {
   const _HorizontalScrollCue();
 
@@ -2929,6 +3040,36 @@ class _HorizontalScrollCue extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SortRadioDot extends StatelessWidget {
+  final bool selected;
+
+  const _SortRadioDot({required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.primaryGreen, width: 2.5),
+      ),
+      child: selected
+          ? Center(
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryGreen,
+                ),
+              ),
+            )
+          : null,
     );
   }
 }
