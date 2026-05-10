@@ -114,12 +114,11 @@ class AuthUserService {
     final client = Supabase.instance.client;
     final row = await client
         .from('vendors')
-        .select('id, phone, address')
+        .select('id, phone')
         .eq('user_id', userId)
         .maybeSingle();
     return row != null &&
-        (row['phone']?.toString().trim().isNotEmpty ?? false) &&
-        (row['address']?.toString().trim().isNotEmpty ?? false);
+        (row['phone']?.toString().trim().isNotEmpty ?? false);
   }
 
   static Future<Map<String, dynamic>?> getVendorBrand(String ownerId) async {
@@ -136,7 +135,7 @@ class AuthUserService {
     String brandName,
     String description,
     String logoUrl,
-      String prefix,
+    String prefix,
   ) async {
     final client = Supabase.instance.client;
     final existing = await client
@@ -165,7 +164,7 @@ class AuthUserService {
     return client
         .from('vendors')
         .select(
-          'id, user_id, phone, address, facebook_url, instagram_url, tiktok_url',
+          'id, user_id, phone, address, address_url, facebook_url, instagram_url, tiktok_url',
         )
         .eq('user_id', userId)
         .maybeSingle();
@@ -175,6 +174,7 @@ class AuthUserService {
     String userId,
     String phone,
     String address,
+    String addressUrl,
   ) async {
     final client = Supabase.instance.client;
     final existing = await getVendorByUser(userId);
@@ -182,6 +182,7 @@ class AuthUserService {
       'user_id': userId,
       'phone': phone,
       'address': address,
+      'address_url': addressUrl,
       'facebook_url': existing?['facebook_url']?.toString() ?? '',
       'instagram_url': existing?['instagram_url']?.toString() ?? '',
       'tiktok_url': existing?['tiktok_url']?.toString(),
@@ -196,7 +197,7 @@ class AuthUserService {
         .from('vendors')
         .insert(payload)
         .select(
-          'id, user_id, phone, address, facebook_url, instagram_url, tiktok_url',
+          'id, user_id, phone, address, address_url, facebook_url, instagram_url, tiktok_url',
         )
         .single();
     return inserted;
@@ -214,6 +215,7 @@ class AuthUserService {
       'user_id': userId,
       'phone': existing?['phone']?.toString() ?? '',
       'address': existing?['address']?.toString() ?? '',
+      'address_url': existing?['address_url']?.toString() ?? '',
       'facebook_url': facebookUrl,
       'instagram_url': instagramUrl,
       'tiktok_url': tiktokUrl,
@@ -228,7 +230,7 @@ class AuthUserService {
         .from('vendors')
         .insert(payload)
         .select(
-          'id, user_id, phone, address, facebook_url, instagram_url, tiktok_url',
+          'id, user_id, phone, address, address_url, facebook_url, instagram_url, tiktok_url',
         )
         .single();
     return inserted;

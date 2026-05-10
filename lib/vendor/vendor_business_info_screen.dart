@@ -45,11 +45,13 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _addressUrlController = TextEditingController();
 
   bool _isLoading = true;
   bool _isSaving = false;
   bool _allowPop = false;
   bool _vendorAccessOk = false;
+  bool _hasInPersonShop = true;
   String _initialDraftSignature = '';
   Map<String, dynamic>? _brand;
   List<String> _paymentTypes = [];
@@ -74,6 +76,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   void dispose() {
     _phoneController.dispose();
     _addressController.dispose();
+    _addressUrlController.dispose();
     for (final entry in _paymentEntries) {
       entry.dispose();
     }
@@ -137,7 +140,10 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
           _paymentEntries.add(_VendorPaymentEntry());
         }
         _phoneController.text = vendor?['phone']?.toString() ?? '';
-        _addressController.text = vendor?['address']?.toString() ?? '';
+        final savedAddress = vendor?['address']?.toString() ?? '';
+        _addressController.text = savedAddress;
+        _addressUrlController.text = vendor?['address_url']?.toString() ?? '';
+        _hasInPersonShop = vendor == null || savedAddress.trim().isNotEmpty;
         _initialDraftSignature = _draftSignature;
         _isLoading = false;
       });
@@ -285,6 +291,108 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
     );
   }
 
+  bool _isValidUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        (uri.host.isNotEmpty);
+  }
+
+  Widget _buildShopTypeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Shop Type',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontFamily: AppFonts.primary,
+            color: AppColors.darkText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment<bool>(
+              value: true,
+              icon: Icon(Icons.storefront_outlined),
+              label: Text('In person'),
+            ),
+            ButtonSegment<bool>(
+              value: false,
+              icon: Icon(Icons.language_outlined),
+              label: Text('Online'),
+            ),
+          ],
+          selected: {_hasInPersonShop},
+          onSelectionChanged: (selection) {
+            setState(() {
+              _hasInPersonShop = selection.first;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddressFields() {
+    if (!_hasInPersonShop) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const Text(
+          'Address',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontFamily: AppFonts.primary,
+            color: AppColors.darkText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        CustomTextField(
+          controller: _addressController,
+          hintText: 'Enter business address',
+          maxLength: 200,
+          validator: (value) {
+            if (!_hasInPersonShop) return null;
+            if (value == null || value.trim().isEmpty) {
+              return 'Address is required.';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Address URL',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontFamily: AppFonts.primary,
+            color: AppColors.darkText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        CustomTextField(
+          controller: _addressUrlController,
+          hintText: 'https://maps.google.com/...',
+          keyboardType: TextInputType.url,
+          prefixIcon: const Icon(Icons.link_outlined, color: Colors.black45),
+          validator: (value) {
+            final trimmed = value?.trim() ?? '';
+            if (trimmed.isEmpty) return null;
+            if (!_isValidUrl(trimmed)) {
+              return 'Enter a valid URL starting with http or https.';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
   Future<void> _saveVendorBusinessInfo() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -320,7 +428,8 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
       final vendor = await AuthUserService.upsertVendorDetails(
         currentUser.id,
         _phoneController.text.trim(),
-        _addressController.text.trim(),
+        _hasInPersonShop ? _addressController.text.trim() : '',
+        _hasInPersonShop ? _addressUrlController.text.trim() : '',
       );
 
       final vendorId = vendor?['id']?.toString();
@@ -368,7 +477,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
               '${entry.paymentType ?? ''}|${entry.accountNameController.text.trim()}|${entry.accountNumberController.text.trim()}',
         )
         .join('::');
-    return '${_phoneController.text.trim()}|${_addressController.text.trim()}|$paymentSignature';
+    return '$_hasInPersonShop|${_phoneController.text.trim()}|${_addressController.text.trim()}|${_addressUrlController.text.trim()}|$paymentSignature';
   }
 
   bool get _hasDraftInput => _draftSignature != _initialDraftSignature;
@@ -466,26 +575,8 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Address',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontFamily: AppFonts.primary,
-                            color: AppColors.darkText,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        CustomTextField(
-                          controller: _addressController,
-                          hintText: 'Enter business address',
-                          maxLength: 200,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Address is required.';
-                            }
-                            return null;
-                          },
-                        ),
+                        _buildShopTypeSelector(),
+                        _buildAddressFields(),
                         const SizedBox(height: 16),
                         const Text(
                           'Payment Methods',
