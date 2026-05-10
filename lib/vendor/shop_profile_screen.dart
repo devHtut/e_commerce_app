@@ -3,9 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/vendor_access.dart';
+import '../chat/chat_service.dart';
+import '../customer/chat_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
 import '../theme_config.dart';
+import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/product_card.dart';
 import '../wishlist/wishlist_service.dart';
@@ -247,6 +250,37 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     setState(() => _sort = selected);
   }
 
+  Future<void> _openShopChat(_ShopInfo shop) async {
+    if (Supabase.instance.client.auth.currentUser == null) {
+      await GuestAuthGatePanel.show(context);
+      return;
+    }
+    if (shop.ownerId.isEmpty) return;
+
+    try {
+      final option = ChatStartOption(
+        userId: shop.ownerId,
+        title: shop.name,
+        subtitle: 'Vendor',
+        imageUrl: shop.logoUrl,
+      );
+      final chat = await ChatService.instance.createOrGetDirectChat(option);
+      if (!mounted || chat == null) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ChatScreen(initialChatId: chat.id)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Chat not started',
+        message: 'Please try again in a moment.',
+        type: PopupType.error,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.embedded && _embeddedVendorAccessPending) {
@@ -474,6 +508,14 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                   label: 'TikTok',
                   onTap: () => _launch(_externalUri(shop.tiktokUrl)),
                 ),
+              if (!widget.embedded &&
+                  shop.ownerId.isNotEmpty &&
+                  shop.ownerId != Supabase.instance.client.auth.currentUser?.id)
+                _ShopActionChip(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: 'Send Message',
+                  onTap: () => _openShopChat(shop),
+                ),
             ],
           ),
         ],
@@ -616,6 +658,7 @@ class _SortRadioDot extends StatelessWidget {
 
 class _ShopInfo {
   final String id;
+  final String ownerId;
   final String name;
   final String logoUrl;
   final String description;
@@ -628,6 +671,7 @@ class _ShopInfo {
 
   const _ShopInfo({
     required this.id,
+    required this.ownerId,
     required this.name,
     required this.logoUrl,
     required this.description,
@@ -649,6 +693,7 @@ class _ShopInfo {
 
     return _ShopInfo(
       id: text(brand, 'id'),
+      ownerId: text(brand, 'owner_id'),
       name: text(brand, 'brand_name').isEmpty
           ? 'Shop'
           : text(brand, 'brand_name'),

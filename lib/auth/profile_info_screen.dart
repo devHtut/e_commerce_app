@@ -1,8 +1,8 @@
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_user_service.dart';
@@ -17,11 +17,13 @@ class ProfileInfoScreen extends StatefulWidget {
   const ProfileInfoScreen({
     super.key,
     this.initialFullName,
+    this.initialUsername,
     this.initialAvatarUrl,
     this.returnToHomeAfterSave = true,
   });
 
   final String? initialFullName;
+  final String? initialUsername;
   final String? initialAvatarUrl;
   final bool returnToHomeAfterSave;
 
@@ -32,6 +34,7 @@ class ProfileInfoScreen extends StatefulWidget {
 class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
+  final _usernameController = TextEditingController();
   PlatformFile? _selectedAvatar;
   Uint8List? _avatarPreviewBytes;
   String? _avatarUrl;
@@ -45,12 +48,14 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     _randomLetter = letters[Random().nextInt(letters.length)];
     _fullNameController.text = widget.initialFullName ?? '';
+    _usernameController.text = widget.initialUsername ?? '';
     _avatarUrl = widget.initialAvatarUrl;
   }
 
   @override
   void dispose() {
     _fullNameController.dispose();
+    _usernameController.dispose();
     super.dispose();
   }
 
@@ -77,6 +82,8 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   bool get _hasDraftInput {
     return _fullNameController.text.trim() !=
             (widget.initialFullName ?? '').trim() ||
+        _usernameController.text.trim() !=
+            (widget.initialUsername ?? '').trim() ||
         _selectedAvatar != null;
   }
 
@@ -118,6 +125,22 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
 
     String? avatarUrl = _avatarUrl;
     try {
+      final username = _usernameController.text.trim().toLowerCase();
+      final usernameAvailable = await AuthUserService.usernameAvailable(
+        username,
+        currentUserId: currentUser.id,
+      );
+      if (!usernameAvailable) {
+        if (!mounted) return;
+        await showCustomPopup(
+          context,
+          title: 'Username unavailable',
+          message: 'Please choose a different username.',
+          type: PopupType.error,
+        );
+        return;
+      }
+
       if (_selectedAvatar != null) {
         final filename =
             '${DateTime.now().millisecondsSinceEpoch}_${_selectedAvatar!.name}';
@@ -154,6 +177,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         _fullNameController.text.trim(),
         avatarUrl,
         '',
+        username,
       );
 
       if (!mounted) return;
@@ -228,7 +252,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Add your full name and optional avatar so your delivery and account look great.',
+                    'Add your name, username, and optional avatar so your delivery and account look great.',
                     style: AppTextStyles.body,
                   ),
                   const SizedBox(height: 24),
@@ -252,7 +276,9 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.06),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.06,
+                                      ),
                                       blurRadius: 14,
                                       offset: const Offset(0, 8),
                                     ),
@@ -269,21 +295,25 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                                       ? Image.network(
                                           _avatarUrl!,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) {
-                                            return Container(
-                                              color: Colors.grey.shade100,
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                _displayLetter,
-                                                style: const TextStyle(
-                                                  fontSize: 42,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.primaryGreen,
-                                                  fontFamily: AppFonts.primary,
-                                                ),
-                                              ),
-                                            );
-                                          },
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  color: Colors.grey.shade100,
+                                                  alignment: Alignment.center,
+                                                  child: Text(
+                                                    _displayLetter,
+                                                    style: const TextStyle(
+                                                      fontSize: 42,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: AppColors
+                                                          .primaryGreen,
+                                                      fontFamily:
+                                                          AppFonts.primary,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                         )
                                       : Container(
                                           color: Colors.grey.shade100,
@@ -336,7 +366,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Full Name',
+                    'How can we call you?',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontFamily: AppFonts.primary,
@@ -349,7 +379,42 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                     hintText: 'Your full name',
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Full name is required.';
+                        return 'Name is required.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Choose a username',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontFamily: AppFonts.primary,
+                      color: AppColors.darkText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CustomTextField(
+                    controller: _usernameController,
+                    hintText: 'username',
+                    maxLength: 24,
+                    prefixIcon: const Icon(Icons.alternate_email_rounded),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp('[a-zA-Z0-9_]')),
+                      TextInputFormatter.withFunction((oldValue, newValue) {
+                        return newValue.copyWith(
+                          text: newValue.text.toLowerCase(),
+                          selection: newValue.selection,
+                        );
+                      }),
+                    ],
+                    validator: (value) {
+                      final username = value?.trim() ?? '';
+                      if (username.isEmpty) {
+                        return 'Username is required.';
+                      }
+                      if (!RegExp(r'^[a-z0-9_]{3,24}$').hasMatch(username)) {
+                        return 'Use 3-24 letters, numbers, or underscores.';
                       }
                       return null;
                     },

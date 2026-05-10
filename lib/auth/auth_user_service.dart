@@ -31,7 +31,7 @@ class AuthUserService {
     final client = Supabase.instance.client;
     return client
         .from('profiles')
-        .select('id, full_name, avatar_url')
+        .select('id, full_name, username, avatar_url')
         .eq('id', userId)
         .maybeSingle();
   }
@@ -39,7 +39,8 @@ class AuthUserService {
   static Future<bool> userHasProfile(String userId) async {
     final profile = await getUserProfile(userId);
     return profile != null &&
-        (profile['full_name']?.toString().trim().isNotEmpty ?? false);
+        (profile['full_name']?.toString().trim().isNotEmpty ?? false) &&
+        (profile['username']?.toString().trim().isNotEmpty ?? false);
   }
 
   static Future<void> upsertUserProfile(
@@ -47,13 +48,31 @@ class AuthUserService {
     String fullName,
     String? avatarUrl,
     String prefix,
+    String username,
   ) async {
     final client = Supabase.instance.client;
     await client.from('profiles').upsert({
       'id': userId,
       'full_name': fullName.trim(),
+      'username': username.trim().toLowerCase(),
       'avatar_url': avatarUrl,
     });
+  }
+
+  static Future<bool> usernameAvailable(
+    String username, {
+    required String currentUserId,
+  }) async {
+    final normalized = username.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+
+    final row = await Supabase.instance.client
+        .from('profiles')
+        .select('id')
+        .ilike('username', normalized)
+        .neq('id', currentUserId)
+        .maybeSingle();
+    return row == null;
   }
 
   static Future<String> resolveUserType({
@@ -117,8 +136,7 @@ class AuthUserService {
         .select('id, phone')
         .eq('user_id', userId)
         .maybeSingle();
-    return row != null &&
-        (row['phone']?.toString().trim().isNotEmpty ?? false);
+    return row != null && (row['phone']?.toString().trim().isNotEmpty ?? false);
   }
 
   static Future<Map<String, dynamic>?> getVendorBrand(String ownerId) async {

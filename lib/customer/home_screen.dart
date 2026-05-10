@@ -21,6 +21,7 @@ import '../widgets/guest_auth_gate.dart';
 import '../widgets/order_readable_id_search.dart';
 import '../widgets/search_box.dart';
 import '../theme_config.dart';
+import 'chat_screen.dart';
 import 'help_support_screen.dart';
 import '../vendor/shop_profile_screen.dart';
 
@@ -346,6 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => ProfileInfoScreen(
           initialFullName: _userProfile?['full_name']?.toString(),
+          initialUsername: _userProfile?['username']?.toString(),
           initialAvatarUrl: _userAvatarUrl,
           returnToHomeAfterSave: false,
         ),
@@ -387,11 +389,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openChat() async {
-    await showCustomPopup(
+    if (!_isLoggedIn) {
+      await GuestAuthGatePanel.show(context);
+      return;
+    }
+
+    await Navigator.push(
       context,
-      title: 'Chat',
-      message: 'Customer chat is coming soon.',
-      type: PopupType.success,
+      MaterialPageRoute(builder: (_) => const ChatScreen()),
     );
   }
 
@@ -1676,11 +1681,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: AppColors.primaryGreen,
-                  child: Icon(
-                    Icons.check,
-                    color: Colors.white,
-                    size: 18,
-                  ),
+                  child: Icon(Icons.check, color: Colors.white, size: 18),
                 ),
                 SizedBox(width: 12),
                 Text(

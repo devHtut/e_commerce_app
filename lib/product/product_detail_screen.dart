@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../cart/cart_service.dart';
 import '../cart/checkout_screen.dart';
+import '../chat/chat_service.dart';
+import '../customer/chat_screen.dart';
 import '../vendor/shop_profile_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
@@ -658,6 +660,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
+  Future<void> _openBrandChat() async {
+    if (Supabase.instance.client.auth.currentUser == null) {
+      await GuestAuthGatePanel.show(context);
+      return;
+    }
+
+    try {
+      final option = await ChatService.instance.loadBrandChatOption(
+        _product.brandId,
+      );
+      if (!mounted) return;
+      if (option == null) {
+        await showCustomPopup(
+          context,
+          title: 'Chat unavailable',
+          message: 'This shop cannot receive messages right now.',
+          type: PopupType.error,
+        );
+        return;
+      }
+
+      final chat = await ChatService.instance.createOrGetDirectChat(option);
+      if (!mounted || chat == null) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ChatScreen(initialChatId: chat.id)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Chat not started',
+        message: 'Please try again in a moment.',
+        type: PopupType.error,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -1073,19 +1113,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
           ),
-          OutlinedButton(
-            onPressed: _product.brandId == null || _product.brandId!.isEmpty
-                ? null
-                : () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ShopProfileScreen(brandId: _product.brandId),
-                      ),
-                    );
-                  },
-            child: const Text('View shop'),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              OutlinedButton(
+                onPressed: _product.brandId == null || _product.brandId!.isEmpty
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ShopProfileScreen(brandId: _product.brandId),
+                          ),
+                        );
+                      },
+                child: const Text('View shop'),
+              ),
+              const SizedBox(height: 6),
+              FilledButton.icon(
+                onPressed: _product.brandId == null || _product.brandId!.isEmpty
+                    ? null
+                    : _openBrandChat,
+                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                label: const Text('Message'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  foregroundColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
           ),
         ],
       ),
