@@ -478,46 +478,81 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required List<ProductModel> products,
   }) {
+    final showScrollCue = products.length > 1;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.darkText,
-            fontFamily: AppFonts.primary,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.darkText,
+                  fontFamily: AppFonts.primary,
+                ),
+              ),
+            ),
+            if (showScrollCue) const _HorizontalScrollCue(),
+          ],
         ),
         const SizedBox(height: 10),
         SizedBox(
           height: 290,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: products.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return SizedBox(
-                width: 180,
-                child: ProductCard(
-                  product: product,
-                  isWishlisted: WishlistService.instance.isWishlisted(
-                    product.id,
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(product: product),
+          child: Stack(
+            children: [
+              ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: products.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final product = products[index];
+                  return SizedBox(
+                    width: 180,
+                    child: ProductCard(
+                      product: product,
+                      isWishlisted: WishlistService.instance.isWishlisted(
+                        product.id,
                       ),
-                    );
-                  },
-                  onWishlistTap: () => _toggleWishlist(product),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ProductDetailScreen(product: product),
+                          ),
+                        );
+                      },
+                      onWishlistTap: () => _toggleWishlist(product),
+                    ),
+                  );
+                },
+              ),
+              if (showScrollCue)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: 34,
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            AppColors.lightGrey.withValues(alpha: 0),
+                            AppColors.lightGrey,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              );
-            },
+            ],
           ),
         ),
       ],
@@ -2861,6 +2896,41 @@ class _BrandInfo {
     required this.name,
     required this.logoUrl,
   });
+}
+
+class _HorizontalScrollCue extends StatelessWidget {
+  const _HorizontalScrollCue();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGreen.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Swipe',
+            style: TextStyle(
+              color: AppColors.primaryGreen,
+              fontFamily: AppFonts.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(width: 4),
+          Icon(
+            Icons.arrow_forward_rounded,
+            color: AppColors.primaryGreen,
+            size: 16,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _BrandComingSoonTile extends StatelessWidget {
