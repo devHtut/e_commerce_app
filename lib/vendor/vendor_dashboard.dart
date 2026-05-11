@@ -3,13 +3,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
 import '../auth/vendor_access.dart';
+import '../customer/chat_screen.dart';
 import '../notification/notification_screen.dart';
 import '../notification/notification_service.dart';
 import '../order/order_detail_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
-import '../widgets/custom_pop_up.dart';
 import '../widgets/order_readable_id_search.dart';
 import '../widgets/price_formatter.dart';
 import 'brand_account_settings_screen.dart';
@@ -89,7 +89,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 12,
               offset: const Offset(0, 8),
             ),
@@ -201,7 +201,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
               borderRadius: BorderRadius.circular(22),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 16,
                   offset: const Offset(0, 10),
                 ),
@@ -322,11 +322,9 @@ class _VendorDashboardState extends State<VendorDashboard> {
   }
 
   Future<void> _openChat() async {
-    await showCustomPopup(
+    await Navigator.push(
       context,
-      title: 'Chat',
-      message: 'Vendor chat is coming soon.',
-      type: PopupType.success,
+      MaterialPageRoute(builder: (_) => const ChatScreen()),
     );
   }
 
