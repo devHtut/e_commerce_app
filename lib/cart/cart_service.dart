@@ -141,12 +141,17 @@ class CartService {
         : null;
     if (productRow == null) return null;
 
-    final product = ProductModel.fromSupabaseRow(productRow);
     final size = variantRow?['size']?.toString() ?? 'Default';
     final colorName = variantRow?['color']?.toString() ?? 'Default';
     final colorValue =
         int.tryParse(variantRow?['color_value']?.toString() ?? '') ??
         0xFF000000;
+    final product = ProductModel.fromSupabaseRow(productRow);
+    final basePrice = product.price;
+    final priceAdjustment =
+        (variantRow?['price_adjustment'] as num?)?.toDouble() ?? 0;
+    final promoPrice = (variantRow?['promo_price'] as num?)?.toDouble();
+    final selectedPrice = promoPrice ?? (basePrice + priceAdjustment);
     final imageUrl = variantRow?['image_url']?.toString().isNotEmpty == true
         ? variantRow!['image_url']!.toString()
         : product.imageUrl;
@@ -155,7 +160,7 @@ class CartService {
       id: '${product.id}_${variantId}_${size}_$colorName',
       dbId: cartId,
       variantId: variantId,
-      product: product,
+      product: product.copyWith(price: selectedPrice, imageUrl: imageUrl),
       size: size,
       colorName: colorName,
       colorValue: colorValue,
