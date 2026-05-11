@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -133,11 +135,23 @@ class ChatService {
 
   static final ChatService instance = ChatService._();
 
+  final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
+  RealtimeChannel? _unreadCountChannel;
+  Timer? _unreadCountPollTimer;
+  Set<String>? _unreadChatIds;
+
   SupabaseClient get _client => Supabase.instance.client;
+
+  Set<String> get _trackedUnreadChatIds {
+    return _unreadChatIds ??= <String>{};
+  }
 
   Future<List<ChatSummary>> loadMyChats() async {
     final user = _client.auth.currentUser;
-    if (user == null) return <ChatSummary>[];
+    if (user == null) {
+      _syncUnreadCount(const <ChatSummary>[]);
+      return <ChatSummary>[];
+    }
 
     final memberRows = await _client
         .from('chat_members')
@@ -147,7 +161,10 @@ class ChatService {
         .eq('user_id', user.id);
 
     final rows = (memberRows as List<dynamic>).cast<Map<String, dynamic>>();
-    if (rows.isEmpty) return <ChatSummary>[];
+    if (rows.isEmpty) {
+      _syncUnreadCount(const <ChatSummary>[]);
+      return <ChatSummary>[];
+    }
 
     final chatIds = rows
         .map((row) => row['chat_id']?.toString())
@@ -226,7 +243,102 @@ class ChatService {
       final bTime = b.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return bTime.compareTo(aTime);
     });
+    _syncUnreadCount(chats);
     return chats;
+  }
+
+  Future<void> refreshUnreadCount() async {
+    final chats = await loadMyChats();
+    _syncUnreadCount(chats);
+  }
+
+  void startUnreadCountSubscription() {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || userId.isEmpty || _unreadCountChannel != null) {
+      return;
+    }
+
+    _unreadCountChannel = _client
+        .channel('chat-unread-count-$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          callback: _handleUnreadMessageChange,
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'chats',
+          callback: (_) => _refreshUnreadCountSafely(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'chat_members',
+          callback: (_) => _refreshUnreadCountSafely(),
+        )
+        .subscribe();
+
+    _unreadCountPollTimer?.cancel();
+    _unreadCountPollTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _refreshUnreadCountSafely(),
+    );
+  }
+
+  Future<void> stopUnreadCountSubscription() async {
+    _unreadCountPollTimer?.cancel();
+    _unreadCountPollTimer = null;
+    final channel = _unreadCountChannel;
+    _unreadCountChannel = null;
+    await unsubscribe(channel);
+  }
+
+  Future<void> _refreshUnreadCountSafely() async {
+    try {
+      await refreshUnreadCount();
+    } catch (_) {
+      // Realtime can fire while auth/session state is changing; the next event
+      // or screen refresh will reconcile the unread count.
+    }
+  }
+
+  void _handleUnreadMessageChange(dynamic payload) {
+    final record = payload.newRecord;
+    if (record is! Map) {
+      _refreshUnreadCountSafely();
+      return;
+    }
+
+    final userId = _client.auth.currentUser?.id;
+    final chatId = record['chat_id']?.toString();
+    final senderId = record['sender_id']?.toString();
+    if (userId == null ||
+        chatId == null ||
+        chatId.isEmpty ||
+        senderId == null ||
+        senderId == userId) {
+      _refreshUnreadCountSafely();
+      return;
+    }
+
+    final unreadChatIds = _trackedUnreadChatIds;
+    if (unreadChatIds.add(chatId)) {
+      unreadCountNotifier.value = unreadChatIds.length;
+    }
+    Future<void>.delayed(
+      const Duration(milliseconds: 600),
+      _refreshUnreadCountSafely,
+    );
+  }
+
+  void _syncUnreadCount(List<ChatSummary> chats) {
+    final unreadChatIds = _trackedUnreadChatIds;
+    unreadChatIds
+      ..clear()
+      ..addAll(chats.where((chat) => chat.isUnread).map((chat) => chat.id));
+    unreadCountNotifier.value = unreadChatIds.length;
   }
 
   Future<List<ChatStartOption>> loadStartChatOptions() async {
@@ -516,6 +628,17 @@ class ChatService {
         .eq('sender_id', user.id);
 
     await _refreshChatLastMessage(chatId);
+  }
+
+  Future<void> deleteChatForMe(String chatId) async {
+    final user = _client.auth.currentUser;
+    if (user == null || chatId.isEmpty) return;
+
+    await _client.rpc<void>(
+      'delete_chat_for_me',
+      params: {'target_chat_id': chatId},
+    );
+    await refreshUnreadCount();
   }
 
   Future<void> _refreshChatLastMessage(String chatId) async {

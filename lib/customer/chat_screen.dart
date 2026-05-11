@@ -522,6 +522,93 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _deleteChat(ChatSummary chat) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Delete chat?',
+                  style: TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'This will remove ${chat.title} from your inbox.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.subtleText,
+                    fontFamily: AppFonts.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.errorRed,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Delete'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+    try {
+      await ChatService.instance.deleteChatForMe(chat.id);
+      if (!mounted) return;
+      setState(() {
+        _chats = _chats.where((item) => item.id != chat.id).toList();
+        if (_activeChat?.id == chat.id) {
+          _activeChat = null;
+          _messages = <ChatMessage>[];
+        }
+      });
+      await _refreshChatsFromRealtime();
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Chat not deleted',
+        message: 'Please run the chat delete SQL function, then try again.',
+        type: PopupType.error,
+      );
+    }
+  }
+
   Future<void> _showStartChatSheet() async {
     final option = await showModalBottomSheet<ChatStartOption>(
       context: context,
@@ -566,16 +653,7 @@ class _ChatScreenState extends State<ChatScreen> {
           status: activeChat == null ? null : _availabilityLabel(activeChat),
         ),
         actions: activeChat == null
-            ? [
-                IconButton(
-                  onPressed: _showStartChatSheet,
-                  tooltip: 'Start new chat',
-                  icon: const Icon(
-                    Icons.add_comment_outlined,
-                    color: AppColors.darkText,
-                  ),
-                ),
-              ]
+            ? null
             : [
                 IconButton(
                   onPressed: () {},
@@ -663,6 +741,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         return _ChatPreviewTile(
                           chat: chat,
                           onTap: () => _openConversation(chat),
+                          onDelete: () => _deleteChat(chat),
                         );
                       },
                     ),
@@ -908,8 +987,13 @@ class _ChatFilterTabs extends StatelessWidget {
 class _ChatPreviewTile extends StatelessWidget {
   final ChatSummary chat;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
-  const _ChatPreviewTile({required this.chat, required this.onTap});
+  const _ChatPreviewTile({
+    required this.chat,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -955,40 +1039,77 @@ class _ChatPreviewTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  _timeLabel(chat.lastMessageAt),
-                  style: const TextStyle(
-                    color: AppColors.subtleText,
-                    fontFamily: AppFonts.primary,
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (chat.unreadCount > 0)
-                  Container(
-                    width: 19,
-                    height: 19,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primaryGreen,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      chat.unreadCount > 9 ? '9+' : '${chat.unreadCount}',
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _timeLabel(chat.lastMessageAt),
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.subtleText,
                         fontFamily: AppFonts.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10,
+                        fontSize: 11,
                       ),
                     ),
-                  )
-                else
-                  const Icon(
-                    Icons.done_all_rounded,
-                    color: AppColors.primaryGreen,
-                    size: 18,
-                  ),
+                    const SizedBox(width: 2),
+                    PopupMenuButton<String>(
+                      tooltip: 'Chat options',
+                      icon: const Icon(
+                        Icons.more_vert_rounded,
+                        color: AppColors.subtleText,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 130),
+                      onSelected: (value) {
+                        if (value == 'delete') onDelete();
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline_rounded,
+                                color: AppColors.errorRed,
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Text('Delete'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: chat.unreadCount > 0
+                      ? Container(
+                          width: 19,
+                          height: 19,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primaryGreen,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            chat.unreadCount > 9 ? '9+' : '${chat.unreadCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: AppFonts.primary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10,
+                            ),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.done_all_rounded,
+                          color: AppColors.primaryGreen,
+                          size: 18,
+                        ),
+                ),
               ],
             ),
           ],

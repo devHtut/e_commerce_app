@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../cart/checkout_screen.dart';
 import '../cart/cart_service.dart';
+import '../chat/chat_service.dart';
 import '../order/order_service.dart';
 import '../order/order_detail_screen.dart';
 import '../address/delivery_address_screen.dart';
@@ -75,12 +76,16 @@ class _HomeScreenState extends State<HomeScreen> {
       NotificationService.instance.refreshUnreadCount(
         audience: AppNotificationAudience.customer,
       );
+      ChatService.instance.startUnreadCountSubscription();
+      ChatService.instance.refreshUnreadCount();
       CartService.instance.loadCartItems();
       WishlistService.instance.loadWishlistItems();
     } else {
       WishlistService.instance.clear();
       CartService.instance.clear();
       NotificationService.instance.clearUnreadCount();
+      ChatService.instance.stopUnreadCountSubscription();
+      ChatService.instance.unreadCountNotifier.value = 0;
     }
   }
 
@@ -89,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchController.dispose();
     _searchFocusNode.dispose();
     _customerOrderSearchController.dispose();
+    ChatService.instance.stopUnreadCountSubscription();
     super.dispose();
   }
 
@@ -398,6 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (_) => const ChatScreen()),
     );
+    await ChatService.instance.refreshUnreadCount();
   }
 
   void _showLogoutConfirmation() {
@@ -2746,10 +2753,49 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _chatButton() {
-    return IconButton(
-      onPressed: _openChat,
-      tooltip: 'Chat',
-      icon: const Icon(Icons.chat_bubble_outline, color: AppColors.darkText),
+    return ValueListenableBuilder<int>(
+      valueListenable: ChatService.instance.unreadCountNotifier,
+      builder: (context, unreadCount, _) {
+        return IconButton(
+          onPressed: _openChat,
+          tooltip: 'Chat',
+          icon: _appBarIconWithBadge(
+            icon: Icons.chat_bubble_outline,
+            count: unreadCount,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _appBarIconWithBadge({required IconData icon, required int count}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon, color: AppColors.darkText),
+        if (count > 0)
+          Positioned(
+            right: -6,
+            top: -5,
+            child: Container(
+              width: 16,
+              height: 16,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.errorRed,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                count > 9 ? '9+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

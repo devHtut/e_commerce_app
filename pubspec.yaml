@@ -41,6 +41,7 @@ dependencies:
   path_provider: ^2.1.5
   gal: ^2.3.2
   change_app_package_name: ^1.5.0
+  lottie: ^3.1.2
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +75,7 @@ flutter:
      - assets/logo.png
      - assets/icon_logo.png
      - assets/myanmar-townships.json
+     - assets/animations/sandy_loading.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

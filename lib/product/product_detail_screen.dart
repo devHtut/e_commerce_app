@@ -1113,24 +1113,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               OutlinedButton(
                 onPressed: _product.brandId == null || _product.brandId!.isEmpty
                     ? null
                     : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ShopProfileScreen(brandId: _product.brandId),
-                          ),
-                        );
-                      },
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ShopProfileScreen(brandId: _product.brandId),
+                    ),
+                  );
+                },
                 child: const Text('View shop'),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: _product.brandId == null || _product.brandId!.isEmpty
                     ? null

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
 import '../auth/vendor_access.dart';
+import '../chat/chat_service.dart';
 import '../customer/chat_screen.dart';
 import '../notification/notification_screen.dart';
 import '../notification/notification_service.dart';
@@ -47,6 +48,8 @@ class _VendorDashboardState extends State<VendorDashboard> {
     NotificationService.instance.refreshUnreadCount(
       audience: AppNotificationAudience.vendor,
     );
+    ChatService.instance.startUnreadCountSubscription();
+    ChatService.instance.refreshUnreadCount();
     setState(() => _vendorAccessGranted = true);
   }
 
@@ -63,6 +66,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
   @override
   void dispose() {
     _vendorOrderSearchController.dispose();
+    ChatService.instance.stopUnreadCountSubscription();
     super.dispose();
   }
 
@@ -326,13 +330,53 @@ class _VendorDashboardState extends State<VendorDashboard> {
       context,
       MaterialPageRoute(builder: (_) => const ChatScreen()),
     );
+    await ChatService.instance.refreshUnreadCount();
   }
 
   Widget _chatButton() {
-    return IconButton(
-      onPressed: _openChat,
-      tooltip: 'Chat',
-      icon: const Icon(Icons.chat_bubble_outline, color: AppColors.darkText),
+    return ValueListenableBuilder<int>(
+      valueListenable: ChatService.instance.unreadCountNotifier,
+      builder: (context, unreadCount, _) {
+        return IconButton(
+          onPressed: _openChat,
+          tooltip: 'Chat',
+          icon: _appBarIconWithBadge(
+            icon: Icons.chat_bubble_outline,
+            count: unreadCount,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _appBarIconWithBadge({required IconData icon, required int count}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon, color: AppColors.darkText),
+        if (count > 0)
+          Positioned(
+            right: -6,
+            top: -5,
+            child: Container(
+              width: 16,
+              height: 16,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.errorRed,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                count > 9 ? '9+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
