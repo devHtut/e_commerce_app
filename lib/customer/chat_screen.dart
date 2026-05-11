@@ -15,6 +15,15 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  static const List<String> _reactionEmojis = [
+    '❤️',
+    '👍',
+    '😂',
+    '😮',
+    '😢',
+    '🙏',
+  ];
+
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
   int _selectedFilterIndex = 0;
@@ -225,6 +234,294 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Future<void> _toggleReaction(ChatMessage message, String emoji) async {
+    try {
+      await ChatService.instance.toggleReaction(
+        messageId: message.id,
+        emoji: emoji,
+      );
+      await _refreshMessagesFromRealtime();
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Reaction not saved',
+        message: 'Please try again in a moment.',
+        type: PopupType.error,
+      );
+    }
+  }
+
+  Future<void> _showReactionPicker(ChatMessage message) async {
+    final isMine = message.isMine(_currentUserId ?? '');
+    final selectedEmoji = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _reactionEmojis.map((emoji) {
+                      final reacted = message.reactions.any(
+                        (reaction) =>
+                            reaction.emoji == emoji && reaction.reactedByMe,
+                      );
+                      return InkWell(
+                        onTap: () => Navigator.pop(context, emoji),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: reacted
+                                ? AppColors.primaryGreen.withValues(alpha: 0.14)
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                if (isMine && message.type == 'text') ...[
+                  const SizedBox(width: 6),
+                  _MessageActionIcon(
+                    icon: Icons.edit_outlined,
+                    tooltip: 'Edit',
+                    onTap: () => Navigator.pop(context, '__edit__'),
+                  ),
+                  _MessageActionIcon(
+                    icon: Icons.delete_outline_rounded,
+                    tooltip: 'Delete',
+                    onTap: () => Navigator.pop(context, '__delete__'),
+                    color: AppColors.errorRed,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedEmoji == null) return;
+    if (selectedEmoji == '__edit__') {
+      await _editMessage(message);
+      return;
+    }
+    if (selectedEmoji == '__delete__') {
+      await _deleteMessage(message);
+      return;
+    }
+    await _toggleReaction(message, selectedEmoji);
+  }
+
+  Future<void> _editMessage(ChatMessage message) async {
+    final controller = TextEditingController(text: message.text);
+    final updatedText = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Edit Message',
+                    style: TextStyle(
+                      color: AppColors.darkText,
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: AppColors.lightGrey,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                      const Spacer(),
+                      FilledButton(
+                        onPressed: () =>
+                            Navigator.pop(context, controller.text.trim()),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primaryGreen,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Save'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    controller.dispose();
+
+    if (updatedText == null ||
+        updatedText.isEmpty ||
+        updatedText == message.text.trim()) {
+      return;
+    }
+
+    try {
+      await ChatService.instance.editMessage(
+        messageId: message.id,
+        chatId: message.chatId,
+        text: updatedText,
+      );
+      await _refreshMessagesFromRealtime();
+      await _refreshChatsFromRealtime();
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Message not edited',
+        message: 'Please try again in a moment.',
+        type: PopupType.error,
+      );
+    }
+  }
+
+  Future<void> _deleteMessage(ChatMessage message) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Delete message?',
+                  style: TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'This will remove the message from this chat.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.subtleText,
+                    fontFamily: AppFonts.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.errorRed,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Delete'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+    try {
+      await ChatService.instance.deleteMessage(
+        messageId: message.id,
+        chatId: message.chatId,
+      );
+      await _refreshMessagesFromRealtime();
+      await _refreshChatsFromRealtime();
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Message not deleted',
+        message: 'Please try again in a moment.',
+        type: PopupType.error,
+      );
+    }
+  }
+
   Future<void> _showStartChatSheet() async {
     final option = await showModalBottomSheet<ChatStartOption>(
       context: context,
@@ -259,18 +556,14 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
+        toolbarHeight: activeChat == null ? kToolbarHeight : 66,
         leading: BackButton(
           color: AppColors.darkText,
           onPressed: activeChat == null ? null : _closeConversation,
         ),
-        title: Text(
-          activeChat?.title ?? 'Messages',
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: AppColors.darkText,
-            fontFamily: AppFonts.primary,
-            fontWeight: FontWeight.w700,
-          ),
+        title: _ChatAppBarTitle(
+          title: activeChat?.title ?? 'Messages',
+          status: activeChat == null ? null : _availabilityLabel(activeChat),
         ),
         actions: activeChat == null
             ? [
@@ -382,31 +675,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildConversation(BuildContext context, ChatSummary chat) {
     final currentUserId = _currentUserId ?? '';
+    final latestOutgoingId = _latestOutgoingMessageId(currentUserId);
     return SafeArea(
       top: false,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Row(
-              children: [
-                _ChatAvatar(chat: chat, size: 36),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Tap messages to continue the conversation',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.subtleText,
-                      fontFamily: AppFonts.primary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
           Expanded(
             child: _isLoadingMessages
                 ? const Center(child: CircularProgressIndicator())
@@ -424,6 +697,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       return _MessageBubble(
                         message: message,
                         isMine: message.isMine(currentUserId),
+                        deliveryLabel:
+                            message.id == latestOutgoingId &&
+                                message.isMine(currentUserId)
+                            ? _deliveryLabel(chat, message)
+                            : null,
+                        onLongPress: () => _showReactionPicker(message),
+                        onReactionTap: (emoji) =>
+                            _toggleReaction(message, emoji),
                       );
                     },
                   ),
@@ -436,6 +717,98 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  String? _latestOutgoingMessageId(String currentUserId) {
+    for (final message in _messages.reversed) {
+      if (message.senderId == currentUserId && !message.isDeleted) {
+        return message.id;
+      }
+    }
+    return null;
+  }
+
+  String _deliveryLabel(ChatSummary chat, ChatMessage message) {
+    final otherLastReadAt = chat.otherLastReadAt;
+    if (otherLastReadAt != null &&
+        !message.createdAt.isAfter(otherLastReadAt.toLocal())) {
+      return 'Seen';
+    }
+    return 'Sent';
+  }
+
+  String _availabilityLabel(ChatSummary chat) {
+    final lastMessageAt = chat.lastMessageAt;
+    if (lastMessageAt == null) return 'Not Available';
+
+    final difference = DateTime.now().difference(lastMessageAt.toLocal());
+    return difference.inMinutes <= 5 ? 'Active Now' : 'Not Available';
+  }
+}
+
+class _ChatAppBarTitle extends StatelessWidget {
+  final String title;
+  final String? status;
+
+  const _ChatAppBarTitle({required this.title, this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == null) {
+      return Text(
+        title,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.darkText,
+          fontFamily: AppFonts.primary,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+    }
+
+    final isActive = status == 'Active Now';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppColors.darkText,
+            fontFamily: AppFonts.primary,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: isActive
+                    ? AppColors.primaryGreen
+                    : AppColors.subtleText.withValues(alpha: 0.45),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              status!,
+              style: TextStyle(
+                color: isActive ? AppColors.primaryGreen : AppColors.subtleText,
+                fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -650,6 +1023,36 @@ class _ChatAvatar extends StatelessWidget {
   }
 }
 
+class _MessageActionIcon extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Color color;
+
+  const _MessageActionIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.color = AppColors.darkText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, color: color, size: 21),
+        ),
+      ),
+    );
+  }
+}
+
 class _AvatarFallback extends StatelessWidget {
   final String title;
   final double size;
@@ -678,8 +1081,17 @@ class _AvatarFallback extends StatelessWidget {
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMine;
+  final String? deliveryLabel;
+  final VoidCallback onLongPress;
+  final ValueChanged<String> onReactionTap;
 
-  const _MessageBubble({required this.message, required this.isMine});
+  const _MessageBubble({
+    required this.message,
+    required this.isMine,
+    required this.deliveryLabel,
+    required this.onLongPress,
+    required this.onReactionTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -695,54 +1107,140 @@ class _MessageBubble extends StatelessWidget {
         : message.text;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: alignment,
         children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.72,
-            ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: bubbleColor,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isMine ? 16 : 4),
-                  bottomRight: Radius.circular(isMine ? 4 : 16),
-                ),
+          GestureDetector(
+            onLongPress: message.isDeleted ? null : onLongPress,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.sizeOf(context).width * 0.72,
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 11,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: bubbleColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(isMine ? 16 : 4),
+                    bottomRight: Radius.circular(isMine ? 4 : 16),
+                  ),
                 ),
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    color: textColor,
-                    fontFamily: AppFonts.primary,
-                    fontSize: 14,
-                    height: 1.25,
-                    fontStyle: message.isDeleted
-                        ? FontStyle.italic
-                        : FontStyle.normal,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      color: textColor,
+                      fontFamily: AppFonts.primary,
+                      fontSize: 14,
+                      height: 1.25,
+                      fontStyle: message.isDeleted
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            _messageTimeLabel(message.createdAt),
-            style: const TextStyle(
-              color: AppColors.subtleText,
-              fontFamily: AppFonts.primary,
-              fontSize: 11,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _messageTimeLabel(message.createdAt),
+                style: const TextStyle(
+                  color: AppColors.subtleText,
+                  fontFamily: AppFonts.primary,
+                  fontSize: 11,
+                ),
+              ),
+              if (message.editedAt != null && !message.isDeleted) ...[
+                const SizedBox(width: 5),
+                const Text(
+                  'edited',
+                  style: TextStyle(
+                    color: AppColors.subtleText,
+                    fontFamily: AppFonts.primary,
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+              if (deliveryLabel != null) ...[
+                const SizedBox(width: 5),
+                Text(
+                  deliveryLabel!,
+                  style: TextStyle(
+                    color: deliveryLabel == 'Seen'
+                        ? AppColors.primaryGreen
+                        : AppColors.subtleText,
+                    fontFamily: AppFonts.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ],
           ),
+          if (!message.isDeleted && message.reactions.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              alignment: isMine ? WrapAlignment.end : WrapAlignment.start,
+              children: message.reactions.map((reaction) {
+                return _ReactionChip(
+                  reaction: reaction,
+                  onTap: () => onReactionTap(reaction.emoji),
+                );
+              }).toList(),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _ReactionChip extends StatelessWidget {
+  final ChatReactionSummary reaction;
+  final VoidCallback onTap;
+
+  const _ReactionChip({required this.reaction, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: reaction.reactedByMe
+              ? AppColors.primaryGreen.withValues(alpha: 0.14)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: reaction.reactedByMe
+                ? AppColors.primaryGreen.withValues(alpha: 0.42)
+                : const Color(0xFFE4E7E0),
+          ),
+        ),
+        child: Text(
+          '${reaction.emoji} ${reaction.count}',
+          style: const TextStyle(
+            color: AppColors.darkText,
+            fontFamily: AppFonts.primary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
       ),
     );
   }

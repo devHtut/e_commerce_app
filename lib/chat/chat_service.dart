@@ -10,6 +10,7 @@ class ChatSummary {
   final String? lastMessageType;
   final DateTime? lastMessageAt;
   final DateTime? lastReadAt;
+  final DateTime? otherLastReadAt;
   final bool isGroup;
   final int unreadCount;
   final List<String> memberIds;
@@ -24,6 +25,7 @@ class ChatSummary {
     this.lastMessageType,
     this.lastMessageAt,
     this.lastReadAt,
+    this.otherLastReadAt,
     this.isGroup = false,
     this.unreadCount = 0,
   });
@@ -40,6 +42,7 @@ class ChatSummary {
       lastMessageType: lastMessageType,
       lastMessageAt: lastMessageAt,
       lastReadAt: lastReadAt,
+      otherLastReadAt: otherLastReadAt,
       isGroup: isGroup,
       unreadCount: unreadCount ?? this.unreadCount,
       memberIds: memberIds,
@@ -55,7 +58,9 @@ class ChatMessage {
   final String text;
   final String? imagePath;
   final DateTime createdAt;
+  final DateTime? editedAt;
   final bool isDeleted;
+  final List<ChatReactionSummary> reactions;
 
   const ChatMessage({
     required this.id,
@@ -65,13 +70,19 @@ class ChatMessage {
     required this.text,
     required this.createdAt,
     this.imagePath,
+    this.editedAt,
     this.isDeleted = false,
+    this.reactions = const <ChatReactionSummary>[],
   });
 
   bool isMine(String currentUserId) => senderId == currentUserId;
 
-  factory ChatMessage.fromRow(Map<String, dynamic> row) {
+  factory ChatMessage.fromRow(
+    Map<String, dynamic> row, {
+    List<ChatReactionSummary> reactions = const <ChatReactionSummary>[],
+  }) {
     final createdAtText = row['created_at']?.toString();
+    final editedAtText = row['edited_at']?.toString();
     return ChatMessage(
       id: row['id']?.toString() ?? '',
       chatId: row['chat_id']?.toString() ?? '',
@@ -82,9 +93,25 @@ class ChatMessage {
       createdAt: createdAtText != null
           ? DateTime.parse(createdAtText).toLocal()
           : DateTime.now(),
+      editedAt: editedAtText != null
+          ? DateTime.parse(editedAtText).toLocal()
+          : null,
       isDeleted: row['is_deleted'] as bool? ?? false,
+      reactions: reactions,
     );
   }
+}
+
+class ChatReactionSummary {
+  final String emoji;
+  final int count;
+  final bool reactedByMe;
+
+  const ChatReactionSummary({
+    required this.emoji,
+    required this.count,
+    required this.reactedByMe,
+  });
 }
 
 class ChatStartOption {
@@ -129,10 +156,16 @@ class ChatService {
 
     final membersByChat = await _loadMembersByChat(chatIds);
     final profileByUser = await _loadProfiles(
-      membersByChat.values.expand((ids) => ids).toSet().toList(),
+      membersByChat.values
+          .expand((members) => members.map((member) => member.userId))
+          .toSet()
+          .toList(),
     );
     final brandByOwner = await _loadBrandProfiles(
-      membersByChat.values.expand((ids) => ids).toSet().toList(),
+      membersByChat.values
+          .expand((members) => members.map((member) => member.userId))
+          .toSet()
+          .toList(),
     );
 
     final chats = <ChatSummary>[];
@@ -143,8 +176,10 @@ class ChatService {
       final chatId = chatRow['id']?.toString() ?? row['chat_id']?.toString();
       if (chatId == null || chatId.isEmpty) continue;
 
-      final memberIds = membersByChat[chatId] ?? <String>[];
+      final memberInfos = membersByChat[chatId] ?? <_ChatMemberInfo>[];
+      final memberIds = memberInfos.map((member) => member.userId).toList();
       final otherMemberIds = memberIds.where((id) => id != user.id).toList();
+      final otherLastReadAt = _latestOtherReadAt(memberInfos, user.id);
       final type = chatRow['type']?.toString() ?? 'direct';
       final isGroup = type == 'group';
       final name = chatRow['name']?.toString().trim();
@@ -178,6 +213,7 @@ class ChatService {
           lastMessageType: chatRow['last_message_type']?.toString(),
           lastMessageAt: lastMessageAt,
           lastReadAt: lastReadAt,
+          otherLastReadAt: otherLastReadAt,
           isGroup: isGroup,
           unreadCount: _isUnread(lastMessageAt, lastReadAt) ? 1 : 0,
           memberIds: memberIds,
@@ -284,15 +320,116 @@ class ChatService {
     final rows = await _client
         .from('messages')
         .select(
-          'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at',
+          'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at',
         )
         .eq('chat_id', chatId)
         .order('created_at', ascending: true);
 
+    final messageRows = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    final messageIds = messageRows
+        .map((row) => row['id']?.toString())
+        .whereType<String>()
+        .toList();
+    final reactionsByMessage = await _loadReactionSummaries(messageIds);
+
+    return messageRows
+        .map(
+          (row) => ChatMessage.fromRow(
+            row,
+            reactions:
+                reactionsByMessage[row['id']?.toString()] ??
+                const <ChatReactionSummary>[],
+          ),
+        )
+        .toList();
+  }
+
+  Future<void> toggleReaction({
+    required String messageId,
+    required String emoji,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null || messageId.isEmpty || emoji.isEmpty) return;
+
+    final existing = await _client
+        .from('message_reactions')
+        .select('id,emoji')
+        .eq('message_id', messageId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (existing != null && existing['emoji']?.toString() == emoji) {
+      await _client
+          .from('message_reactions')
+          .delete()
+          .eq('message_id', messageId)
+          .eq('user_id', user.id);
+      return;
+    }
+
+    await _client.from('message_reactions').upsert({
+      'message_id': messageId,
+      'user_id': user.id,
+      'emoji': emoji,
+    }, onConflict: 'message_id,user_id');
+  }
+
+  Future<Map<String, List<ChatReactionSummary>>> _loadReactionSummaries(
+    List<String> messageIds,
+  ) async {
+    final user = _client.auth.currentUser;
+    if (messageIds.isEmpty || user == null) {
+      return <String, List<ChatReactionSummary>>{};
+    }
+
+    final rows = await _client
+        .from('message_reactions')
+        .select('message_id,user_id,emoji')
+        .inFilter('message_id', messageIds);
+
+    final grouped = <String, Map<String, _ReactionAccumulator>>{};
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
-        .map(ChatMessage.fromRow)
-        .toList();
+        .fold<Map<String, List<ChatReactionSummary>>>(
+          <String, List<ChatReactionSummary>>{},
+          (summaryByMessage, row) {
+            final messageId = row['message_id']?.toString();
+            final emoji = row['emoji']?.toString();
+            final reactionUserId = row['user_id']?.toString();
+            if (messageId == null ||
+                messageId.isEmpty ||
+                emoji == null ||
+                emoji.isEmpty) {
+              return summaryByMessage;
+            }
+
+            final byEmoji = grouped.putIfAbsent(
+              messageId,
+              () => <String, _ReactionAccumulator>{},
+            );
+            final accumulator = byEmoji.putIfAbsent(
+              emoji,
+              () => _ReactionAccumulator(),
+            );
+            accumulator.count += 1;
+            if (reactionUserId == user.id) {
+              accumulator.reactedByMe = true;
+            }
+
+            summaryByMessage[messageId] =
+                byEmoji.entries
+                    .map(
+                      (entry) => ChatReactionSummary(
+                        emoji: entry.key,
+                        count: entry.value.count,
+                        reactedByMe: entry.value.reactedByMe,
+                      ),
+                    )
+                    .toList()
+                  ..sort((a, b) => b.count.compareTo(a.count));
+            return summaryByMessage;
+          },
+        );
   }
 
   Future<ChatMessage?> sendTextMessage({
@@ -312,7 +449,7 @@ class ChatService {
           'text': cleanText,
         })
         .select(
-          'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at',
+          'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at',
         )
         .single();
 
@@ -339,6 +476,75 @@ class ChatService {
         .eq('user_id', user.id);
   }
 
+  Future<void> editMessage({
+    required String messageId,
+    required String chatId,
+    required String text,
+  }) async {
+    final user = _client.auth.currentUser;
+    final cleanText = text.trim();
+    if (user == null ||
+        messageId.isEmpty ||
+        chatId.isEmpty ||
+        cleanText.isEmpty) {
+      return;
+    }
+
+    await _client
+        .from('messages')
+        .update({
+          'text': cleanText,
+          'edited_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', messageId)
+        .eq('sender_id', user.id);
+
+    await _refreshChatLastMessage(chatId);
+  }
+
+  Future<void> deleteMessage({
+    required String messageId,
+    required String chatId,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null || messageId.isEmpty || chatId.isEmpty) return;
+
+    await _client
+        .from('messages')
+        .update({'is_deleted': true})
+        .eq('id', messageId)
+        .eq('sender_id', user.id);
+
+    await _refreshChatLastMessage(chatId);
+  }
+
+  Future<void> _refreshChatLastMessage(String chatId) async {
+    final row = await _client
+        .from('messages')
+        .select('text,type,is_deleted,created_at')
+        .eq('chat_id', chatId)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+
+    if (row == null) return;
+
+    final isDeleted = row['is_deleted'] as bool? ?? false;
+    final type = row['type']?.toString() ?? 'text';
+    final text = isDeleted
+        ? 'This message was deleted'
+        : _lastMessagePreview(row['text']?.toString(), type);
+
+    await _client
+        .from('chats')
+        .update({
+          'last_message_text': text,
+          'last_message_type': type,
+          'last_message_at': row['created_at']?.toString(),
+        })
+        .eq('id', chatId);
+  }
+
   RealtimeChannel subscribeToChatMessages({
     required String chatId,
     required VoidCallback onChanged,
@@ -354,6 +560,12 @@ class ChatService {
             column: 'chat_id',
             value: chatId,
           ),
+          callback: (_) => onChanged(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'message_reactions',
           callback: (_) => onChanged(),
         )
         .subscribe();
@@ -382,22 +594,29 @@ class ChatService {
     await _client.removeChannel(channel);
   }
 
-  Future<Map<String, List<String>>> _loadMembersByChat(
+  Future<Map<String, List<_ChatMemberInfo>>> _loadMembersByChat(
     List<String> chatIds,
   ) async {
-    if (chatIds.isEmpty) return <String, List<String>>{};
+    if (chatIds.isEmpty) return <String, List<_ChatMemberInfo>>{};
 
     final rows = await _client
         .from('chat_members')
-        .select('chat_id,user_id')
+        .select('chat_id,user_id,last_read_at')
         .inFilter('chat_id', chatIds);
 
-    final membersByChat = <String, List<String>>{};
+    final membersByChat = <String, List<_ChatMemberInfo>>{};
     for (final row in (rows as List<dynamic>).cast<Map<String, dynamic>>()) {
       final chatId = row['chat_id']?.toString();
       final userId = row['user_id']?.toString();
       if (chatId == null || userId == null) continue;
-      membersByChat.putIfAbsent(chatId, () => <String>[]).add(userId);
+      membersByChat
+          .putIfAbsent(chatId, () => <_ChatMemberInfo>[])
+          .add(
+            _ChatMemberInfo(
+              userId: userId,
+              lastReadAt: _parseDate(row['last_read_at']),
+            ),
+          );
     }
     return membersByChat;
   }
@@ -503,6 +722,22 @@ class ChatService {
     return lastMessageAt.isAfter(lastReadAt);
   }
 
+  DateTime? _latestOtherReadAt(
+    List<_ChatMemberInfo> members,
+    String currentUserId,
+  ) {
+    DateTime? latest;
+    for (final member in members) {
+      if (member.userId == currentUserId || member.lastReadAt == null) {
+        continue;
+      }
+      if (latest == null || member.lastReadAt!.isAfter(latest)) {
+        latest = member.lastReadAt;
+      }
+    }
+    return latest;
+  }
+
   DateTime? _parseDate(dynamic value) {
     final text = value?.toString();
     if (text == null || text.isEmpty) return null;
@@ -515,4 +750,16 @@ class _ChatProfile {
   final String? avatarUrl;
 
   const _ChatProfile({this.name, this.avatarUrl});
+}
+
+class _ChatMemberInfo {
+  final String userId;
+  final DateTime? lastReadAt;
+
+  const _ChatMemberInfo({required this.userId, this.lastReadAt});
+}
+
+class _ReactionAccumulator {
+  int count = 0;
+  bool reactedByMe = false;
 }
