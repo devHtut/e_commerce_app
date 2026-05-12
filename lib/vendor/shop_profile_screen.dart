@@ -35,8 +35,10 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   _ShopInfo? _shop;
   List<ProductModel> _products = [];
   List<String> _categories = const ['Discover'];
+  List<String> _audiences = const ['All Audiences'];
   int _selectedCategoryIndex = 0;
-  _ShopSort? _sort;
+  int _selectedAudienceIndex = 0;
+  _ShopSort? _sort = _ShopSort.latestArrival;
   bool _embeddedVendorAccessPending = false;
 
   @override
@@ -95,6 +97,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           _shop = null;
           _products = [];
           _categories = const ['Discover'];
+          _audiences = const ['All Audiences'];
           _error = 'Shop profile not found.';
         });
         return;
@@ -114,7 +117,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           .from('products')
           .select(
             'id, brand_id, category_id, title, description, base_price, created_at, '
-            'categories(name), brands(brand_name,logo_url), product_variants(image_url)',
+            'audience_id, categories(name), audiences(name), brands(brand_name,logo_url), product_variants(image_url)',
           )
           .eq('brand_id', brandRow['id'].toString())
           .order('created_at', ascending: false);
@@ -130,13 +133,22 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
               .toSet()
               .toList()
             ..sort();
+      final audiences =
+          products
+              .map((product) => product.audience.trim())
+              .where((audience) => audience.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
 
       if (!mounted) return;
       setState(() {
         _shop = _ShopInfo.fromRows(brandRow!, vendorRow);
         _products = products;
         _categories = ['Discover', ...categories];
+        _audiences = ['All Audiences', ...audiences];
         _selectedCategoryIndex = 0;
+        _selectedAudienceIndex = 0;
       });
     } catch (_) {
       if (!mounted) return;
@@ -149,9 +161,19 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   List<ProductModel> get _visibleProducts {
     final safeIndex = _selectedCategoryIndex.clamp(0, _categories.length - 1);
     final selectedCategory = _categories[safeIndex];
+    final safeAudienceIndex = _selectedAudienceIndex.clamp(
+      0,
+      _audiences.length - 1,
+    );
+    final selectedAudience = _audiences[safeAudienceIndex];
     final filtered = _products.where((product) {
-      return selectedCategory == 'Discover' ||
+      final categoryMatch =
+          selectedCategory == 'Discover' ||
           product.category == selectedCategory;
+      final audienceMatch =
+          selectedAudience == 'All Audiences' ||
+          product.audience == selectedAudience;
+      return categoryMatch && audienceMatch;
     }).toList();
 
     switch (_sort) {
@@ -166,6 +188,18 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
     return filtered;
   }
+
+  String get _selectedCategoryLabel {
+    final safeIndex = _selectedCategoryIndex.clamp(0, _categories.length - 1);
+    return _categories[safeIndex];
+  }
+
+  String get _selectedAudienceLabel {
+    final safeIndex = _selectedAudienceIndex.clamp(0, _audiences.length - 1);
+    return _audiences[safeIndex];
+  }
+
+  String get _selectedSortLabel => (_sort ?? _ShopSort.latestArrival).label;
 
   Future<void> _launch(Uri uri) async {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -526,58 +560,115 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   Widget _buildControls() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: SizedBox(
-              height: 44,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final selected = index == _selectedCategoryIndex;
-                  return ChoiceChip(
-                    label: Text(
-                      _categories[index],
-                      style: TextStyle(
-                        fontFamily: AppFonts.primary,
-                        color: selected ? Colors.white : AppColors.darkText,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    selected: selected,
-                    onSelected: (_) {
-                      setState(() => _selectedCategoryIndex = index);
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _categories.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final selected = index == _selectedCategoryIndex;
+                      return ChoiceChip(
+                        label: Text(
+                          _categories[index],
+                          style: TextStyle(
+                            fontFamily: AppFonts.primary,
+                            color: selected ? Colors.white : AppColors.darkText,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        selected: selected,
+                        onSelected: (_) {
+                          setState(() => _selectedCategoryIndex = index);
+                        },
+                        selectedColor: AppColors.primaryGreen,
+                        backgroundColor: Colors.transparent,
+                        side: BorderSide(
+                          color: selected
+                              ? AppColors.primaryGreen
+                              : Colors.black26,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        showCheckmark: false,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                      );
                     },
-                    selectedColor: AppColors.primaryGreen,
-                    backgroundColor: Colors.transparent,
-                    side: BorderSide(
-                      color: selected ? AppColors.primaryGreen : Colors.black26,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    showCheckmark: false,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                  );
-                },
+                  ),
+                ),
               ),
+              const SizedBox(width: 10),
+              IconButton.filledTonal(
+                onPressed: _openSortSheet,
+                icon: const Icon(Icons.tune),
+                tooltip: 'Sort',
+                style: IconButton.styleFrom(
+                  foregroundColor: AppColors.primaryGreen,
+                  backgroundColor: Colors.white,
+                  fixedSize: const Size(44, 44),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _audiences.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final selected = index == _selectedAudienceIndex;
+                return ChoiceChip(
+                  avatar: Icon(
+                    Icons.group_outlined,
+                    size: 16,
+                    color: selected ? Colors.white : AppColors.primaryGreen,
+                  ),
+                  label: Text(
+                    _audiences[index],
+                    style: TextStyle(
+                      fontFamily: AppFonts.primary,
+                      color: selected ? Colors.white : AppColors.darkText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  selected: selected,
+                  onSelected: (_) {
+                    setState(() => _selectedAudienceIndex = index);
+                  },
+                  selectedColor: AppColors.primaryGreen,
+                  backgroundColor: Colors.white,
+                  side: BorderSide(
+                    color: selected ? AppColors.primaryGreen : Colors.black26,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  showCheckmark: false,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(width: 10),
-          IconButton.filledTonal(
-            onPressed: _openSortSheet,
-            icon: const Icon(Icons.tune),
-            tooltip: 'Sort',
-            style: IconButton.styleFrom(
-              foregroundColor: AppColors.primaryGreen,
-              backgroundColor: Colors.white,
-              fixedSize: const Size(44, 44),
-            ),
+          const SizedBox(height: 8),
+          _ActiveFilterSummary(
+            text:
+                'Showing $_selectedCategoryLabel / $_selectedAudienceLabel / $_selectedSortLabel',
           ),
         ],
       ),
@@ -652,6 +743,35 @@ class _SortRadioDot extends StatelessWidget {
               ),
             )
           : null,
+    );
+  }
+}
+
+class _ActiveFilterSummary extends StatelessWidget {
+  final String text;
+
+  const _ActiveFilterSummary({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.subtleText,
+          fontFamily: AppFonts.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

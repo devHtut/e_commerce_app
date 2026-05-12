@@ -3,6 +3,8 @@ class ProductModel {
   final String name;
   final String category;
   final String? categoryId;
+  final String audience;
+  final String? audienceId;
   final String brand;
   final String? brandId;
   final String? brandLogoUrl;
@@ -17,6 +19,8 @@ class ProductModel {
     required this.name,
     required this.category,
     this.categoryId,
+    this.audience = '',
+    this.audienceId,
     required this.brand,
     this.brandId,
     this.brandLogoUrl,
@@ -42,6 +46,7 @@ class ProductModel {
     final basePrice = (row['base_price'] as num?)?.toDouble() ?? 0;
     final category =
         ((row['categories'] as Map?)?['name']?.toString()) ?? 'General';
+    final audience = ((row['audiences'] as Map?)?['name']?.toString()) ?? '';
     final brand =
         ((row['brands'] as Map?)?['brand_name']?.toString()) ?? 'Unknown Brand';
 
@@ -50,6 +55,8 @@ class ProductModel {
       name: row['title']?.toString() ?? 'Untitled',
       category: category,
       categoryId: row['category_id']?.toString(),
+      audience: audience,
+      audienceId: row['audience_id']?.toString(),
       brand: brand,
       brandId: row['brand_id']?.toString(),
       brandLogoUrl: ((row['brands'] as Map?)?['logo_url']?.toString()),
@@ -68,6 +75,8 @@ class ProductModel {
     String? name,
     String? category,
     String? categoryId,
+    String? audience,
+    String? audienceId,
     String? brand,
     String? brandId,
     String? brandLogoUrl,
@@ -82,6 +91,8 @@ class ProductModel {
       name: name ?? this.name,
       category: category ?? this.category,
       categoryId: categoryId ?? this.categoryId,
+      audience: audience ?? this.audience,
+      audienceId: audienceId ?? this.audienceId,
       brand: brand ?? this.brand,
       brandId: brandId ?? this.brandId,
       brandLogoUrl: brandLogoUrl ?? this.brandLogoUrl,

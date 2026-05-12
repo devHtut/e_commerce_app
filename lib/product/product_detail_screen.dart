@@ -69,9 +69,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final row = await Supabase.instance.client
           .from('products')
           .select(
-            'id, brand_id, category_id, title, description, base_price, '
-            'categories(name), brands(brand_name,logo_url), '
-            'product_variants(id,size,color,stock_quantity,price_adjustment,promo_price,image_url,sku)',
+            'id, brand_id, category_id, audience_id, title, description, base_price, '
+            'categories(name), audiences(name), brands(brand_name,logo_url), '
+            'product_variants(id,size,color,stock_quantity,price_adjustment,promo_price,image_url,sku,size_description)',
           )
           .eq('id', widget.product.id)
           .single();
@@ -87,6 +87,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           size: v['size']?.toString() ?? 'Default',
           stock: (v['stock_quantity'] as num?)?.toInt() ?? 0,
           sku: v['sku']?.toString(),
+          sizeDescription: v['size_description']?.toString(),
           price: product.price + adj,
           promoPrice: (v['promo_price'] as num?)?.toDouble(),
           imageUrl: v['image_url']?.toString(),
@@ -172,7 +173,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .from('products')
           .select(
             'id, brand_id, category_id, title, description, base_price, '
-            'categories(name), brands(brand_name,logo_url), product_variants(image_url)',
+            'audience_id, categories(name), audiences(name), brands(brand_name,logo_url), product_variants(image_url)',
           )
           .eq('category_id', categoryId)
           .neq('id', currentId)
@@ -188,7 +189,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .from('products')
           .select(
             'id, brand_id, category_id, title, description, base_price, '
-            'categories(name), brands(brand_name,logo_url), product_variants(image_url)',
+            'audience_id, categories(name), audiences(name), brands(brand_name,logo_url), product_variants(image_url)',
           )
           .eq('brand_id', brandId)
           .neq('id', currentId)
@@ -235,6 +236,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       name: _product.name,
       category: _product.category,
       categoryId: _product.categoryId,
+      audience: _product.audience,
+      audienceId: _product.audienceId,
       brand: _product.brand,
       brandId: _product.brandId,
       brandLogoUrl: _product.brandLogoUrl,
@@ -984,6 +987,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       color: AppColors.subtleText,
                     ),
                   ),
+                  if ((variant?.sizeDescription ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      variant!.sizeDescription!.trim(),
+                      style: const TextStyle(
+                        fontFamily: AppFonts.primary,
+                        color: AppColors.subtleText,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   const Text(
                     'Product Information',
@@ -1248,6 +1262,7 @@ class _VariantOption {
   final String size;
   final int stock;
   final String? sku;
+  final String? sizeDescription;
   final double price;
   final double? promoPrice;
   final String? imageUrl;
@@ -1258,6 +1273,7 @@ class _VariantOption {
     required this.size,
     required this.stock,
     required this.sku,
+    required this.sizeDescription,
     required this.price,
     required this.promoPrice,
     required this.imageUrl,

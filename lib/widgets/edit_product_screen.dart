@@ -34,7 +34,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
   bool _allowPop = false;
   bool _hasVariants = true;
   String? _selectedCategoryId;
+  String? _selectedAudienceId;
   final List<_CategoryOption> _categories = [];
+  final List<_AudienceOption> _audiences = [];
 
   static const _sizeOptions = ['XS', 'S', 'M', 'L', 'XL'];
   static const _colorOptions = [
@@ -153,6 +155,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
           .from('categories')
           .select('id, name')
           .order('name');
+      final audienceRows = await Supabase.instance.client
+          .from('audiences')
+          .select('id, name')
+          .order('name');
       _categories
         ..clear()
         ..addAll(
@@ -163,12 +169,22 @@ class _EditProductScreenState extends State<EditProductScreen> {
             ),
           ),
         );
+      _audiences
+        ..clear()
+        ..addAll(
+          (audienceRows as List<dynamic>).cast<Map<String, dynamic>>().map(
+            (e) => _AudienceOption(
+              id: e['id'].toString(),
+              name: e['name'].toString(),
+            ),
+          ),
+        );
 
       final row = await Supabase.instance.client
           .from('products')
           .select(
-            'id, title, description, category_id, base_price, product_variants('
-            'size,color,stock_quantity,promo_price,price_adjustment,sku,image_url'
+            'id, title, description, category_id, audience_id, base_price, product_variants('
+            'size,color,stock_quantity,promo_price,price_adjustment,sku,size_description,image_url'
             ')',
           )
           .eq('id', widget.productId)
@@ -177,6 +193,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       _nameController.text = row['title']?.toString() ?? '';
       _descriptionController.text = row['description']?.toString() ?? '';
       _selectedCategoryId = row['category_id']?.toString();
+      _selectedAudienceId = row['audience_id']?.toString();
       final basePrice = (row['base_price'] as num?)?.toDouble() ?? 0;
 
       final variants =
@@ -243,6 +260,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 ),
                 skuController: TextEditingController(
                   text: (v['sku']?.toString() ?? ''),
+                ),
+                sizeDescriptionController: TextEditingController(
+                  text: (v['size_description']?.toString() ?? ''),
                 ),
               ),
             );
@@ -322,6 +342,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
             'title': _nameController.text.trim(),
             'description': _descriptionController.text.trim(),
             'category_id': _selectedCategoryId,
+            'audience_id': _selectedAudienceId,
             'base_price': basePrice,
           })
           .eq('id', widget.productId);
@@ -349,6 +370,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 'price_adjustment': v.price - basePrice,
                 'promo_price': v.promoPrice,
                 'sku': v.sku?.isEmpty == true ? null : v.sku,
+                'size_description': v.sizeDescription?.isEmpty == true
+                    ? null
+                    : v.sizeDescription,
                 'image_url': image,
               };
             }).toList(),
@@ -388,6 +412,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               ? null
               : double.parse(_simplePromoController.text.trim()),
           sku: null,
+          sizeDescription: null,
         ),
       ];
     }
@@ -404,6 +429,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 ? null
                 : double.parse(variant.promoPriceController.text.trim()),
             sku: variant.skuController.text.trim(),
+            sizeDescription: variant.sizeDescriptionController.text.trim(),
           ),
         );
       }
@@ -600,6 +626,36 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         )
                         .toList(),
                     onChanged: (v) => setState(() => _selectedCategoryId = v),
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? 'Category is required.'
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: _selectedAudienceId,
+                    decoration: const InputDecoration(
+                      labelText: 'Audience',
+                      labelStyle: TextStyle(
+                        color: AppColors.darkText,
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Choose audience',
+                    ),
+                    items: _audiences
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e.id,
+                            child: Text(e.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedAudienceId = v),
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? 'Audience is required.'
+                        : null,
                   ),
                   const SizedBox(height: 8),
                   SwitchListTile(
@@ -712,6 +768,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         priceController: TextEditingController(),
                         promoPriceController: TextEditingController(),
                         skuController: TextEditingController(),
+                        sizeDescriptionController: TextEditingController(),
                       ),
                     ],
                   ),
@@ -759,8 +816,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
                     ),
                     if (_variantGroups.length > 1)
                       IconButton(
-                        onPressed: () =>
-                            setState(() => _variantGroups.removeAt(groupIndex)),
+                        onPressed: () => setState(() {
+                          final removed = _variantGroups.removeAt(groupIndex);
+                          for (final variant in removed.variants) {
+                            variant.dispose();
+                          }
+                        }),
                         icon: const Icon(
                           Icons.delete_outline,
                           color: Colors.red,
@@ -874,6 +935,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
                           labelText: 'SKU',
                           hintText: 'SKU (optional)',
                         ),
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          controller: v.sizeDescriptionController,
+                          labelText: 'Size description',
+                          hintText: 'Size description (optional)',
+                          maxLength: 250,
+                        ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -888,6 +956,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
                                       promoPriceController:
                                           TextEditingController(),
                                       skuController: TextEditingController(),
+                                      sizeDescriptionController:
+                                          TextEditingController(),
                                     ),
                                   );
                                 });
@@ -926,6 +996,12 @@ class _CategoryOption {
   const _CategoryOption({required this.id, required this.name});
 }
 
+class _AudienceOption {
+  final String id;
+  final String name;
+  const _AudienceOption({required this.id, required this.name});
+}
+
 class _ColorGroupDraft {
   String color;
   final List<_EditableImage> images;
@@ -943,12 +1019,14 @@ class _VariantDraft {
   final TextEditingController priceController;
   final TextEditingController promoPriceController;
   final TextEditingController skuController;
+  final TextEditingController sizeDescriptionController;
   _VariantDraft({
     required this.size,
     required this.stockController,
     required this.priceController,
     required this.promoPriceController,
     required this.skuController,
+    required this.sizeDescriptionController,
   });
 
   void dispose() {
@@ -956,6 +1034,7 @@ class _VariantDraft {
     priceController.dispose();
     promoPriceController.dispose();
     skuController.dispose();
+    sizeDescriptionController.dispose();
   }
 }
 
@@ -966,6 +1045,7 @@ class _ResolvedVariant {
   final double price;
   final double? promoPrice;
   final String? sku;
+  final String? sizeDescription;
   const _ResolvedVariant({
     required this.color,
     required this.size,
@@ -973,6 +1053,7 @@ class _ResolvedVariant {
     required this.price,
     required this.promoPrice,
     required this.sku,
+    required this.sizeDescription,
   });
 }
 

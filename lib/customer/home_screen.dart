@@ -38,8 +38,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   int _selectedCategoryIndex = 0;
+  int _selectedAudienceIndex = 0;
   int _orderTabIndex = 0;
-  _HomeSort? _homeSort;
+  _HomeSort? _homeSort = _HomeSort.latestArrival;
   String _searchQuery = '';
   bool _isLoadingProducts = true;
   bool _isAccountLoading = false;
@@ -52,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _brandsError;
   List<_BrandInfo> _brands = [];
   List<String> _categories = const ['Discover'];
+  List<String> _audiences = const ['All Audiences'];
   final List<String> _recentSearches = [];
   bool get _isLoggedIn => Supabase.instance.client.auth.currentUser != null;
 
@@ -135,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .from('products')
           .select(
             'id, title, description, base_price, '
-            'categories(name), brands(brand_name), '
+            'category_id, audience_id, categories(name), audiences(name), brands(brand_name), '
             'product_variants(image_url)',
           )
           .order('created_at', ascending: false);
@@ -151,12 +153,23 @@ class _HomeScreenState extends State<HomeScreen> {
               .toSet()
               .toList()
             ..sort();
+      final audienceNames =
+          products
+              .map((p) => p.audience.trim())
+              .where((audience) => audience.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
       if (!mounted) return;
       setState(() {
         _products = products;
         _categories = ['Discover', ...categoryNames];
+        _audiences = ['All Audiences', ...audienceNames];
         if (_selectedCategoryIndex >= _categories.length) {
           _selectedCategoryIndex = 0;
+        }
+        if (_selectedAudienceIndex >= _audiences.length) {
+          _selectedAudienceIndex = 0;
         }
       });
     } catch (_) {
@@ -176,16 +189,25 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ProductModel> get _filteredProducts {
     final safeIndex = _selectedCategoryIndex.clamp(0, _categories.length - 1);
     final selectedCategory = _categories[safeIndex];
+    final safeAudienceIndex = _selectedAudienceIndex.clamp(
+      0,
+      _audiences.length - 1,
+    );
+    final selectedAudience = _audiences[safeAudienceIndex];
     final filtered = _products.where((product) {
       final categoryMatch =
           selectedCategory == 'Discover' ||
           product.category == selectedCategory;
+      final audienceMatch =
+          selectedAudience == 'All Audiences' ||
+          product.audience == selectedAudience;
       final query = _searchQuery.trim().toLowerCase();
       final searchMatch =
           query.isEmpty ||
           product.name.toLowerCase().contains(query) ||
-          product.brand.toLowerCase().contains(query);
-      return categoryMatch && searchMatch;
+          product.brand.toLowerCase().contains(query) ||
+          product.audience.toLowerCase().contains(query);
+      return categoryMatch && audienceMatch && searchMatch;
     }).toList();
 
     switch (_homeSort) {
@@ -220,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return product.name.toLowerCase().contains(query) ||
         product.brand.toLowerCase().contains(query) ||
         product.category.toLowerCase().contains(query) ||
+        product.audience.toLowerCase().contains(query) ||
         product.description.toLowerCase().contains(query);
   }
 
@@ -262,6 +285,19 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _searchQuery = '');
     _searchFocusNode.unfocus();
   }
+
+  String get _selectedCategoryLabel {
+    final safeIndex = _selectedCategoryIndex.clamp(0, _categories.length - 1);
+    return _categories[safeIndex];
+  }
+
+  String get _selectedAudienceLabel {
+    final safeIndex = _selectedAudienceIndex.clamp(0, _audiences.length - 1);
+    return _audiences[safeIndex];
+  }
+
+  String get _selectedHomeSortLabel =>
+      (_homeSort ?? _HomeSort.latestArrival).label;
 
   Future<void> _loadAccountInfo() async {
     if (!_isLoggedIn) return;
@@ -572,60 +608,118 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCategoryControls() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final isSelected = index == _selectedCategoryIndex;
-                return ChoiceChip(
-                  label: Text(
-                    _categories[index],
-                    style: TextStyle(
-                      fontFamily: AppFonts.primary,
-                      color: isSelected ? Colors.white : AppColors.darkText,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  selected: isSelected,
-                  onSelected: (_) {
-                    setState(() {
-                      _selectedCategoryIndex = index;
-                    });
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final isSelected = index == _selectedCategoryIndex;
+                    return ChoiceChip(
+                      label: Text(
+                        _categories[index],
+                        style: TextStyle(
+                          fontFamily: AppFonts.primary,
+                          color: isSelected ? Colors.white : AppColors.darkText,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedCategoryIndex = index;
+                        });
+                      },
+                      selectedColor: AppColors.primaryGreen,
+                      backgroundColor: Colors.transparent,
+                      side: BorderSide(
+                        color: isSelected
+                            ? AppColors.primaryGreen
+                            : Colors.black26,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      showCheckmark: false,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                    );
                   },
-                  selectedColor: AppColors.primaryGreen,
-                  backgroundColor: Colors.transparent,
-                  side: BorderSide(
-                    color: isSelected ? AppColors.primaryGreen : Colors.black26,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  showCheckmark: false,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                );
-              },
+                ),
+              ),
             ),
+            const SizedBox(width: 10),
+            IconButton.filledTonal(
+              onPressed: _openHomeSortSheet,
+              icon: const Icon(Icons.tune),
+              tooltip: 'Sort',
+              style: IconButton.styleFrom(
+                foregroundColor: AppColors.primaryGreen,
+                backgroundColor: Colors.white,
+                fixedSize: const Size(44, 44),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _audiences.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final isSelected = index == _selectedAudienceIndex;
+              return ChoiceChip(
+                avatar: Icon(
+                  Icons.group_outlined,
+                  size: 16,
+                  color: isSelected ? Colors.white : AppColors.primaryGreen,
+                ),
+                label: Text(
+                  _audiences[index],
+                  style: TextStyle(
+                    fontFamily: AppFonts.primary,
+                    color: isSelected ? Colors.white : AppColors.darkText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (_) {
+                  setState(() {
+                    _selectedAudienceIndex = index;
+                  });
+                },
+                selectedColor: AppColors.primaryGreen,
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                  color: isSelected ? AppColors.primaryGreen : Colors.black26,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                showCheckmark: false,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              );
+            },
           ),
         ),
-        const SizedBox(width: 10),
-        IconButton.filledTonal(
-          onPressed: _openHomeSortSheet,
-          icon: const Icon(Icons.tune),
-          tooltip: 'Sort',
-          style: IconButton.styleFrom(
-            foregroundColor: AppColors.primaryGreen,
-            backgroundColor: Colors.white,
-            fixedSize: const Size(44, 44),
-          ),
+        const SizedBox(height: 8),
+        _ActiveFilterSummary(
+          text:
+              'Showing $_selectedCategoryLabel / $_selectedAudienceLabel / $_selectedHomeSortLabel',
         ),
       ],
     );
@@ -800,7 +894,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const _HomeEmptyState(
               icon: Icons.search_off_rounded,
               title: 'No products found',
-              message: 'Try searching by product name, brand, or category.',
+              message:
+                  'Try searching by product name, brand, category, or audience.',
             )
           else
             _buildProductGrid(results),
@@ -3086,6 +3181,35 @@ class _HorizontalScrollCue extends StatelessWidget {
             size: 16,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActiveFilterSummary extends StatelessWidget {
+  final String text;
+
+  const _ActiveFilterSummary({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.subtleText,
+          fontFamily: AppFonts.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

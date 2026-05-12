@@ -31,7 +31,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   bool _isLoadingCategories = true;
   bool _vendorAccessOk = false;
   String? _selectedCategoryId;
+  String? _selectedAudienceId;
   final List<_CategoryOption> _categories = [];
+  final List<_AudienceOption> _audiences = [];
 
   static const _sizeOptions = ['XS', 'S', 'M', 'L', 'XL'];
   static const _colorOptions = [
@@ -52,13 +54,14 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       color: _colorOptions.first,
       images: [],
       variants: [
-        _VariantDraft(
-          size: _sizeOptions[2],
-          stockController: TextEditingController(),
-          priceController: TextEditingController(),
-          promoPriceController: TextEditingController(),
-          skuController: TextEditingController(),
-        ),
+          _VariantDraft(
+            size: _sizeOptions[2],
+            stockController: TextEditingController(),
+            priceController: TextEditingController(),
+            promoPriceController: TextEditingController(),
+            skuController: TextEditingController(),
+            sizeDescriptionController: TextEditingController(),
+          ),
       ],
     ),
   ];
@@ -93,7 +96,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                 return variant.stockController.text.trim().isNotEmpty ||
                     variant.priceController.text.trim().isNotEmpty ||
                     variant.promoPriceController.text.trim().isNotEmpty ||
-                    variant.skuController.text.trim().isNotEmpty;
+                    variant.skuController.text.trim().isNotEmpty ||
+                    variant.sizeDescriptionController.text.trim().isNotEmpty;
               });
         });
   }
@@ -183,6 +187,10 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           .from('categories')
           .select('id, name')
           .order('name');
+      final audienceRows = await Supabase.instance.client
+          .from('audiences')
+          .select('id, name')
+          .order('name');
       _categories
         ..clear()
         ..addAll(
@@ -193,8 +201,21 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
             ),
           ),
         );
+      _audiences
+        ..clear()
+        ..addAll(
+          (audienceRows as List<dynamic>).cast<Map<String, dynamic>>().map(
+            (e) => _AudienceOption(
+              id: e['id'].toString(),
+              name: e['name'].toString(),
+            ),
+          ),
+        );
       if (_categories.isNotEmpty) {
         _selectedCategoryId = _categories.first.id;
+      }
+      if (_audiences.isNotEmpty) {
+        _selectedAudienceId = _audiences.first.id;
       }
     } finally {
       if (mounted) setState(() => _isLoadingCategories = false);
@@ -241,6 +262,15 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           context,
           title: 'Category required',
           message: 'Please choose a category.',
+          type: PopupType.error,
+        );
+        return;
+      }
+      if (_selectedAudienceId == null || _selectedAudienceId!.isEmpty) {
+        await showCustomPopup(
+          context,
+          title: 'Audience required',
+          message: 'Please choose an audience.',
           type: PopupType.error,
         );
         return;
@@ -312,6 +342,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           .insert({
             'brand_id': brand['id'],
             'category_id': _selectedCategoryId,
+            'audience_id': _selectedAudienceId,
             'title': productName,
             'description': description,
             'base_price': basePrice,
@@ -336,6 +367,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                 'price_adjustment': v.price - basePrice,
                 'promo_price': v.promoPrice,
                 'sku': v.sku?.isEmpty == true ? null : v.sku,
+                'size_description': v.sizeDescription?.isEmpty == true
+                    ? null
+                    : v.sizeDescription,
                 'image_url': image,
               };
             }).toList(),
@@ -398,6 +432,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
               ? null
               : double.parse(_simplePromoController.text.trim()),
           sku: null,
+          sizeDescription: null,
         ),
       ];
     }
@@ -415,6 +450,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                 ? null
                 : double.parse(variant.promoPriceController.text.trim()),
             sku: variant.skuController.text.trim(),
+            sizeDescription: variant.sizeDescriptionController.text.trim(),
           ),
         );
       }
@@ -649,6 +685,39 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                           : null,
                     ),
                   const SizedBox(height: 12),
+                  if (_isLoadingCategories)
+                    const SizedBox.shrink()
+                  else
+                    DropdownButtonFormField<String>(
+                      value: _selectedAudienceId,
+                      decoration: const InputDecoration(
+                        labelText: 'Audience',
+                        labelStyle: TextStyle(
+                          color: AppColors.darkText,
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        hintText: 'Choose audience',
+                      ),
+                      items: _audiences
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e.id,
+                              child: Text(e.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _isSaving
+                          ? null
+                          : (value) =>
+                                setState(() => _selectedAudienceId = value),
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Audience is required.'
+                          : null,
+                    ),
+                  const SizedBox(height: 12),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     value: _hasVariants,
@@ -774,6 +843,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                               priceController: TextEditingController(),
                               promoPriceController: TextEditingController(),
                               skuController: TextEditingController(),
+                              sizeDescriptionController:
+                                  TextEditingController(),
                             ),
                           ],
                         ),
@@ -950,6 +1021,13 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                           labelText: 'SKU',
                           hintText: 'SKU (optional)',
                         ),
+                        const SizedBox(height: 8),
+                        CustomTextField(
+                          controller: v.sizeDescriptionController,
+                          labelText: 'Size description',
+                          hintText: 'Size description (optional)',
+                          maxLength: 250,
+                        ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -968,6 +1046,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                                             promoPriceController:
                                                 TextEditingController(),
                                             skuController:
+                                                TextEditingController(),
+                                            sizeDescriptionController:
                                                 TextEditingController(),
                                           ),
                                         );
@@ -1024,6 +1104,13 @@ class _CategoryOption {
   const _CategoryOption({required this.id, required this.name});
 }
 
+class _AudienceOption {
+  final String id;
+  final String name;
+
+  const _AudienceOption({required this.id, required this.name});
+}
+
 class _ColorGroupDraft {
   String color;
   final List<_PickedImage> images;
@@ -1042,6 +1129,7 @@ class _VariantDraft {
   final TextEditingController priceController;
   final TextEditingController promoPriceController;
   final TextEditingController skuController;
+  final TextEditingController sizeDescriptionController;
 
   _VariantDraft({
     required this.size,
@@ -1049,6 +1137,7 @@ class _VariantDraft {
     required this.priceController,
     required this.promoPriceController,
     required this.skuController,
+    required this.sizeDescriptionController,
   });
 
   void dispose() {
@@ -1056,6 +1145,7 @@ class _VariantDraft {
     priceController.dispose();
     promoPriceController.dispose();
     skuController.dispose();
+    sizeDescriptionController.dispose();
   }
 }
 
@@ -1078,6 +1168,7 @@ class _ResolvedVariant {
   final double price;
   final double? promoPrice;
   final String? sku;
+  final String? sizeDescription;
 
   const _ResolvedVariant({
     required this.color,
@@ -1086,6 +1177,7 @@ class _ResolvedVariant {
     required this.price,
     required this.promoPrice,
     required this.sku,
+    required this.sizeDescription,
   });
 }
 
