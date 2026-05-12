@@ -630,14 +630,42 @@ class ChatService {
     await _refreshChatLastMessage(chatId);
   }
 
-  Future<void> deleteChatForMe(String chatId) async {
+  Future<void> deleteChat(String chatId) async {
     final user = _client.auth.currentUser;
     if (user == null || chatId.isEmpty) return;
 
-    await _client.rpc<void>(
-      'delete_chat_for_me',
-      params: {'target_chat_id': chatId},
-    );
+    try {
+      await _client.rpc<void>(
+        'delete_chat_for_me',
+        params: {'target_chat_id': chatId},
+      );
+      await refreshUnreadCount();
+      return;
+    } catch (e) {
+      debugPrint('delete_chat_for_me RPC failed: $e');
+    }
+
+    final messageRows = await _client
+        .from('messages')
+        .select('id')
+        .eq('chat_id', chatId);
+    final messageIds = (messageRows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map((row) => row['id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toList();
+
+    if (messageIds.isNotEmpty) {
+      await _client
+          .from('message_reactions')
+          .delete()
+          .inFilter('message_id', messageIds);
+    }
+
+    await _client.from('messages').delete().eq('chat_id', chatId);
+    await _client.from('chat_members').delete().eq('chat_id', chatId);
+    await _client.from('chats').delete().eq('id', chatId);
     await refreshUnreadCount();
   }
 

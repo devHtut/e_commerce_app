@@ -42,6 +42,7 @@ class _ChatScreenState extends State<ChatScreen> {
   List<ChatSummary> get _visibleChats {
     final query = _searchController.text.trim().toLowerCase();
     return _chats.where((chat) {
+      if (chat.lastMessageAt == null) return false;
       final matchesFilter =
           _selectedFilterIndex == 0 ||
           (_selectedFilterIndex == 1 && chat.isUnread) ||
@@ -550,7 +551,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'This will remove ${chat.title} from your inbox.',
+                  'This will delete ${chat.title} for everyone.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.subtleText,
@@ -588,7 +589,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (confirmed != true) return;
     try {
-      await ChatService.instance.deleteChatForMe(chat.id);
+      await ChatService.instance.deleteChat(chat.id);
       if (!mounted) return;
       setState(() {
         _chats = _chats.where((item) => item.id != chat.id).toList();
@@ -598,12 +599,13 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
       await _refreshChatsFromRealtime();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Unable to delete chat ${chat.id}: $e');
       if (!mounted) return;
       await showCustomPopup(
         context,
         title: 'Chat not deleted',
-        message: 'Please run the chat delete SQL function, then try again.',
+        message: 'Please run the delete chat SQL function, then try again.',
         type: PopupType.error,
       );
     }
