@@ -189,17 +189,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     return filtered;
   }
 
-  String get _selectedCategoryLabel {
-    final safeIndex = _selectedCategoryIndex.clamp(0, _categories.length - 1);
-    return _categories[safeIndex];
-  }
-
-  String get _selectedAudienceLabel {
-    final safeIndex = _selectedAudienceIndex.clamp(0, _audiences.length - 1);
-    return _audiences[safeIndex];
-  }
-
-  String get _selectedSortLabel => (_sort ?? _ShopSort.latestArrival).label;
+  bool get _hasAudienceFilter => _selectedAudienceIndex > 0;
 
   Future<void> _launch(Uri uri) async {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -219,59 +209,16 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
       builder: (context) {
         return SafeArea(
           top: false,
-          child: Container(
-            margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
+          child: _ShopBottomSheetPanel(
+            title: 'Sort',
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                const Text(
-                  'Sort',
-                  style: TextStyle(
-                    color: AppColors.darkText,
-                    fontFamily: AppFonts.primary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 24,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Divider(height: 1),
-                const SizedBox(height: 8),
                 for (final option in _ShopSort.values)
-                  InkWell(
+                  _ShopSheetOptionTile(
+                    label: option.label,
+                    selected: option == _sort,
                     onTap: () => Navigator.pop(context, option),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        children: [
-                          _SortRadioDot(selected: option == _sort),
-                          const SizedBox(width: 16),
-                          Text(
-                            option.label,
-                            style: const TextStyle(
-                              color: AppColors.darkText,
-                              fontFamily: AppFonts.primary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
               ],
             ),
@@ -282,6 +229,94 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
     if (selected == null || !mounted) return;
     setState(() => _sort = selected);
+  }
+
+  Future<void> _openFilterSheet() async {
+    var selectedIndex = _selectedAudienceIndex;
+    final applied = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              top: false,
+              child: _ShopBottomSheetPanel(
+                title: 'Filter',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Audience',
+                      style: TextStyle(
+                        color: AppColors.darkText,
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(_audiences.length, (index) {
+                        return _ShopFilterChip(
+                          label: _audiences[index],
+                          selected: selectedIndex == index,
+                          onTap: () {
+                            setModalState(() => selectedIndex = index);
+                          },
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              setModalState(() => selectedIndex = 0);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primaryGreen,
+                              side: const BorderSide(
+                                color: AppColors.primaryGreen,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                            child: const Text('Reset'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryGreen,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                            child: const Text('Apply'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (applied != true || !mounted) return;
+    setState(() => _selectedAudienceIndex = selectedIndex);
   }
 
   Future<void> _openShopChat(_ShopInfo shop) async {
@@ -375,74 +410,105 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     final shop = _shop;
     if (shop == null) return const SizedBox.shrink();
 
-    return RefreshIndicator(
-      onRefresh: _loadShop,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: _buildShopHeader(shop),
-            ),
-          ),
-          SliverToBoxAdapter(child: _buildControls()),
-          if (_visibleProducts.isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Text('No products found.', style: AppTextStyles.body),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
-              sliver: SliverGrid.builder(
-                itemCount: _visibleProducts.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 0.58,
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: _loadShop,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  child: _buildShopHeader(shop),
                 ),
-                itemBuilder: (context, index) {
-                  final product = _visibleProducts[index];
-                  return ProductCard(
-                    product: product,
-                    isWishlisted: widget.embedded
-                        ? false
-                        : WishlistService.instance.isWishlisted(product.id),
-                    onWishlistTap: widget.embedded
-                        ? null
-                        : () async {
-                            if (Supabase.instance.client.auth.currentUser ==
-                                null) {
-                              await GuestAuthGatePanel.show(context);
-                              return;
-                            }
-                            try {
-                              await WishlistService.instance.toggle(product);
-                            } catch (e) {
-                              debugPrint('Unable to update wishlist: $e');
-                            }
-                            if (mounted) setState(() {});
-                          },
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProductDetailScreen(
-                            product: product,
-                            hideShoppingActions: widget.embedded,
-                          ),
+              ),
+              SliverToBoxAdapter(child: _buildControls()),
+              if (_visibleProducts.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Text(
+                      'No products found.',
+                      style: AppTextStyles.body,
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 104),
+                  sliver: SliverGrid.builder(
+                    itemCount: _visibleProducts.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 0.58,
                         ),
+                    itemBuilder: (context, index) {
+                      final product = _visibleProducts[index];
+                      return ProductCard(
+                        product: product,
+                        isWishlisted: widget.embedded
+                            ? false
+                            : WishlistService.instance.isWishlisted(
+                                product.id,
+                              ),
+                        onWishlistTap: widget.embedded
+                            ? null
+                            : () async {
+                                if (Supabase
+                                        .instance
+                                        .client
+                                        .auth
+                                        .currentUser ==
+                                    null) {
+                                  await GuestAuthGatePanel.show(context);
+                                  return;
+                                }
+                                try {
+                                  await WishlistService.instance.toggle(
+                                    product,
+                                  );
+                                } catch (e) {
+                                  debugPrint('Unable to update wishlist: $e');
+                                }
+                                if (mounted) setState(() {});
+                              },
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProductDetailScreen(
+                                product: product,
+                                hideShoppingActions: widget.embedded,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 16,
+          child: Center(
+            child: _ShopBottomControls(
+              sortLabel: _sort == _ShopSort.latestArrival
+                  ? 'Sort'
+                  : _sort!.shortLabel,
+              filterActive: _hasAudienceFilter,
+              onSort: _openSortSheet,
+              onFilter: _openFilterSheet,
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -560,117 +626,21 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   Widget _buildControls() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _categories.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final selected = index == _selectedCategoryIndex;
-                      return ChoiceChip(
-                        label: Text(
-                          _categories[index],
-                          style: TextStyle(
-                            fontFamily: AppFonts.primary,
-                            color: selected ? Colors.white : AppColors.darkText,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        selected: selected,
-                        onSelected: (_) {
-                          setState(() => _selectedCategoryIndex = index);
-                        },
-                        selectedColor: AppColors.primaryGreen,
-                        backgroundColor: Colors.transparent,
-                        side: BorderSide(
-                          color: selected
-                              ? AppColors.primaryGreen
-                              : Colors.black26,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        showCheckmark: false,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              IconButton.filledTonal(
-                onPressed: _openSortSheet,
-                icon: const Icon(Icons.tune),
-                tooltip: 'Sort',
-                style: IconButton.styleFrom(
-                  foregroundColor: AppColors.primaryGreen,
-                  backgroundColor: Colors.white,
-                  fixedSize: const Size(44, 44),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _audiences.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final selected = index == _selectedAudienceIndex;
-                return ChoiceChip(
-                  avatar: Icon(
-                    Icons.group_outlined,
-                    size: 16,
-                    color: selected ? Colors.white : AppColors.primaryGreen,
-                  ),
-                  label: Text(
-                    _audiences[index],
-                    style: TextStyle(
-                      fontFamily: AppFonts.primary,
-                      color: selected ? Colors.white : AppColors.darkText,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  selected: selected,
-                  onSelected: (_) {
-                    setState(() => _selectedAudienceIndex = index);
-                  },
-                  selectedColor: AppColors.primaryGreen,
-                  backgroundColor: Colors.white,
-                  side: BorderSide(
-                    color: selected ? AppColors.primaryGreen : Colors.black26,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  showCheckmark: false,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          _ActiveFilterSummary(
-            text:
-                'Showing $_selectedCategoryLabel / $_selectedAudienceLabel / $_selectedSortLabel',
-          ),
-        ],
+      child: SizedBox(
+        height: 48,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _categories.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            final selected = index == _selectedCategoryIndex;
+            return _ShopPillButton(
+              label: _categories[index],
+              selected: selected,
+              onTap: () => setState(() => _selectedCategoryIndex = index),
+            );
+          },
+        ),
       ),
     );
   }
@@ -717,58 +687,218 @@ class _ShopActionChip extends StatelessWidget {
   }
 }
 
-class _SortRadioDot extends StatelessWidget {
+class _ShopPillButton extends StatelessWidget {
+  final String label;
   final bool selected;
+  final VoidCallback onTap;
 
-  const _SortRadioDot({required this.selected});
+  const _ShopPillButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primaryGreen, width: 2.5),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primaryGreen : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? AppColors.primaryGreen : Colors.black12,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : AppColors.darkText,
+            fontFamily: AppFonts.primary,
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+          ),
+        ),
       ),
-      child: selected
-          ? Center(
-              child: Container(
-                width: 12,
-                height: 12,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.primaryGreen,
-                ),
-              ),
-            )
-          : null,
     );
   }
 }
 
-class _ActiveFilterSummary extends StatelessWidget {
-  final String text;
+class _ShopBottomControls extends StatelessWidget {
+  final String sortLabel;
+  final bool filterActive;
+  final VoidCallback onSort;
+  final VoidCallback onFilter;
 
-  const _ActiveFilterSummary({required this.text});
+  const _ShopBottomControls({
+    required this.sortLabel,
+    required this.filterActive,
+    required this.onSort,
+    required this.onFilter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 8,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(999),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton.icon(
+              onPressed: onSort,
+              icon: const Icon(Icons.swap_vert_rounded),
+              label: Text(sortLabel),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.darkText,
+                textStyle: const TextStyle(
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Container(width: 1, height: 24, color: Colors.black12),
+            TextButton.icon(
+              onPressed: onFilter,
+              icon: Icon(
+                filterActive ? Icons.tune : Icons.tune_outlined,
+                color: filterActive ? AppColors.primaryGreen : null,
+              ),
+              label: Text(filterActive ? 'Filter On' : 'Filter'),
+              style: TextButton.styleFrom(
+                foregroundColor: filterActive
+                    ? AppColors.primaryGreen
+                    : AppColors.darkText,
+                textStyle: const TextStyle(
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShopBottomSheetPanel extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _ShopBottomSheetPanel({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Text(
-        text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w800,
+                fontSize: 24,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.62,
+            ),
+            child: SingleChildScrollView(child: child),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShopFilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ShopFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: AppColors.primaryGreen,
+      backgroundColor: Colors.white,
+      showCheckmark: false,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : AppColors.darkText,
+        fontFamily: AppFonts.primary,
+        fontWeight: FontWeight.w600,
+      ),
+      side: BorderSide(
+        color: selected ? AppColors.primaryGreen : Colors.black12,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+    );
+  }
+}
+
+class _ShopSheetOptionTile extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ShopSheetOptionTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_off,
+        color: AppColors.primaryGreen,
+      ),
+      title: Text(
+        label,
         style: const TextStyle(
-          color: AppColors.subtleText,
+          color: AppColors.darkText,
           fontFamily: AppFonts.primary,
-          fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -830,10 +960,11 @@ class _ShopInfo {
 }
 
 enum _ShopSort {
-  priceHighToLow('Price High to Low'),
-  priceLowToHigh('Price Low to High'),
-  latestArrival('Latest Arrival');
+  priceHighToLow('Price High to Low', 'High-Low'),
+  priceLowToHigh('Price Low to High', 'Low-High'),
+  latestArrival('Latest Arrival', 'Sort');
 
   final String label;
-  const _ShopSort(this.label);
+  final String shortLabel;
+  const _ShopSort(this.label, this.shortLabel);
 }
