@@ -67,7 +67,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
           .select(
             'id, brand_id, category_id, audience_id, title, description, base_price, '
             'categories(name), audiences(name), brands(brand_name,logo_url), '
-            'product_variants(image_url)',
+            'product_variants(image_url,price_adjustment,promo_price)',
           )
           .order('created_at', ascending: false);
 
@@ -144,6 +144,13 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
     }).toList();
 
     switch (_sort) {
+      case _ProductSort.promotion:
+        filtered.sort((a, b) {
+          if (a.hasPromotion != b.hasPromotion) {
+            return a.hasPromotion ? -1 : 1;
+          }
+          return b.promotionPercent.compareTo(a.promotionPercent);
+        });
       case _ProductSort.priceHighToLow:
         filtered.sort((a, b) => b.price.compareTo(a.price));
       case _ProductSort.priceLowToHigh:
@@ -694,6 +701,7 @@ class _FilterChipButton extends StatelessWidget {
 
 enum _ProductSort {
   latestArrival('Latest Arrival', 'Sort'),
+  promotion('Promotion', 'Promo'),
   priceHighToLow('Price High to Low', 'High-Low'),
   priceLowToHigh('Price Low to High', 'Low-High');
 

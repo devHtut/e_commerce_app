@@ -117,7 +117,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           .from('products')
           .select(
             'id, brand_id, category_id, title, description, base_price, created_at, '
-            'audience_id, categories(name), audiences(name), brands(brand_name,logo_url), product_variants(image_url)',
+            'audience_id, categories(name), audiences(name), brands(brand_name,logo_url), product_variants(image_url,price_adjustment,promo_price)',
           )
           .eq('brand_id', brandRow['id'].toString())
           .order('created_at', ascending: false);
@@ -177,6 +177,13 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     }).toList();
 
     switch (_sort) {
+      case _ShopSort.promotion:
+        filtered.sort((a, b) {
+          if (a.hasPromotion != b.hasPromotion) {
+            return a.hasPromotion ? -1 : 1;
+          }
+          return b.promotionPercent.compareTo(a.promotionPercent);
+        });
       case _ShopSort.priceHighToLow:
         filtered.sort((a, b) => b.price.compareTo(a.price));
       case _ShopSort.priceLowToHigh:
@@ -960,6 +967,7 @@ class _ShopInfo {
 }
 
 enum _ShopSort {
+  promotion('Promotion', 'Promo'),
   priceHighToLow('Price High to Low', 'High-Low'),
   priceLowToHigh('Price Low to High', 'Low-High'),
   latestArrival('Latest Arrival', 'Sort');

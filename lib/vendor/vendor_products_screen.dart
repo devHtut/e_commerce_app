@@ -211,7 +211,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                       ),
                     ),
                     child: const Text(
-                      'Create New Product',
+                      '+ Create New Product',
                       style: TextStyle(
                         fontFamily: AppFonts.primary,
                         fontWeight: FontWeight.w700,

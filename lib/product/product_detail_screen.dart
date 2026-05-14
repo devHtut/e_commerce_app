@@ -227,6 +227,83 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         : Color(colorValue);
   }
 
+  bool _hasVariantPromotion(_VariantOption? variant) {
+    final promo = variant?.promoPrice;
+    final regular = variant?.price;
+    return promo != null && regular != null && promo > 0 && promo < regular;
+  }
+
+  int _variantPromotionPercent(_VariantOption variant) {
+    if (!_hasVariantPromotion(variant)) return 0;
+    return (((variant.price - variant.promoPrice!) / variant.price) * 100)
+        .round()
+        .clamp(1, 99)
+        .toInt();
+  }
+
+  Widget _buildVariantPrice(_VariantOption? variant, double fallbackPrice) {
+    if (variant != null && _hasVariantPromotion(variant)) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            formatKyat(variant.promoPrice!),
+            style: const TextStyle(
+              fontSize: 28,
+              color: AppColors.errorRed,
+              fontWeight: FontWeight.w800,
+              fontFamily: AppFonts.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Text(
+              formatKyat(variant.price),
+              style: const TextStyle(
+                fontSize: 17,
+                color: AppColors.subtleText,
+                fontWeight: FontWeight.w700,
+                fontFamily: AppFonts.primary,
+                decoration: TextDecoration.lineThrough,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.errorRed,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '-${_variantPromotionPercent(variant)}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: AppFonts.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Text(
+      formatKyat(fallbackPrice),
+      style: const TextStyle(
+        fontSize: 28,
+        color: AppColors.primaryGreen,
+        fontWeight: FontWeight.w700,
+        fontFamily: AppFonts.primary,
+      ),
+    );
+  }
+
   _VariantOption? get _selectedVariant {
     try {
       return _variants.firstWhere(
@@ -428,14 +505,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               const SizedBox(height: 8),
                               Text('Stock  :  ${selectedVariant.stock}'),
                               const SizedBox(height: 8),
-                              Text(
-                                formatKyat(displayPrice),
-                                style: const TextStyle(
-                                  fontSize: 25,
-                                  color: AppColors.primaryGreen,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: AppFonts.primary,
-                                ),
+                              _buildVariantPrice(
+                                selectedVariant,
+                                displayPrice,
                               ),
                               const SizedBox(height: 12),
                               Container(
@@ -872,15 +944,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 6),
                   Text(_product.brand, style: AppTextStyles.body),
                   const SizedBox(height: 8),
-                  Text(
-                    formatKyat(price),
-                    style: const TextStyle(
-                      fontSize: 28,
-                      color: AppColors.primaryGreen,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: AppFonts.primary,
-                    ),
-                  ),
+                  _buildVariantPrice(variant, price),
                   if (_hasRealVariants) ...[
                     const SizedBox(height: 20),
                     const Text(
@@ -1337,8 +1401,9 @@ String? _nullableVariantText(dynamic value) {
 
 int? _nullableColorValue(dynamic value) {
   if (value == null) return null;
-  if (value is num) return value.toInt();
-  return int.tryParse(value.toString());
+  final parsed = value is num ? value.toInt() : int.tryParse(value.toString());
+  if (parsed == null) return null;
+  return parsed < 0 ? parsed + 0x100000000 : parsed;
 }
 
 Color _colorFromName(String colorName) {

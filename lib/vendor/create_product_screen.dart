@@ -364,7 +364,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                 'product_id': productId,
                 'size': v.size,
                 'color': v.color,
-                'color_value': v.colorValue,
+                'color_value': _databaseColorValue(v.colorValue),
                 'stock_quantity': v.stock,
                 'price_adjustment': v.price - basePrice,
                 'promo_price': v.promoPrice,
@@ -1495,6 +1495,11 @@ Color _colorValueForName(String colorName) {
     default:
       return const Color(0xFF4A4A4A);
   }
+}
+
+int? _databaseColorValue(int? colorValue) {
+  if (colorValue == null) return null;
+  return colorValue > 0x7FFFFFFF ? colorValue - 0x100000000 : colorValue;
 }
 
 class _ColorSwatchButton extends StatelessWidget {

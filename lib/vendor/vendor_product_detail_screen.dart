@@ -526,8 +526,9 @@ class _VariantView {
 
 int? _nullableColorValue(dynamic value) {
   if (value == null) return null;
-  if (value is num) return value.toInt();
-  return int.tryParse(value.toString());
+  final parsed = value is num ? value.toInt() : int.tryParse(value.toString());
+  if (parsed == null) return null;
+  return parsed < 0 ? parsed + 0x100000000 : parsed;
 }
 
 Color _colorFromName(String colorName) {

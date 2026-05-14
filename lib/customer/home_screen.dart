@@ -134,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .select(
             'id, title, description, base_price, '
             'category_id, audience_id, categories(name), audiences(name), brands(brand_name), '
-            'product_variants(image_url)',
+            'product_variants(image_url,price_adjustment,promo_price)',
           )
           .order('created_at', ascending: false);
 
@@ -161,6 +161,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<ProductModel> get _newArrivalProducts => _products.take(4).toList();
+  List<ProductModel> get _promotionProducts =>
+      _products.where((product) => product.hasPromotion).take(10).toList();
   List<ProductModel> get _hotDealProducts =>
       _products.reversed.take(4).toList();
 
@@ -2301,6 +2303,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 _buildBrandsSection(),
                 const SizedBox(height: 12),
+                if (_promotionProducts.isNotEmpty) ...[
+                  _buildHorizontalProductSection(
+                    title: 'Promotion',
+                    products: _promotionProducts,
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 _buildHorizontalProductSection(
                   title: 'New Arrival',
                   products: _newArrivalProducts,
@@ -2875,8 +2884,9 @@ Color _cartVariantColor(List<_CartVariantOption> variants, String colorName) {
 
 int? _nullableColorValue(dynamic value) {
   if (value == null) return null;
-  if (value is num) return value.toInt();
-  return int.tryParse(value.toString());
+  final parsed = value is num ? value.toInt() : int.tryParse(value.toString());
+  if (parsed == null) return null;
+  return parsed < 0 ? parsed + 0x100000000 : parsed;
 }
 
 class _BrandComingSoonTile extends StatelessWidget {

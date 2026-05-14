@@ -144,8 +144,7 @@ class CartService {
     final size = variantRow?['size']?.toString() ?? 'Default';
     final colorName = variantRow?['color']?.toString() ?? 'Default';
     final colorValue =
-        int.tryParse(variantRow?['color_value']?.toString() ?? '') ??
-        0xFF000000;
+        _normalizeColorValue(variantRow?['color_value']) ?? 0xFF000000;
     final product = ProductModel.fromSupabaseRow(productRow);
     final basePrice = product.price;
     final priceAdjustment =
@@ -180,6 +179,13 @@ class CartService {
       return raw.first as Map<String, dynamic>;
     }
     return null;
+  }
+
+  int? _normalizeColorValue(dynamic value) {
+    if (value == null) return null;
+    final parsed = value is num ? value.toInt() : int.tryParse(value.toString());
+    if (parsed == null) return null;
+    return parsed < 0 ? parsed + 0x100000000 : parsed;
   }
 
   Future<void> _processExpiryAndNotifications(List<CartItem> items) async {

@@ -65,6 +65,7 @@ class _ProductCardState extends State<ProductCard> {
   Widget build(BuildContext context) {
     final images = widget.product.galleryImages;
     final imageUrl = images[_imageIndex.clamp(0, images.length - 1)];
+    final hasPromotion = widget.product.hasPromotion;
     return InkWell(
       onTap: widget.onTap,
       borderRadius: BorderRadius.circular(12),
@@ -86,6 +87,30 @@ class _ProductCardState extends State<ProductCard> {
                       child: const Icon(Icons.image_not_supported, size: 28),
                     ),
                   ),
+                  if (hasPromotion)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorRed,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '-${widget.product.promotionPercent}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            fontFamily: AppFonts.primary,
+                          ),
+                        ),
+                      ),
+                    ),
                   // Positioned(
                   //   top: 8,
                   //   left: 8,
@@ -150,15 +175,41 @@ class _ProductCardState extends State<ProductCard> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            formatKyat(widget.product.price),
-            style: const TextStyle(
-              fontSize: 18,
-              color: AppColors.primaryGreen,
-              fontWeight: FontWeight.bold,
-              fontFamily: AppFonts.primary,
-            ),
-          ),
+          hasPromotion
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      formatKyat(widget.product.promoPrice!),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: AppColors.errorRed,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: AppFonts.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      formatKyat(widget.product.promoRegularPrice!),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.subtleText,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: AppFonts.primary,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                  ],
+                )
+              : Text(
+                  formatKyat(widget.product.price),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    color: AppColors.primaryGreen,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppFonts.primary,
+                  ),
+                ),
           const SizedBox(height: 2),
           Text(
             widget.product.brand,

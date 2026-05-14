@@ -10,6 +10,8 @@ class ProductModel {
   final String? brandLogoUrl;
   final String description;
   final double price;
+  final double? promoPrice;
+  final double? promoRegularPrice;
   // final double rating;
   final String imageUrl;
   final List<String> imageUrls;
@@ -26,6 +28,8 @@ class ProductModel {
     this.brandLogoUrl,
     required this.description,
     required this.price,
+    this.promoPrice,
+    this.promoRegularPrice,
     // required this.rating,
     required this.imageUrl,
     this.imageUrls = const [],
@@ -33,6 +37,20 @@ class ProductModel {
 
   List<String> get galleryImages =>
       imageUrls.isEmpty ? <String>[imageUrl] : imageUrls;
+
+  bool get hasPromotion =>
+      promoPrice != null &&
+      promoRegularPrice != null &&
+      promoPrice! > 0 &&
+      promoPrice! < promoRegularPrice!;
+
+  int get promotionPercent {
+    if (!hasPromotion) return 0;
+    return (((promoRegularPrice! - promoPrice!) / promoRegularPrice!) * 100)
+        .round()
+        .clamp(1, 99)
+        .toInt();
+  }
 
   factory ProductModel.fromSupabaseRow(Map<String, dynamic> row) {
     final variants = (row['product_variants'] as List<dynamic>? ?? const [])
@@ -44,6 +62,20 @@ class ProductModel {
         .toList();
 
     final basePrice = (row['base_price'] as num?)?.toDouble() ?? 0;
+    double? promoPrice;
+    double? promoRegularPrice;
+    for (final variant in variants) {
+      final promo = (variant['promo_price'] as num?)?.toDouble();
+      if (promo == null || promo <= 0) continue;
+      final adjustment =
+          (variant['price_adjustment'] as num?)?.toDouble() ?? 0;
+      final regular = basePrice + adjustment;
+      if (promo >= regular) continue;
+      if (promoPrice == null || promo < promoPrice) {
+        promoPrice = promo;
+        promoRegularPrice = regular;
+      }
+    }
     final category =
         ((row['categories'] as Map?)?['name']?.toString()) ?? 'General';
     final audience = ((row['audiences'] as Map?)?['name']?.toString()) ?? '';
@@ -62,6 +94,8 @@ class ProductModel {
       brandLogoUrl: ((row['brands'] as Map?)?['logo_url']?.toString()),
       description: row['description']?.toString() ?? '',
       price: basePrice,
+      promoPrice: promoPrice,
+      promoRegularPrice: promoRegularPrice,
       // rating: 4.8,
       imageUrl: imageUrls.isEmpty
           ? 'https://via.placeholder.com/600x800?text=No+Image'
@@ -82,6 +116,8 @@ class ProductModel {
     String? brandLogoUrl,
     String? description,
     double? price,
+    double? promoPrice,
+    double? promoRegularPrice,
     double? rating,
     String? imageUrl,
     List<String>? imageUrls,
@@ -98,6 +134,8 @@ class ProductModel {
       brandLogoUrl: brandLogoUrl ?? this.brandLogoUrl,
       description: description ?? this.description,
       price: price ?? this.price,
+      promoPrice: promoPrice ?? this.promoPrice,
+      promoRegularPrice: promoRegularPrice ?? this.promoRegularPrice,
       // rating: rating ?? this.rating,
       imageUrl: imageUrl ?? this.imageUrl,
       imageUrls: imageUrls ?? this.imageUrls,
