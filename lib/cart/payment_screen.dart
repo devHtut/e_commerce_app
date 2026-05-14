@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
@@ -586,13 +587,36 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       const SizedBox(height: 8),
                       _buildPaymentMethodSelector(),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Please check the account name and account number before transfer.',
-                        style: TextStyle(
-                          fontStyle: FontStyle.italic,
-                          color: AppColors.errorRed,
-                          fontFamily: AppFonts.primary,
-                          fontSize: 14,
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3CD),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFFD966)),
+                        ),
+                        child: const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              color: Color(0xFF8A5A00),
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Please check the account name and account number before transfer.',
+                                style: TextStyle(
+                                  color: Color(0xFF6F4A00),
+                                  fontFamily: AppFonts.primary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -817,7 +841,11 @@ class _PaymentMethodDetails extends StatelessWidget {
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 12),
-          _PaymentDetailRow(label: 'Account Number', value: accountNumber),
+          _PaymentDetailRow(
+            label: 'Account Number',
+            value: accountNumber,
+            copyable: true,
+          ),
         ],
       ),
     );
@@ -827,11 +855,18 @@ class _PaymentMethodDetails extends StatelessWidget {
 class _PaymentDetailRow extends StatelessWidget {
   final String label;
   final String value;
+  final bool copyable;
 
-  const _PaymentDetailRow({required this.label, required this.value});
+  const _PaymentDetailRow({
+    required this.label,
+    required this.value,
+    this.copyable = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final displayValue = value.isEmpty ? '-' : value;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -845,15 +880,47 @@ class _PaymentDetailRow extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        SelectableText(
-          value.isEmpty ? '-' : value,
-          style: const TextStyle(
-            fontFamily: AppFonts.primary,
-            color: AppColors.darkText,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: SelectableText(
+                displayValue,
+                style: const TextStyle(
+                  fontFamily: AppFonts.primary,
+                  color: AppColors.darkText,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
+              ),
+            ),
+            if (copyable && value.isNotEmpty && value != '-') ...[
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: value));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Account number copied')),
+                  );
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primaryGreen,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Copy',
+                  style: TextStyle(
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ],
     );
