@@ -58,6 +58,72 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _customerOrderSearchController =
       TextEditingController();
   String _customerOrderSearchNeedle = '';
+  final Map<OrderStatus, int> _viewedCustomerOrderCounts = {};
+
+  bool _isAttentionOrderStatus(OrderStatus status) {
+    return status == OrderStatus.pending ||
+        status == OrderStatus.confirmed ||
+        status == OrderStatus.inDelivery ||
+        status == OrderStatus.refund;
+  }
+
+  int _unviewedOrderCount(OrderStatus status, int currentCount) {
+    if (!_isAttentionOrderStatus(status)) return 0;
+    final viewedCount = _viewedCustomerOrderCounts[status] ?? 0;
+    final count = currentCount - viewedCount;
+    return count <= 0 ? 0 : count;
+  }
+
+  int _attentionOrderCount(List<OrderModel> orders) {
+    final counts = <OrderStatus, int>{};
+    for (final order in orders) {
+      if (!_isAttentionOrderStatus(order.status)) continue;
+      counts[order.status] = (counts[order.status] ?? 0) + 1;
+    }
+    return counts.entries.fold<int>(
+      0,
+      (sum, entry) => sum + _unviewedOrderCount(entry.key, entry.value),
+    );
+  }
+
+  void _markCustomerOrderStatusViewed(OrderStatus status, int count) {
+    if (!_isAttentionOrderStatus(status)) return;
+    if ((_viewedCustomerOrderCounts[status] ?? 0) >= count) return;
+    _viewedCustomerOrderCounts[status] = count;
+  }
+
+  Widget _orderTabLabel({
+    required String label,
+    required int count,
+    required bool selected,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label),
+        if (count > 0) ...[
+          const SizedBox(width: 6),
+          Container(
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : AppColors.errorRed,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              count > 99 ? '99+' : '$count',
+              style: TextStyle(
+                color: selected ? AppColors.errorRed : Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -1972,13 +2038,13 @@ class _HomeScreenState extends State<HomeScreen> {
         final refunds = orders
             .where((o) => o.status == OrderStatus.refund)
             .toList();
-        final tabs = <(String, int)>[
-          ('Pending', pending.length),
-          ('Confirmed', confirmed.length),
-          ('In Delivery', inDelivery.length),
-          ('Completed', completed.length),
-          ('Canceled', canceled.length),
-          if (refunds.isNotEmpty) ('Refund', refunds.length),
+        final tabs = <(String, int, OrderStatus)>[
+          ('Pending', pending.length, OrderStatus.pending),
+          ('Confirmed', confirmed.length, OrderStatus.confirmed),
+          ('In Delivery', inDelivery.length, OrderStatus.inDelivery),
+          ('Completed', completed.length, OrderStatus.completed),
+          ('Canceled', canceled.length, OrderStatus.canceled),
+          if (refunds.isNotEmpty) ('Refund', refunds.length, OrderStatus.refund),
         ];
         final displayedIndex = _orderTabIndex < tabs.length
             ? _orderTabIndex
@@ -1991,6 +2057,19 @@ class _HomeScreenState extends State<HomeScreen> {
           4 => canceled,
           _ => refunds,
         };
+        final displayedTab = tabs[displayedIndex];
+        final displayedBadgeCount = _unviewedOrderCount(
+          displayedTab.$3,
+          displayedTab.$2,
+        );
+        if (displayedBadgeCount > 0) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() {
+              _markCustomerOrderStatusViewed(displayedTab.$3, displayedTab.$2);
+            });
+          });
+        }
         final filtered = showing
             .where(
               (o) => orderReadableIdMatchesSearch(
@@ -2013,9 +2092,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   final tab = tabs[index];
                   final selected = displayedIndex == index;
                   return ChoiceChip(
-                    label: Text('${tab.$1} (${tab.$2})'),
+                    label: _orderTabLabel(
+                      label: tab.$1,
+                      count: _unviewedOrderCount(tab.$3, tab.$2),
+                      selected: selected,
+                    ),
                     selected: selected,
-                    onSelected: (_) => setState(() => _orderTabIndex = index),
+                    onSelected: (_) => setState(() {
+                      _orderTabIndex = index;
+                      _markCustomerOrderStatusViewed(tab.$3, tab.$2);
+                    }),
                     showCheckmark: false,
                     selectedColor: AppColors.primaryGreen,
                     labelStyle: TextStyle(
@@ -2751,16 +2837,22 @@ class _HomeScreenState extends State<HomeScreen> {
               : null,
         ),
         body: _buildCurrentPage(),
-        bottomNavigationBar: ValueListenableBuilder<List<CartItem>>(
-          valueListenable: CartService.instance.itemsNotifier,
-          builder: (context, cartItems, _) {
-            return ValueListenableBuilder<List<ProductModel>>(
-              valueListenable: WishlistService.instance.itemsNotifier,
-              builder: (context, wishlistItems, _) {
+        bottomNavigationBar: ValueListenableBuilder<List<OrderModel>>(
+          valueListenable: OrderService.instance.ordersNotifier,
+          builder: (context, orders, _) {
+            return ValueListenableBuilder<List<CartItem>>(
+              valueListenable: CartService.instance.itemsNotifier,
+              builder: (context, cartItems, _) {
+                return ValueListenableBuilder<List<ProductModel>>(
+                  valueListenable: WishlistService.instance.itemsNotifier,
+                  builder: (context, wishlistItems, _) {
                 final cartCount = cartItems.length;
                 final visibleCartCount = _isLoggedIn ? cartCount : 0;
                 final wishlistCount = wishlistItems.length;
                 final visibleWishlistCount = _isLoggedIn ? wishlistCount : 0;
+                final visibleOrderCount = _isLoggedIn
+                    ? _attentionOrderCount(orders)
+                    : 0;
                 final bottomInset = MediaQuery.paddingOf(context).bottom;
                 final navBackground =
                     Theme.of(
@@ -2816,9 +2908,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               label: 'Cart',
                             ),
-                            const BottomNavigationBarItem(
-                              icon: Icon(Icons.receipt_long_outlined),
-                              activeIcon: Icon(Icons.receipt_long),
+                            BottomNavigationBarItem(
+                              icon: _bottomNavIconWithBadge(
+                                icon: Icons.receipt_long_outlined,
+                                count: visibleOrderCount,
+                              ),
+                              activeIcon: _bottomNavIconWithBadge(
+                                icon: Icons.receipt_long,
+                                count: visibleOrderCount,
+                              ),
                               label: 'My Orders',
                             ),
                             const BottomNavigationBarItem(
@@ -2831,6 +2929,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                );
+                  },
                 );
               },
             );
