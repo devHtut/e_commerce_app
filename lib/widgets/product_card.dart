@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import '../product/product_model.dart';
+import '../product/product_review_service.dart';
 import '../product/product_sales_service.dart';
 import '../theme_config.dart';
 import 'price_formatter.dart';
@@ -28,11 +29,15 @@ class _ProductCardState extends State<ProductCard> {
   Timer? _timer;
   int _imageIndex = 0;
   late Future<ProductEngagementMetrics> _metricsFuture;
+  late Future<ProductReviewSummary> _reviewSummaryFuture;
 
   @override
   void initState() {
     super.initState();
     _metricsFuture = ProductSalesService.instance.loadMetrics(
+      widget.product.id,
+    );
+    _reviewSummaryFuture = ProductReviewService.instance.loadSummary(
       widget.product.id,
     );
     _startSliderIfNeeded();
@@ -45,6 +50,9 @@ class _ProductCardState extends State<ProductCard> {
         oldWidget.product.imageUrls != widget.product.imageUrls) {
       _imageIndex = 0;
       _metricsFuture = ProductSalesService.instance.loadMetrics(
+        widget.product.id,
+      );
+      _reviewSummaryFuture = ProductReviewService.instance.loadSummary(
         widget.product.id,
       );
       _startSliderIfNeeded();
@@ -220,6 +228,31 @@ class _ProductCardState extends State<ProductCard> {
               color: AppColors.subtleText,
               fontFamily: AppFonts.primary,
             ),
+          ),
+          FutureBuilder<ProductReviewSummary>(
+            future: _reviewSummaryFuture,
+            builder: (context, snapshot) {
+              final summary = snapshot.data ?? ProductReviewSummary.empty;
+              if (summary.reviewCount < 3) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star, size: 14, color: Color(0xFFFFB300)),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${summary.averageRating.toStringAsFixed(1)} (${summary.reviewCount})',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.darkText,
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
           FutureBuilder<ProductEngagementMetrics>(
             future: _metricsFuture,

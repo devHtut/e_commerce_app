@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../cart/cart_item.dart';
+import '../product/product_review_service.dart';
 import '../theme_config.dart';
 import '../widgets/price_formatter.dart';
 import 'order_service.dart';
@@ -207,6 +209,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
+                          if (!widget.isVendorView &&
+                              _order.status == OrderStatus.completed) ...[
+                            const SizedBox(height: 8),
+                            _ReviewActionButton(
+                              order: _order,
+                              item: item,
+                              onSubmitted: () {
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1052,6 +1065,231 @@ class _TrackingEvent {
     required this.color,
     this.active = false,
   });
+}
+
+class _ReviewActionButton extends StatelessWidget {
+  final OrderModel order;
+  final CartItem item;
+  final VoidCallback onSubmitted;
+
+  const _ReviewActionButton({
+    required this.order,
+    required this.item,
+    required this.onSubmitted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<ProductReview?>(
+      future: ProductReviewService.instance.loadOrderProductReview(
+        orderId: order.id,
+        productId: item.product.id,
+        productVariantId: item.variantId,
+      ),
+      builder: (context, snapshot) {
+        final review = snapshot.data;
+        return OutlinedButton.icon(
+          onPressed: () async {
+            final submitted = await showModalBottomSheet<bool>(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => _ReviewSheet(
+                order: order,
+                item: item,
+                existingReview: review,
+              ),
+            );
+            if (submitted == true) onSubmitted();
+          },
+          icon: const Icon(Icons.star_border_rounded, size: 18),
+          label: Text(review == null ? 'Rate Product' : 'Edit Review'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primaryGreen,
+            side: const BorderSide(color: AppColors.primaryGreen),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ReviewSheet extends StatefulWidget {
+  final OrderModel order;
+  final CartItem item;
+  final ProductReview? existingReview;
+
+  const _ReviewSheet({
+    required this.order,
+    required this.item,
+    this.existingReview,
+  });
+
+  @override
+  State<_ReviewSheet> createState() => _ReviewSheetState();
+}
+
+class _ReviewSheetState extends State<_ReviewSheet> {
+  late int _rating;
+  late TextEditingController _controller;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _rating = widget.existingReview?.rating ?? 5;
+    _controller = TextEditingController(
+      text: widget.existingReview?.reviewText ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final brandId = widget.item.product.brandId;
+    if (brandId == null || brandId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to identify product brand.')),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await ProductReviewService.instance.submitReview(
+        reviewId: widget.existingReview?.id,
+        orderId: widget.order.id,
+        orderItemId: widget.item.dbId,
+        productId: widget.item.product.id,
+        productVariantId: widget.item.variantId,
+        brandId: brandId,
+        rating: _rating,
+        reviewText: _controller.text,
+      );
+      if (!mounted) return;
+      Navigator.pop(context, true);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Thanks for your review.')));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Unable to save review.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottom),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              widget.item.product.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (index) {
+                final value = index + 1;
+                return IconButton(
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() => _rating = value),
+                  icon: Icon(
+                    value <= _rating
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: const Color(0xFFFFB300),
+                    size: 34,
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _controller,
+              enabled: !_saving,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Write a review (optional)',
+                filled: true,
+                fillColor: AppColors.lightGrey,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  backgroundColor: AppColors.primaryGreen,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Submit Review',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _TrackDot extends StatelessWidget {

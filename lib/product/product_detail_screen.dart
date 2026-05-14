@@ -15,6 +15,7 @@ import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/price_formatter.dart';
 import 'product_model.dart';
+import 'product_review_service.dart';
 import 'product_sales_service.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -46,12 +47,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   List<ProductModel> _youMayLike = [];
   List<ProductModel> _moreFromShop = [];
   late Future<ProductEngagementMetrics> _metricsFuture;
+  late Future<ProductReviewSummary> _reviewSummaryFuture;
+  late Future<List<ProductReview>> _reviewsFuture;
 
   @override
   void initState() {
     super.initState();
     _product = widget.product;
     _metricsFuture = ProductSalesService.instance.loadMetrics(
+      widget.product.id,
+    );
+    _reviewSummaryFuture = ProductReviewService.instance.loadSummary(
+      widget.product.id,
+    );
+    _reviewsFuture = ProductReviewService.instance.loadProductReviews(
       widget.product.id,
     );
     _load();
@@ -152,6 +161,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       setState(() {
         _product = product;
         _metricsFuture = ProductSalesService.instance.loadMetrics(product.id);
+        _reviewSummaryFuture = ProductReviewService.instance.loadSummary(
+          product.id,
+        );
+        _reviewsFuture = ProductReviewService.instance.loadProductReviews(
+          product.id,
+        );
         _variants = variants;
         _imagesByColor = byColor;
         _selectedColor = selectedColor;
@@ -343,6 +358,111 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (stock <= 5) return Colors.deepOrange.shade800;
     if (stock <= 15) return Colors.amber.shade900;
     return AppColors.primaryGreen;
+  }
+
+  Widget _buildRatingSummary() {
+    return FutureBuilder<ProductReviewSummary>(
+      future: _reviewSummaryFuture,
+      builder: (context, snapshot) {
+        final summary = snapshot.data ?? ProductReviewSummary.empty;
+        if (summary.reviewCount == 0) {
+          return const SizedBox.shrink();
+        }
+        return Row(
+          children: [
+            const Icon(Icons.star, color: Color(0xFFFFB300), size: 18),
+            const SizedBox(width: 4),
+            Text(
+              '${summary.averageRating.toStringAsFixed(1)} (${summary.reviewCount} reviews)',
+              style: const TextStyle(
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReviewsSection() {
+    return FutureBuilder<List<ProductReview>>(
+      future: _reviewsFuture,
+      builder: (context, snapshot) {
+        final reviews = snapshot.data ?? const <ProductReview>[];
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (reviews.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Customer Reviews',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...reviews.take(5).map(_buildReviewTile),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReviewTile(ProductReview review) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  review.customerName,
+                  style: const TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Row(
+                children: List.generate(
+                  5,
+                  (index) => Icon(
+                    index < review.rating ? Icons.star : Icons.star_border,
+                    size: 16,
+                    color: const Color(0xFFFFB300),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (review.reviewText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              review.reviewText,
+              style: AppTextStyles.body.copyWith(height: 1.35),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<CartItem?> _addToCart({
@@ -972,6 +1092,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 6),
                   Text(_product.brand, style: AppTextStyles.body),
                   const SizedBox(height: 8),
+                  _buildRatingSummary(),
+                  const SizedBox(height: 8),
                   _buildVariantPrice(variant, price),
                   FutureBuilder<ProductEngagementMetrics>(
                     future: _metricsFuture,
@@ -1186,6 +1308,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       height: 1.45,
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  _buildReviewsSection(),
                   if (!widget.hideShoppingActions) ...[
                     const SizedBox(height: 16),
                     _buildBrandSection(),

@@ -108,6 +108,8 @@ class OrderService {
             created_at,
             shipping_address_id,
             order_items (
+              id,
+              brand_id,
               quantity,
               price_at_purchase,
               product_variants (
@@ -305,6 +307,7 @@ class OrderService {
 
         final cartItem = CartItem(
           id: 'item_${DateTime.now().microsecondsSinceEpoch}_${items.length}',
+          dbId: itemRow['id']?.toString(),
           variantId: variantRow['id']?.toString(),
           product: product,
           size: variantRow['size']?.toString() ?? '',
