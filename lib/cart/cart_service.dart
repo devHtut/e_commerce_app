@@ -101,7 +101,7 @@ class CartService {
       final rows = await Supabase.instance.client
           .from('cart')
           .select(
-            'id,variant_id,quantity,created_at,product_variants(id,size,color,stock_quantity,price_adjustment,promo_price,image_url,sku,products(id,title,description,base_price,category_id,brand_id,categories(name),brands(brand_name,logo_url)))',
+            'id,variant_id,quantity,created_at,product_variants(id,size,color,color_value,stock_quantity,price_adjustment,promo_price,image_url,sku,products(id,title,description,base_price,category_id,brand_id,categories(name),brands(brand_name,logo_url)))',
           )
           .eq('user_id', user.id)
           .order('created_at', ascending: false);

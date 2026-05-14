@@ -1259,6 +1259,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           itemBuilder: (context, index) {
                             final colorName = colors[index];
                             final isSelected = current.color == colorName;
+                            final swatchColor = _cartVariantColor(
+                              variants,
+                              colorName,
+                            );
                             return InkWell(
                               onTap: () {
                                 final match = variants.firstWhere(
@@ -1281,7 +1285,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     width: 48,
                                     height: 48,
                                     decoration: BoxDecoration(
-                                      color: _colorFromName(colorName),
+                                      color: swatchColor,
                                       shape: BoxShape.circle,
                                       border: Border.all(
                                         color: isSelected
@@ -1295,9 +1299,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             Icons.check,
                                             size: 18,
                                             color:
-                                                _colorFromName(
-                                                      colorName,
-                                                    ).computeLuminance() >
+                                                swatchColor.computeLuminance() >
                                                     0.8
                                                 ? AppColors.darkText
                                                 : Colors.white,
@@ -1360,7 +1362,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   variantId: selected.id,
                                   size: selected.size,
                                   colorName: selected.color,
-                                  colorValue: _colorFromName(
+                                  colorValue: _cartVariantColor(
+                                    variants,
                                     selected.color,
                                   ).toARGB32(),
                                   imageUrl: selected.imageUrl.isEmpty
@@ -1408,7 +1411,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final rows = await Supabase.instance.client
         .from('product_variants')
         .select(
-          'id,size,color,stock_quantity,price_adjustment,promo_price,image_url,products(base_price)',
+          'id,size,color,color_value,stock_quantity,price_adjustment,promo_price,image_url,products(base_price)',
         )
         .eq('product_id', productId);
     return (rows as List<dynamic>).cast<Map<String, dynamic>>().map((row) {
@@ -1420,6 +1423,7 @@ class _HomeScreenState extends State<HomeScreen> {
         id: row['id'].toString(),
         size: row['size']?.toString() ?? 'Default',
         color: row['color']?.toString() ?? 'Default',
+        colorValue: _nullableColorValue(row['color_value']),
         stock: (row['stock_quantity'] as num?)?.toInt() ?? 0,
         imageUrl: row['image_url']?.toString() ?? '',
         price: promo ?? (base + adjustment),
@@ -2832,6 +2836,7 @@ class _CartVariantOption {
   final String id;
   final String size;
   final String color;
+  final int? colorValue;
   final int stock;
   final String imageUrl;
   final double price;
@@ -2840,6 +2845,7 @@ class _CartVariantOption {
     required this.id,
     required this.size,
     required this.color,
+    required this.colorValue,
     required this.stock,
     required this.imageUrl,
     required this.price,
@@ -2856,6 +2862,21 @@ class _BrandInfo {
     required this.name,
     required this.logoUrl,
   });
+}
+
+Color _cartVariantColor(List<_CartVariantOption> variants, String colorName) {
+  for (final variant in variants) {
+    if (variant.color == colorName && variant.colorValue != null) {
+      return Color(variant.colorValue!);
+    }
+  }
+  return _colorFromName(colorName);
+}
+
+int? _nullableColorValue(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }
 
 class _BrandComingSoonTile extends StatelessWidget {

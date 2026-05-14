@@ -63,6 +63,15 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
       .toList();
   List<String> get _images => _imagesByColor[_selectedColor] ?? const [];
 
+  Color _colorForName(String colorName) {
+    for (final variant in _variants) {
+      if (variant.color == colorName && variant.colorValue != null) {
+        return Color(variant.colorValue!);
+      }
+    }
+    return _colorFromName(colorName);
+  }
+
   _VariantView? get _currentVariant {
     try {
       return _variants.firstWhere(
@@ -83,7 +92,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
           .from('products')
           .select(
             'id,title,description,base_price,product_variants('
-            'size,color,stock_quantity,promo_price,price_adjustment,sku,image_url'
+            'size,color,color_value,stock_quantity,promo_price,price_adjustment,sku,image_url'
             ')',
           )
           .eq('id', widget.productId)
@@ -94,6 +103,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
           .cast<Map<String, dynamic>>()
           .map((v) => _VariantView(
                 color: v['color']?.toString() ?? 'Default',
+                colorValue: _nullableColorValue(v['color_value']),
                 size: v['size']?.toString() ?? 'Default',
                 stock: (v['stock_quantity'] as num?)?.toInt() ?? 0,
                 sku: v['sku']?.toString(),
@@ -369,6 +379,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                         itemBuilder: (_, i) {
                           final c = _colors[i];
                           final selected = _selectedColor == c;
+                          final swatchColor = _colorForName(c);
                           return GestureDetector(
                             onTap: () {
                               final sizes = _variants
@@ -390,7 +401,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                                   height: 48,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: _colorFromName(c),
+                                    color: swatchColor,
                                     border: Border.all(
                                       color: selected
                                           ? AppColors.darkText
@@ -399,10 +410,14 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                                     ),
                                   ),
                                   child: selected
-                                      ? const Icon(
+                                      ? Icon(
                                           Icons.check,
                                           size: 18,
-                                          color: Colors.white,
+                                          color:
+                                              swatchColor.computeLuminance() >
+                                                  0.8
+                                              ? AppColors.darkText
+                                              : Colors.white,
                                         )
                                       : null,
                                 ),
@@ -489,6 +504,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
 
 class _VariantView {
   final String color;
+  final int? colorValue;
   final String size;
   final int stock;
   final String? sku;
@@ -498,6 +514,7 @@ class _VariantView {
 
   const _VariantView({
     required this.color,
+    required this.colorValue,
     required this.size,
     required this.stock,
     required this.sku,
@@ -505,6 +522,12 @@ class _VariantView {
     required this.promoPrice,
     required this.imageUrl,
   });
+}
+
+int? _nullableColorValue(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }
 
 Color _colorFromName(String colorName) {

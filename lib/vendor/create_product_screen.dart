@@ -52,16 +52,17 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   final List<_ColorGroupDraft> _variantGroups = [
     _ColorGroupDraft(
       color: _colorOptions.first,
+      colorValue: _colorValueForName(_colorOptions.first).toARGB32(),
       images: [],
       variants: [
-          _VariantDraft(
-            size: _sizeOptions[2],
-            stockController: TextEditingController(),
-            priceController: TextEditingController(),
-            promoPriceController: TextEditingController(),
-            skuController: TextEditingController(),
-            sizeDescriptionController: TextEditingController(),
-          ),
+        _VariantDraft(
+          size: _sizeOptions[2],
+          stockController: TextEditingController(),
+          priceController: TextEditingController(),
+          promoPriceController: TextEditingController(),
+          skuController: TextEditingController(),
+          sizeDescriptionController: TextEditingController(),
+        ),
       ],
     ),
   ];
@@ -363,6 +364,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                 'product_id': productId,
                 'size': v.size,
                 'color': v.color,
+                'color_value': v.colorValue,
                 'stock_quantity': v.stock,
                 'price_adjustment': v.price - basePrice,
                 'promo_price': v.promoPrice,
@@ -425,6 +427,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       return [
         _ResolvedVariant(
           color: 'Default',
+          colorValue: null,
           size: 'Default',
           stock: int.parse(_simpleStockController.text.trim()),
           price: double.parse(_simplePriceController.text.trim()),
@@ -443,6 +446,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         variants.add(
           _ResolvedVariant(
             color: group.color,
+            colorValue: group.colorValue,
             size: variant.size,
             stock: int.parse(variant.stockController.text.trim()),
             price: double.parse(variant.priceController.text.trim()),
@@ -463,6 +467,15 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     for (final variant in removed.variants) {
       variant.dispose();
     }
+  }
+
+  Future<void> _pickVariantGroupColor(_ColorGroupDraft group) async {
+    final selected = await showDialog<Color>(
+      context: context,
+      builder: (_) => _ColorPickerDialog(initialColor: Color(group.colorValue)),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => group.colorValue = selected.toARGB32());
   }
 
   Future<Map<String, List<String>>> _uploadImagesByColor(
@@ -835,6 +848,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                       _variantGroups.add(
                         _ColorGroupDraft(
                           color: _colorOptions.first,
+                          colorValue: _colorValueForName(
+                            _colorOptions.first,
+                          ).toARGB32(),
                           images: [],
                           variants: [
                             _VariantDraft(
@@ -889,10 +905,20 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                             .toList(),
                         onChanged: _isSaving
                             ? null
-                            : (value) => setState(
-                                () => group.color = value ?? group.color,
-                              ),
+                            : (value) => setState(() {
+                                final color = value ?? group.color;
+                                group.color = color;
+                                group.colorValue = _colorValueForName(
+                                  color,
+                                ).toARGB32();
+                              }),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    _ColorSwatchButton(
+                      color: Color(group.colorValue),
+                      enabled: !_isSaving,
+                      onTap: () => _pickVariantGroupColor(group),
                     ),
                     if (_variantGroups.length > 1)
                       IconButton(
@@ -1113,11 +1139,13 @@ class _AudienceOption {
 
 class _ColorGroupDraft {
   String color;
+  int colorValue;
   final List<_PickedImage> images;
   final List<_VariantDraft> variants;
 
   _ColorGroupDraft({
     required this.color,
+    required this.colorValue,
     required this.images,
     required this.variants,
   });
@@ -1163,6 +1191,7 @@ class _PickedImage {
 
 class _ResolvedVariant {
   final String color;
+  final int? colorValue;
   final String size;
   final int stock;
   final double price;
@@ -1172,6 +1201,7 @@ class _ResolvedVariant {
 
   const _ResolvedVariant({
     required this.color,
+    required this.colorValue,
     required this.size,
     required this.stock,
     required this.price,
@@ -1179,6 +1209,334 @@ class _ResolvedVariant {
     required this.sku,
     required this.sizeDescription,
   });
+}
+
+const List<Color> _swatchPalette = [
+  Color(0xFF1C1C1C),
+  Color(0xFFF5F5F5),
+  Color(0xFFD84343),
+  Color(0xFF8B1E3F),
+  Color(0xFF3D59C9),
+  Color(0xFF1E3A5F),
+  Color(0xFF2E7D32),
+  Color(0xFF9CAF88),
+  Color(0xFF8B5E4A),
+  Color(0xFFD7B899),
+  Color(0xFF7A7A7A),
+  Color(0xFF6F3FD1),
+  Color(0xFFF9A825),
+  Color(0xFFF57C00),
+  Color(0xFFE6D7C3),
+  Color(0xFF4A4A4A),
+];
+
+class _ColorPickerDialog extends StatefulWidget {
+  final Color initialColor;
+
+  const _ColorPickerDialog({required this.initialColor});
+
+  @override
+  State<_ColorPickerDialog> createState() => _ColorPickerDialogState();
+}
+
+class _ColorPickerDialogState extends State<_ColorPickerDialog> {
+  late Color _selectedColor;
+  late final TextEditingController _hexController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedColor = widget.initialColor;
+    _hexController = TextEditingController(text: _hexFromColor(_selectedColor));
+  }
+
+  @override
+  void dispose() {
+    _hexController.dispose();
+    super.dispose();
+  }
+
+  void _setColor(Color color, {bool updateHex = true}) {
+    setState(() {
+      _selectedColor = color;
+      if (updateHex) {
+        _hexController.text = _hexFromColor(color);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Choose exact color'),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 300,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: _selectedColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black26),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _hexController,
+                maxLength: 6,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9a-fA-F]')),
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Hex color',
+                  prefixText: '#',
+                  counterText: '',
+                  filled: true,
+                  fillColor: AppColors.lightGrey,
+                ),
+                onChanged: (value) {
+                  final parsed = _colorFromHex(value);
+                  if (parsed != null) _setColor(parsed, updateHex: false);
+                },
+              ),
+              const SizedBox(height: 14),
+              _RgbSlider(
+                label: 'Red',
+                value: _selectedColor.red,
+                activeColor: Colors.red,
+                onChanged: (value) => _setColor(
+                  Color.fromARGB(
+                    255,
+                    value,
+                    _selectedColor.green,
+                    _selectedColor.blue,
+                  ),
+                ),
+              ),
+              _RgbSlider(
+                label: 'Green',
+                value: _selectedColor.green,
+                activeColor: Colors.green,
+                onChanged: (value) => _setColor(
+                  Color.fromARGB(
+                    255,
+                    _selectedColor.red,
+                    value,
+                    _selectedColor.blue,
+                  ),
+                ),
+              ),
+              _RgbSlider(
+                label: 'Blue',
+                value: _selectedColor.blue,
+                activeColor: Colors.blue,
+                onChanged: (value) => _setColor(
+                  Color.fromARGB(
+                    255,
+                    _selectedColor.red,
+                    _selectedColor.green,
+                    value,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Quick colors',
+                style: TextStyle(
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _swatchPalette.map((color) {
+                  final isSelected = color.toARGB32() == _selectedColor.toARGB32();
+                  return InkWell(
+                    onTap: () => _setColor(color),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.darkText
+                              : Colors.grey.shade300,
+                          width: isSelected ? 3 : 1,
+                        ),
+                      ),
+                      child: isSelected
+                          ? Icon(
+                              Icons.check,
+                              color: color.computeLuminance() > 0.8
+                                  ? AppColors.darkText
+                                  : Colors.white,
+                              size: 16,
+                            )
+                          : null,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _selectedColor),
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+}
+
+class _RgbSlider extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color activeColor;
+  final ValueChanged<int> onChanged;
+
+  const _RgbSlider({
+    required this.label,
+    required this.value,
+    required this.activeColor,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 52,
+          child: Text(
+            label,
+            style: const TextStyle(fontFamily: AppFonts.primary),
+          ),
+        ),
+        Expanded(
+          child: Slider(
+            value: value.toDouble(),
+            min: 0,
+            max: 255,
+            divisions: 255,
+            activeColor: activeColor,
+            onChanged: (next) => onChanged(next.round()),
+          ),
+        ),
+        SizedBox(
+          width: 32,
+          child: Text(
+            value.toString(),
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontFamily: AppFonts.primary),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _hexFromColor(Color color) {
+  return '${color.red.toRadixString(16).padLeft(2, '0')}'
+          '${color.green.toRadixString(16).padLeft(2, '0')}'
+          '${color.blue.toRadixString(16).padLeft(2, '0')}'
+      .toUpperCase();
+}
+
+Color? _colorFromHex(String value) {
+  if (value.length != 6) return null;
+  final parsed = int.tryParse(value, radix: 16);
+  if (parsed == null) return null;
+  return Color(0xFF000000 | parsed);
+}
+
+Color _colorValueForName(String colorName) {
+  switch (colorName.trim().toLowerCase()) {
+    case 'black':
+      return const Color(0xFF1C1C1C);
+    case 'white':
+      return const Color(0xFFF5F5F5);
+    case 'red':
+      return const Color(0xFFD84343);
+    case 'blue':
+      return const Color(0xFF3D59C9);
+    case 'green':
+      return const Color(0xFF2E7D32);
+    case 'brown':
+      return const Color(0xFF8B5E4A);
+    case 'grey':
+    case 'gray':
+      return const Color(0xFF7A7A7A);
+    case 'purple':
+      return const Color(0xFF6F3FD1);
+    case 'yellow':
+      return const Color(0xFFF9A825);
+    case 'orange':
+      return const Color(0xFFF57C00);
+    default:
+      return const Color(0xFF4A4A4A);
+  }
+}
+
+class _ColorSwatchButton extends StatelessWidget {
+  final Color color;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _ColorSwatchButton({
+    required this.color,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Choose exact color',
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.lightGrey,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          alignment: Alignment.center,
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.black26),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ImagePickerGrid extends StatelessWidget {

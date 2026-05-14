@@ -71,7 +71,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .select(
             'id, brand_id, category_id, audience_id, title, description, base_price, '
             'categories(name), audiences(name), brands(brand_name,logo_url), '
-            'product_variants(id,size,color,stock_quantity,price_adjustment,promo_price,image_url,sku,size_description)',
+            'product_variants(id,size,color,color_value,stock_quantity,price_adjustment,promo_price,image_url,sku,size_description)',
           )
           .eq('id', widget.product.id)
           .single();
@@ -84,6 +84,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         return _VariantOption(
           id: v['id']?.toString() ?? '',
           color: v['color']?.toString() ?? 'Default',
+          colorValue: _nullableColorValue(v['color_value']),
           size: v['size']?.toString() ?? 'Default',
           stock: (v['stock_quantity'] as num?)?.toInt() ?? 0,
           sku: v['sku']?.toString(),
@@ -211,6 +212,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       .toSet()
       .toList();
 
+  Color _colorForName(String colorName) {
+    final variant = _variants.firstWhere(
+      (v) => v.color == colorName && v.colorValue != null,
+      orElse: () => _VariantOption.empty(colorName),
+    );
+    return _variantColor(variant);
+  }
+
+  Color _variantColor(_VariantOption variant) {
+    final colorValue = variant.colorValue;
+    return colorValue == null
+        ? _colorFromName(variant.color)
+        : Color(colorValue);
+  }
+
   _VariantOption? get _selectedVariant {
     try {
       return _variants.firstWhere(
@@ -256,7 +272,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       product: cartProduct,
       size: variant.size,
       colorName: variant.color,
-      colorValue: _colorFromName(variant.color).toARGB32(),
+      colorValue: _variantColor(variant).toARGB32(),
       imageUrl: imageUrl,
       quantity: quantity,
       createdAt: DateTime.now().toUtc(),
@@ -289,7 +305,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       variantId: variant.id,
       size: variant.size,
       colorName: variant.color,
-      colorValue: _colorFromName(variant.color).toARGB32(),
+      colorValue: _variantColor(variant).toARGB32(),
       imageUrl: imageUrl,
       quantity: quantity,
     );
@@ -556,26 +572,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               borderRadius: BorderRadius.circular(18),
                               child: Column(
                                 children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: _colorFromName(colorName),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: selected
-                                            ? AppColors.darkText
-                                            : Colors.grey.shade300,
-                                        width: selected ? 2 : 1,
-                                      ),
-                                    ),
-                                    child: selected
-                                        ? const Icon(
-                                            Icons.check,
-                                            size: 18,
-                                            color: Colors.white,
-                                          )
-                                        : null,
+                                  Builder(
+                                    builder: (_) {
+                                      final swatchColor = _colorForName(
+                                        colorName,
+                                      );
+                                      return Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: swatchColor,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: selected
+                                                ? AppColors.darkText
+                                                : Colors.grey.shade300,
+                                            width: selected ? 2 : 1,
+                                          ),
+                                        ),
+                                        child: selected
+                                            ? Icon(
+                                                Icons.check,
+                                                size: 18,
+                                                color:
+                                                    swatchColor
+                                                            .computeLuminance() >
+                                                        0.8
+                                                    ? AppColors.darkText
+                                                    : Colors.white,
+                                              )
+                                            : null,
+                                      );
+                                    },
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
@@ -924,6 +952,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         itemBuilder: (_, index) {
                           final name = _colors[index];
                           final selected = _selectedColor == name;
+                          final swatchColor = _colorForName(name);
                           return GestureDetector(
                             onTap: () {
                               final nextSizes = _variants
@@ -946,7 +975,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   width: 48,
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: _colorFromName(name),
+                                    color: swatchColor,
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: selected
@@ -956,10 +985,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     ),
                                   ),
                                   child: selected
-                                      ? const Icon(
+                                      ? Icon(
                                           Icons.check,
                                           size: 18,
-                                          color: Colors.white,
+                                          color:
+                                              swatchColor.computeLuminance() >
+                                                  0.8
+                                              ? AppColors.darkText
+                                              : Colors.white,
                                         )
                                       : null,
                                 ),
@@ -1259,6 +1292,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 class _VariantOption {
   final String id;
   final String color;
+  final int? colorValue;
   final String size;
   final int stock;
   final String? sku;
@@ -1270,6 +1304,7 @@ class _VariantOption {
   const _VariantOption({
     required this.id,
     required this.color,
+    required this.colorValue,
     required this.size,
     required this.stock,
     required this.sku,
@@ -1278,6 +1313,18 @@ class _VariantOption {
     required this.promoPrice,
     required this.imageUrl,
   });
+
+  const _VariantOption.empty(String colorName)
+    : id = '',
+      color = colorName,
+      colorValue = null,
+      size = 'Default',
+      stock = 0,
+      sku = null,
+      sizeDescription = null,
+      price = 0,
+      promoPrice = null,
+      imageUrl = null;
 }
 
 String? _nullableVariantText(dynamic value) {
@@ -1286,6 +1333,12 @@ String? _nullableVariantText(dynamic value) {
     return null;
   }
   return text;
+}
+
+int? _nullableColorValue(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }
 
 Color _colorFromName(String colorName) {
