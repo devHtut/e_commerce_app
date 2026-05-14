@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/vendor_access.dart';
+import '../notification/notification_service.dart';
 import '../theme_config.dart';
 import '../widgets/price_formatter.dart';
 import '../widgets/search_box.dart';
 import 'create_product_screen.dart';
+import 'vendor_inventory_service.dart';
 import 'vendor_product_detail_screen.dart';
 
 class VendorProductsScreen extends StatefulWidget {
@@ -16,7 +18,7 @@ class VendorProductsScreen extends StatefulWidget {
 }
 
 class _VendorProductsScreenState extends State<VendorProductsScreen> {
-  final List<_VendorProduct> _products = [];
+  final List<_VendorVariantProduct> _variantProducts = [];
   bool _loading = true;
   String? _error;
   String _searchQuery = '';
@@ -35,13 +37,15 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
     _loadVendorProducts();
   }
 
-  List<_VendorProduct> get _filteredProducts {
+  List<_VendorVariantProduct> get _filteredProducts {
     final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) return _products;
-    return _products
+    if (query.isEmpty) return _variantProducts;
+    return _variantProducts
         .where(
           (p) =>
               p.name.toLowerCase().contains(query) ||
+              p.variantLabel.toLowerCase().contains(query) ||
+              p.sku.toLowerCase().contains(query) ||
               formatKyat(p.price).toLowerCase().contains(query) ||
               p.price.round().toString().contains(query),
         )
@@ -73,43 +77,67 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
       final productRows = await Supabase.instance.client
           .from('products')
           .select(
-            'id, title, base_price, '
-            'product_variants(stock_quantity,image_url)',
+            'id, title, base_price, created_at, '
+            'product_variants(id,size,color,stock_quantity,price_adjustment,promo_price,image_url,sku)',
           )
           .eq('brand_id', brand['id'])
           .order('created_at', ascending: false);
 
-      final products = (productRows as List<dynamic>)
-          .cast<Map<String, dynamic>>()
-          .map((row) {
-            final variants =
-                (row['product_variants'] as List<dynamic>? ?? const <dynamic>[])
-                    .cast<Map<String, dynamic>>();
-            final stock = variants.fold<int>(
-              0,
-              (sum, v) => sum + ((v['stock_quantity'] as num?)?.toInt() ?? 0),
-            );
-            final image = variants
-                .map((v) => v['image_url']?.toString() ?? '')
-                .firstWhere(
-                  (url) => url.isNotEmpty,
-                  orElse: () => 'https://via.placeholder.com/600x600?text=No+Image',
-                );
-            return _VendorProduct(
-              id: row['id'].toString(),
+      final variantProducts = <_VendorVariantProduct>[];
+      for (final row in (productRows as List<dynamic>)
+          .cast<Map<String, dynamic>>()) {
+        final basePrice = (row['base_price'] as num?)?.toDouble() ?? 0;
+        final variants =
+            (row['product_variants'] as List<dynamic>? ?? const <dynamic>[])
+                .cast<Map<String, dynamic>>();
+        for (final variant in variants) {
+          final priceAdjustment =
+              (variant['price_adjustment'] as num?)?.toDouble() ?? 0;
+          final promoPrice = (variant['promo_price'] as num?)?.toDouble();
+          final imageUrl = variant['image_url']?.toString() ?? '';
+          variantProducts.add(
+            _VendorVariantProduct(
+              productId: row['id'].toString(),
+              variantId: variant['id']?.toString() ?? '',
               name: row['title']?.toString() ?? 'Untitled',
-              price: (row['base_price'] as num?)?.toDouble() ?? 0,
-              stock: stock,
-              imageUrl: image,
-            );
-          })
+              size: variant['size']?.toString() ?? 'Default',
+              color: variant['color']?.toString() ?? 'Default',
+              sku: variant['sku']?.toString() ?? '',
+              price: promoPrice ?? (basePrice + priceAdjustment),
+              stock: (variant['stock_quantity'] as num?)?.toInt() ?? 0,
+              imageUrl: imageUrl.isEmpty
+                  ? 'https://via.placeholder.com/600x600?text=No+Image'
+                  : imageUrl,
+            ),
+          );
+        }
+      }
+      variantProducts.sort((a, b) {
+        if (a.isLowStock != b.isLowStock) return a.isLowStock ? -1 : 1;
+        if (a.isLowStock && b.isLowStock) {
+          final stockCompare = a.stock.compareTo(b.stock);
+          if (stockCompare != 0) return stockCompare;
+        }
+        return a.name.compareTo(b.name);
+      });
+
+      final lowStockItems = variantProducts
+          .where((item) => item.isLowStock)
+          .map((item) => '${item.name} (${item.variantLabel})')
           .toList();
+      VendorInventoryService.instance.lowStockCountNotifier.value =
+          lowStockItems.length;
+      await NotificationService.instance.notifyVendorLowStock(
+        vendorId: user.id,
+        lowStockCount: lowStockItems.length,
+        itemNames: lowStockItems,
+      );
 
       if (!mounted) return;
       setState(() {
-        _products
+        _variantProducts
           ..clear()
-          ..addAll(products);
+          ..addAll(variantProducts);
       });
     } catch (_) {
       if (!mounted) return;
@@ -159,7 +187,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${_products.length} item${_products.length == 1 ? '' : 's'}',
+                        '${_variantProducts.length} variant item${_variantProducts.length == 1 ? '' : 's'}',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -220,22 +248,34 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                         : _filteredProducts.isEmpty
                             ? const Center(
                                 child: Text(
-                                  'No products found.',
+                                  'No variant products found.',
                                   style: AppTextStyles.body,
                                 ),
                               )
                             : ListView.separated(
                                 itemCount: _filteredProducts.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final product = _filteredProducts[index];
+                                  final isLowStock = product.isLowStock;
                                   return Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: isLowStock
+                                          ? const Color(0xFFFFF1F1)
+                                          : Colors.white,
                                       borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: isLowStock
+                                            ? AppColors.errorRed
+                                                .withValues(alpha: 0.45)
+                                            : Colors.transparent,
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.04),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.04,
+                                          ),
                                           blurRadius: 16,
                                           offset: const Offset(0, 8),
                                         ),
@@ -243,11 +283,13 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                                     ),
                                     child: ListTile(
                                       onTap: () async {
-                                        final changed = await Navigator.push<bool>(
+                                        final changed =
+                                            await Navigator.push<bool>(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => VendorProductDetailScreen(
-                                              productId: product.id,
+                                            builder: (_) =>
+                                                VendorProductDetailScreen(
+                                              productId: product.productId,
                                             ),
                                           ),
                                         );
@@ -263,31 +305,56 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                                           width: 70,
                                           height: 70,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Container(
+                                          errorBuilder: (_, __, ___) =>
+                                              Container(
                                             width: 70,
                                             height: 70,
                                             color: Colors.grey.shade300,
                                             alignment: Alignment.center,
-                                            child: const Icon(Icons.image_not_supported),
+                                            child: const Icon(
+                                              Icons.image_not_supported,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      title: Text(
-                                        product.name,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.darkText,
-                                          fontFamily: AppFonts.primary,
-                                        ),
+                                      title: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            product.name,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: isLowStock
+                                                  ? AppColors.errorRed
+                                                  : AppColors.darkText,
+                                              fontFamily: AppFonts.primary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            product.variantLabel,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppColors.subtleText,
+                                              fontFamily: AppFonts.primary,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                       subtitle: Padding(
                                         padding: const EdgeInsets.only(top: 6),
                                         child: Text(
-                                          '${formatKyat(product.price)} • ${product.stock} in stocks',
-                                          style: const TextStyle(
-                                            color: AppColors.subtleText,
+                                          '${formatKyat(product.price)} | ${product.stock} in stock',
+                                          style: TextStyle(
+                                            color: isLowStock
+                                                ? AppColors.errorRed
+                                                : AppColors.subtleText,
                                             fontFamily: AppFonts.primary,
+                                            fontWeight: isLowStock
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
                                           ),
                                         ),
                                       ),
@@ -308,19 +375,41 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
   }
 }
 
-class _VendorProduct {
-  final String id;
+class _VendorVariantProduct {
+  final String productId;
+  final String variantId;
   final String name;
+  final String size;
+  final String color;
+  final String sku;
   final double price;
   final int stock;
   final String imageUrl;
 
-  const _VendorProduct({
-    required this.id,
+  const _VendorVariantProduct({
+    required this.productId,
+    required this.variantId,
     required this.name,
+    required this.size,
+    required this.color,
+    required this.sku,
     required this.price,
     required this.stock,
     required this.imageUrl,
   });
+
+  bool get isLowStock => stock <= VendorInventoryService.lowStockThreshold;
+
+  String get variantLabel {
+    final parts = <String>[];
+    if (color.trim().isNotEmpty && color.toLowerCase() != 'default') {
+      parts.add(color);
+    }
+    if (size.trim().isNotEmpty && size.toLowerCase() != 'default') {
+      parts.add('Size $size');
+    }
+    if (sku.trim().isNotEmpty) parts.add('SKU $sku');
+    return parts.isEmpty ? 'Default variant' : parts.join(' | ');
+  }
 }
 

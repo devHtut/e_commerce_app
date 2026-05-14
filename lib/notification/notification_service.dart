@@ -118,6 +118,45 @@ class NotificationService {
     );
   }
 
+  Future<void> notifyVendorLowStock({
+    required String vendorId,
+    required int lowStockCount,
+    required List<String> itemNames,
+  }) async {
+    if (vendorId.isEmpty || lowStockCount <= 0) return;
+
+    try {
+      final existing = await _client
+          .from('notifications')
+          .select('id')
+          .eq('recipient_id', vendorId)
+          .eq('audience', _audienceValue(AppNotificationAudience.vendor))
+          .eq('type', 'low_stock')
+          .filter('read_at', 'is', null)
+          .maybeSingle();
+      if (existing != null) return;
+    } catch (e) {
+      debugPrint('Unable to check low stock notification: $e');
+    }
+
+    final previewItems = itemNames.take(3).toList();
+    final extra = lowStockCount - previewItems.length;
+    final itemSummary = previewItems.isEmpty
+        ? '$lowStockCount variant${lowStockCount == 1 ? '' : 's'}'
+        : extra > 0
+            ? '${previewItems.join(', ')} and $extra more'
+            : previewItems.join(', ');
+
+    await _insertNotification(
+      recipientId: vendorId,
+      audience: AppNotificationAudience.vendor,
+      title: 'Low stock alert',
+      message:
+          '$itemSummary ${lowStockCount == 1 ? 'is' : 'are'} at 10 stock or below. Please restock soon.',
+      type: 'low_stock',
+    );
+  }
+
   Future<List<AppNotification>> loadNotifications({
     AppNotificationAudience? audience,
   }) async {

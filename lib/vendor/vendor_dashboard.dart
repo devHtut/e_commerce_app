@@ -15,6 +15,7 @@ import '../widgets/order_readable_id_search.dart';
 import '../widgets/price_formatter.dart';
 import 'brand_account_settings_screen.dart';
 import 'shop_profile_screen.dart';
+import 'vendor_inventory_service.dart';
 import 'vendor_products_screen.dart';
 
 class VendorDashboard extends StatefulWidget {
@@ -48,6 +49,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
     NotificationService.instance.refreshUnreadCount(
       audience: AppNotificationAudience.vendor,
     );
+    VendorInventoryService.instance.refreshLowStockCount();
     ChatService.instance.startUnreadCountSubscription();
     ChatService.instance.refreshUnreadCount();
     setState(() => _vendorAccessGranted = true);
@@ -372,6 +374,40 @@ class _VendorDashboardState extends State<VendorDashboard> {
                   color: Colors.white,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _bottomNavIconWithBadge({
+    required IconData icon,
+    required int count,
+  }) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon),
+        if (count > 0)
+          Positioned(
+            right: -10,
+            top: -7,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.errorRed,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -854,36 +890,48 @@ class _VendorDashboardState extends State<VendorDashboard> {
         actions: [_notificationButton()],
       ),
       body: pages[_currentIndex],
-      bottomNavigationBar: AppBottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.dashboard_outlined),
-            activeIcon: const Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.inventory_2_outlined),
-            activeIcon: const Icon(Icons.inventory_2),
-            label: 'Products',
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.storefront_outlined),
-            activeIcon: const Icon(Icons.storefront),
-            label: 'Shop',
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.receipt_long_outlined),
-            activeIcon: const Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.person_outline),
-            activeIcon: const Icon(Icons.person),
-            label: 'Account',
-          ),
-        ],
+      bottomNavigationBar: ValueListenableBuilder<int>(
+        valueListenable:
+            VendorInventoryService.instance.lowStockCountNotifier,
+        builder: (context, lowStockCount, _) {
+          return AppBottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) => setState(() => _currentIndex = index),
+            items: [
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.dashboard_outlined),
+                activeIcon: const Icon(Icons.dashboard),
+                label: 'Dashboard',
+              ),
+              BottomNavigationBarItem(
+                icon: _bottomNavIconWithBadge(
+                  icon: Icons.inventory_2_outlined,
+                  count: lowStockCount,
+                ),
+                activeIcon: _bottomNavIconWithBadge(
+                  icon: Icons.inventory_2,
+                  count: lowStockCount,
+                ),
+                label: 'Products',
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.storefront_outlined),
+                activeIcon: const Icon(Icons.storefront),
+                label: 'Shop',
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.receipt_long_outlined),
+                activeIcon: const Icon(Icons.receipt_long),
+                label: 'Orders',
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.person_outline),
+                activeIcon: const Icon(Icons.person),
+                label: 'Account',
+              ),
+            ],
+          );
+        },
       ),
     );
   }

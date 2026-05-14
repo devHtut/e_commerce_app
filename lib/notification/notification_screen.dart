@@ -292,6 +292,7 @@ class _NotificationTile extends StatelessWidget {
   IconData _notificationIcon(String type) {
     if (type.contains('welcome')) return Icons.waving_hand_outlined;
     if (type.contains('payment')) return Icons.payments_outlined;
+    if (type.contains('low_stock')) return Icons.inventory_2_outlined;
     if (type.contains('delivery')) return Icons.local_shipping_outlined;
     if (type.contains('cancel')) return Icons.cancel_outlined;
     if (type.contains('refund')) return Icons.request_quote_outlined;
@@ -302,6 +303,7 @@ class _NotificationTile extends StatelessWidget {
 
   Color _notificationColor(String type) {
     if (type.contains('cancel')) return AppColors.errorRed;
+    if (type.contains('low_stock')) return AppColors.errorRed;
     if (type.contains('delivery')) return Colors.blue.shade700;
     if (type.contains('refund')) return Colors.deepOrange.shade800;
     if (type.contains('payment')) return Colors.amber.shade900;
