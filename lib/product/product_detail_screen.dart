@@ -87,7 +87,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           size: v['size']?.toString() ?? 'Default',
           stock: (v['stock_quantity'] as num?)?.toInt() ?? 0,
           sku: v['sku']?.toString(),
-          sizeDescription: v['size_description']?.toString(),
+          sizeDescription: _nullableVariantText(v['size_description']),
           price: product.price + adj,
           promoPrice: (v['promo_price'] as num?)?.toDouble(),
           imageUrl: v['image_url']?.toString(),
@@ -987,10 +987,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       color: AppColors.subtleText,
                     ),
                   ),
-                  if ((variant?.sizeDescription ?? '').trim().isNotEmpty) ...[
+                  if (variant?.sizeDescription != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      variant!.sizeDescription!.trim(),
+                      variant!.sizeDescription!,
                       style: const TextStyle(
                         fontFamily: AppFonts.primary,
                         color: AppColors.subtleText,
@@ -1278,6 +1278,14 @@ class _VariantOption {
     required this.promoPrice,
     required this.imageUrl,
   });
+}
+
+String? _nullableVariantText(dynamic value) {
+  final text = value?.toString().trim();
+  if (text == null || text.isEmpty || text.toLowerCase() == 'null') {
+    return null;
+  }
+  return text;
 }
 
 Color _colorFromName(String colorName) {
