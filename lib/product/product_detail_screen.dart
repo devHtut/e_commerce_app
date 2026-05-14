@@ -15,6 +15,7 @@ import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/price_formatter.dart';
 import 'product_model.dart';
+import 'product_sales_service.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final ProductModel product;
@@ -44,11 +45,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _selectedImage = 0;
   List<ProductModel> _youMayLike = [];
   List<ProductModel> _moreFromShop = [];
+  late Future<ProductEngagementMetrics> _metricsFuture;
 
   @override
   void initState() {
     super.initState();
     _product = widget.product;
+    _metricsFuture = ProductSalesService.instance.loadMetrics(
+      widget.product.id,
+    );
     _load();
   }
 
@@ -146,6 +151,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (!mounted) return;
       setState(() {
         _product = product;
+        _metricsFuture = ProductSalesService.instance.loadMetrics(product.id);
         _variants = variants;
         _imagesByColor = byColor;
         _selectedColor = selectedColor;
@@ -323,6 +329,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } catch (_) {
       return _variants.isEmpty ? null : _variants.first;
     }
+  }
+
+  String _stockStatusText(int stock) {
+    if (stock <= 0) return 'Out of stock';
+    if (stock <= 5) return 'Only a few items left';
+    if (stock <= 15) return 'Limited stock available';
+    return 'In stock';
+  }
+
+  Color _stockStatusColor(int stock) {
+    if (stock <= 0) return AppColors.errorRed;
+    if (stock <= 5) return Colors.deepOrange.shade800;
+    if (stock <= 15) return Colors.amber.shade900;
+    return AppColors.primaryGreen;
   }
 
   Future<CartItem?> _addToCart({
@@ -953,6 +973,40 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Text(_product.brand, style: AppTextStyles.body),
                   const SizedBox(height: 8),
                   _buildVariantPrice(variant, price),
+                  FutureBuilder<ProductEngagementMetrics>(
+                    future: _metricsFuture,
+                    builder: (context, snapshot) {
+                      final metrics =
+                          snapshot.data ?? ProductEngagementMetrics.empty;
+                      if (!_product.hasPromotion &&
+                          metrics.soldCount < 5 &&
+                          metrics.viewCount < 5) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (metrics.soldCount >= 5)
+                              _ProductDetailBadge(
+                                label: 'Best Seller',
+                                value: '${metrics.soldCount} sold',
+                                color: const Color(0xFFE65100),
+                              ),
+                            if (metrics.viewCount >= 5)
+                              _ProductDetailBadge(
+                                label: 'Most Viewed',
+                                value: '${metrics.viewCount} views',
+                                color: const Color(0xFF006D77),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                   if (_hasRealVariants) ...[
                     const SizedBox(height: 20),
                     const Text(
@@ -1084,6 +1138,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
+                  Text(
+                    _stockStatusText(variant?.stock ?? 0),
+                    style: TextStyle(
+                      fontFamily: AppFonts.primary,
+                      color: _stockStatusColor(variant?.stock ?? 0),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Text(
                     'Stock: ${variant?.stock ?? 0}'
                     '${(variant?.sku ?? '').isNotEmpty ? ' | SKU: ${variant!.sku}' : ''}',
@@ -1397,6 +1460,50 @@ class _VariantOption {
       price = 0,
       promoPrice = null,
       imageUrl = null;
+}
+
+class _ProductDetailBadge extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _ProductDetailBadge({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            '$label • $value',
+            style: TextStyle(
+              color: color,
+              fontFamily: AppFonts.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 String? _nullableVariantText(dynamic value) {

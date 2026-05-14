@@ -9,6 +9,7 @@ import '../chat/chat_service.dart';
 import '../customer/chat_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
+import '../product/product_sales_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
@@ -37,6 +38,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   String? _error;
   _ShopInfo? _shop;
   List<ProductModel> _products = [];
+  Map<String, ProductEngagementMetrics> _productMetrics = {};
   List<String> _categories = const ['Discover'];
   List<String> _audiences = const ['All Audiences'];
   int _selectedCategoryIndex = 0;
@@ -129,6 +131,9 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           .cast<Map<String, dynamic>>()
           .map(ProductModel.fromSupabaseRow)
           .toList();
+      final metrics = await ProductSalesService.instance.loadMetricsForProducts(
+        products.map((product) => product.id).toList(),
+      );
       final categories =
           products
               .map((product) => product.category.trim())
@@ -148,6 +153,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
       setState(() {
         _shop = _ShopInfo.fromRows(brandRow!, vendorRow);
         _products = products;
+        _productMetrics = metrics;
         _categories = ['Discover', ...categories];
         _audiences = ['All Audiences', ...audiences];
         _selectedCategoryIndex = 0;
@@ -200,6 +206,18 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         filtered.sort((a, b) => b.price.compareTo(a.price));
       case _ShopSort.priceLowToHigh:
         filtered.sort((a, b) => a.price.compareTo(b.price));
+      case _ShopSort.bestSelling:
+        filtered.sort(
+          (a, b) => (_productMetrics[b.id]?.soldCount ?? 0).compareTo(
+            _productMetrics[a.id]?.soldCount ?? 0,
+          ),
+        );
+      case _ShopSort.mostViewed:
+        filtered.sort(
+          (a, b) => (_productMetrics[b.id]?.viewCount ?? 0).compareTo(
+            _productMetrics[a.id]?.viewCount ?? 0,
+          ),
+        );
       case _ShopSort.latestArrival:
       case null:
         break;
@@ -973,6 +991,8 @@ class _ShopInfo {
 }
 
 enum _ShopSort {
+  bestSelling('Best Selling', 'Best'),
+  mostViewed('Most Viewed', 'Viewed'),
   promotion('Promotion', 'Promo'),
   priceHighToLow('Price High to Low', 'High-Low'),
   priceLowToHigh('Price Low to High', 'Low-High'),

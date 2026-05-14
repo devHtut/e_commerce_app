@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
+import '../product/product_sales_service.dart';
 import '../theme_config.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/product_card.dart';
@@ -34,6 +35,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
   List<String> _categories = const ['Discover'];
   List<String> _audiences = const [];
   List<String> _brands = const [];
+  Map<String, ProductEngagementMetrics> _productMetrics = {};
 
   @override
   void initState() {
@@ -75,6 +77,9 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
           .cast<Map<String, dynamic>>()
           .map(ProductModel.fromSupabaseRow)
           .toList();
+      final metrics = await ProductSalesService.instance.loadMetricsForProducts(
+        products.map((product) => product.id).toList(),
+      );
 
       final categories =
           products
@@ -101,6 +106,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
       if (!mounted) return;
       setState(() {
         _products = products;
+        _productMetrics = metrics;
         _categories = ['Discover', ...categories];
         _audiences = audiences;
         _brands = brands;
@@ -155,6 +161,18 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
         filtered.sort((a, b) => b.price.compareTo(a.price));
       case _ProductSort.priceLowToHigh:
         filtered.sort((a, b) => a.price.compareTo(b.price));
+      case _ProductSort.bestSelling:
+        filtered.sort(
+          (a, b) => (_productMetrics[b.id]?.soldCount ?? 0).compareTo(
+            _productMetrics[a.id]?.soldCount ?? 0,
+          ),
+        );
+      case _ProductSort.mostViewed:
+        filtered.sort(
+          (a, b) => (_productMetrics[b.id]?.viewCount ?? 0).compareTo(
+            _productMetrics[a.id]?.viewCount ?? 0,
+          ),
+        );
       case _ProductSort.latestArrival:
         break;
     }
@@ -701,6 +719,8 @@ class _FilterChipButton extends StatelessWidget {
 
 enum _ProductSort {
   latestArrival('Latest Arrival', 'Sort'),
+  bestSelling('Best Selling', 'Best'),
+  mostViewed('Most Viewed', 'Viewed'),
   promotion('Promotion', 'Promo'),
   priceHighToLow('Price High to Low', 'High-Low'),
   priceLowToHigh('Price Low to High', 'Low-High');

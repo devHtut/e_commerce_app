@@ -13,6 +13,7 @@ import '../notification/notification_screen.dart';
 import '../notification/notification_service.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
+import '../product/product_sales_service.dart';
 import '../wishlist/wishlist_service.dart';
 import '../widgets/auto_banner_slider.dart';
 import '../widgets/custom_pop_up.dart';
@@ -47,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _userAvatarUrl;
   String? _productsError;
   List<ProductModel> _products = [];
+  Map<String, ProductEngagementMetrics> _productMetrics = {};
   bool _isLoadingBrands = true;
   String? _brandsError;
   List<_BrandInfo> _brands = [];
@@ -199,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .from('products')
           .select(
             'id, title, description, base_price, '
-            'category_id, audience_id, categories(name), audiences(name), brands(brand_name), '
+            'brand_id, category_id, audience_id, categories(name), audiences(name), brands(brand_name), '
             'product_variants(image_url,price_adjustment,promo_price)',
           )
           .order('created_at', ascending: false);
@@ -208,9 +210,13 @@ class _HomeScreenState extends State<HomeScreen> {
           .cast<Map<String, dynamic>>()
           .map(ProductModel.fromSupabaseRow)
           .toList();
+      final metrics = await ProductSalesService.instance.loadMetricsForProducts(
+        products.map((product) => product.id).toList(),
+      );
       if (!mounted) return;
       setState(() {
         _products = products;
+        _productMetrics = metrics;
       });
     } catch (_) {
       if (!mounted) return;
@@ -231,6 +237,31 @@ class _HomeScreenState extends State<HomeScreen> {
       _products.where((product) => product.hasPromotion).take(10).toList();
   List<ProductModel> get _hotDealProducts =>
       _products.reversed.take(4).toList();
+  List<ProductModel> get _bestSellingProducts {
+    final products = List<ProductModel>.from(_products)
+      ..sort(
+        (a, b) => (_productMetrics[b.id]?.soldCount ?? 0).compareTo(
+          _productMetrics[a.id]?.soldCount ?? 0,
+        ),
+      );
+    return products
+        .where((product) => (_productMetrics[product.id]?.soldCount ?? 0) >= 5)
+        .take(10)
+        .toList();
+  }
+
+  List<ProductModel> get _mostViewedProducts {
+    final products = List<ProductModel>.from(_products)
+      ..sort(
+        (a, b) => (_productMetrics[b.id]?.viewCount ?? 0).compareTo(
+          _productMetrics[a.id]?.viewCount ?? 0,
+        ),
+      );
+    return products
+        .where((product) => (_productMetrics[product.id]?.viewCount ?? 0) >= 5)
+        .take(10)
+        .toList();
+  }
 
   List<ProductModel> get _searchResults {
     final query = _searchQuery.trim().toLowerCase();
@@ -2044,7 +2075,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ('In Delivery', inDelivery.length, OrderStatus.inDelivery),
           ('Completed', completed.length, OrderStatus.completed),
           ('Canceled', canceled.length, OrderStatus.canceled),
-          if (refunds.isNotEmpty) ('Refund', refunds.length, OrderStatus.refund),
+          if (refunds.isNotEmpty)
+            ('Refund', refunds.length, OrderStatus.refund),
         ];
         final displayedIndex = _orderTabIndex < tabs.length
             ? _orderTabIndex
@@ -2401,6 +2433,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   products: _newArrivalProducts,
                 ),
                 const SizedBox(height: 14),
+                if (_bestSellingProducts.isNotEmpty) ...[
+                  _buildHorizontalProductSection(
+                    title: 'Best Selling',
+                    products: _bestSellingProducts,
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if (_mostViewedProducts.isNotEmpty) ...[
+                  _buildHorizontalProductSection(
+                    title: 'Most Viewed',
+                    products: _mostViewedProducts,
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 _buildHorizontalProductSection(
                   title: 'Hot Deals for this week',
                   products: _hotDealProducts,
@@ -2846,90 +2892,92 @@ class _HomeScreenState extends State<HomeScreen> {
                 return ValueListenableBuilder<List<ProductModel>>(
                   valueListenable: WishlistService.instance.itemsNotifier,
                   builder: (context, wishlistItems, _) {
-                final cartCount = cartItems.length;
-                final visibleCartCount = _isLoggedIn ? cartCount : 0;
-                final wishlistCount = wishlistItems.length;
-                final visibleWishlistCount = _isLoggedIn ? wishlistCount : 0;
-                final visibleOrderCount = _isLoggedIn
-                    ? _attentionOrderCount(orders)
-                    : 0;
-                final bottomInset = MediaQuery.paddingOf(context).bottom;
-                final navBackground =
-                    Theme.of(
-                      context,
-                    ).bottomNavigationBarTheme.backgroundColor ??
-                    Theme.of(context).canvasColor;
+                    final cartCount = cartItems.length;
+                    final visibleCartCount = _isLoggedIn ? cartCount : 0;
+                    final wishlistCount = wishlistItems.length;
+                    final visibleWishlistCount = _isLoggedIn
+                        ? wishlistCount
+                        : 0;
+                    final visibleOrderCount = _isLoggedIn
+                        ? _attentionOrderCount(orders)
+                        : 0;
+                    final bottomInset = MediaQuery.paddingOf(context).bottom;
+                    final navBackground =
+                        Theme.of(
+                          context,
+                        ).bottomNavigationBarTheme.backgroundColor ??
+                        Theme.of(context).canvasColor;
 
-                return Material(
-                  color: navBackground,
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: bottomInset + 12),
-                    child: MediaQuery.removePadding(
-                      context: context,
-                      removeBottom: true,
-                      child: Theme(
-                        data: Theme.of(context).copyWith(
-                          splashFactory: NoSplash.splashFactory,
-                          splashColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                        ),
-                        child: BottomNavigationBar(
-                          currentIndex: _currentIndex,
-                          elevation: 0,
-                          selectedItemColor: AppColors.primaryGreen,
-                          unselectedItemColor: Colors.grey,
-                          type: BottomNavigationBarType.fixed,
-                          onTap: _handleTabTap,
-                          items: [
-                            const BottomNavigationBarItem(
-                              icon: Icon(Icons.home_outlined),
-                              activeIcon: Icon(Icons.home),
-                              label: 'Home',
+                    return Material(
+                      color: navBackground,
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: bottomInset + 12),
+                        child: MediaQuery.removePadding(
+                          context: context,
+                          removeBottom: true,
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              splashFactory: NoSplash.splashFactory,
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
                             ),
-                            BottomNavigationBarItem(
-                              icon: _bottomNavIconWithBadge(
-                                icon: Icons.favorite_border,
-                                count: visibleWishlistCount,
-                              ),
-                              activeIcon: _bottomNavIconWithBadge(
-                                icon: Icons.favorite,
-                                count: visibleWishlistCount,
-                              ),
-                              label: 'Wishlist',
+                            child: BottomNavigationBar(
+                              currentIndex: _currentIndex,
+                              elevation: 0,
+                              selectedItemColor: AppColors.primaryGreen,
+                              unselectedItemColor: Colors.grey,
+                              type: BottomNavigationBarType.fixed,
+                              onTap: _handleTabTap,
+                              items: [
+                                const BottomNavigationBarItem(
+                                  icon: Icon(Icons.home_outlined),
+                                  activeIcon: Icon(Icons.home),
+                                  label: 'Home',
+                                ),
+                                BottomNavigationBarItem(
+                                  icon: _bottomNavIconWithBadge(
+                                    icon: Icons.favorite_border,
+                                    count: visibleWishlistCount,
+                                  ),
+                                  activeIcon: _bottomNavIconWithBadge(
+                                    icon: Icons.favorite,
+                                    count: visibleWishlistCount,
+                                  ),
+                                  label: 'Wishlist',
+                                ),
+                                BottomNavigationBarItem(
+                                  icon: _bottomNavIconWithBadge(
+                                    icon: Icons.shopping_cart_outlined,
+                                    count: visibleCartCount,
+                                  ),
+                                  activeIcon: _bottomNavIconWithBadge(
+                                    icon: Icons.shopping_cart,
+                                    count: visibleCartCount,
+                                  ),
+                                  label: 'Cart',
+                                ),
+                                BottomNavigationBarItem(
+                                  icon: _bottomNavIconWithBadge(
+                                    icon: Icons.receipt_long_outlined,
+                                    count: visibleOrderCount,
+                                  ),
+                                  activeIcon: _bottomNavIconWithBadge(
+                                    icon: Icons.receipt_long,
+                                    count: visibleOrderCount,
+                                  ),
+                                  label: 'My Orders',
+                                ),
+                                const BottomNavigationBarItem(
+                                  icon: Icon(Icons.account_circle_outlined),
+                                  activeIcon: Icon(Icons.account_circle),
+                                  label: 'Account',
+                                ),
+                              ],
                             ),
-                            BottomNavigationBarItem(
-                              icon: _bottomNavIconWithBadge(
-                                icon: Icons.shopping_cart_outlined,
-                                count: visibleCartCount,
-                              ),
-                              activeIcon: _bottomNavIconWithBadge(
-                                icon: Icons.shopping_cart,
-                                count: visibleCartCount,
-                              ),
-                              label: 'Cart',
-                            ),
-                            BottomNavigationBarItem(
-                              icon: _bottomNavIconWithBadge(
-                                icon: Icons.receipt_long_outlined,
-                                count: visibleOrderCount,
-                              ),
-                              activeIcon: _bottomNavIconWithBadge(
-                                icon: Icons.receipt_long,
-                                count: visibleOrderCount,
-                              ),
-                              label: 'My Orders',
-                            ),
-                            const BottomNavigationBarItem(
-                              icon: Icon(Icons.account_circle_outlined),
-                              activeIcon: Icon(Icons.account_circle),
-                              label: 'Account',
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                );
+                    );
                   },
                 );
               },

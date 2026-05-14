@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import '../product/product_model.dart';
+import '../product/product_sales_service.dart';
 import '../theme_config.dart';
 import 'price_formatter.dart';
 
@@ -26,10 +27,14 @@ class ProductCard extends StatefulWidget {
 class _ProductCardState extends State<ProductCard> {
   Timer? _timer;
   int _imageIndex = 0;
+  late Future<ProductEngagementMetrics> _metricsFuture;
 
   @override
   void initState() {
     super.initState();
+    _metricsFuture = ProductSalesService.instance.loadMetrics(
+      widget.product.id,
+    );
     _startSliderIfNeeded();
   }
 
@@ -39,6 +44,9 @@ class _ProductCardState extends State<ProductCard> {
     if (oldWidget.product.id != widget.product.id ||
         oldWidget.product.imageUrls != widget.product.imageUrls) {
       _imageIndex = 0;
+      _metricsFuture = ProductSalesService.instance.loadMetrics(
+        widget.product.id,
+      );
       _startSliderIfNeeded();
     }
   }
@@ -87,30 +95,24 @@ class _ProductCardState extends State<ProductCard> {
                       child: const Icon(Icons.image_not_supported, size: 28),
                     ),
                   ),
-                  if (hasPromotion)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorRed,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          '-${widget.product.promotionPercent}%',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            fontFamily: AppFonts.primary,
-                          ),
-                        ),
-                      ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: FutureBuilder<ProductEngagementMetrics>(
+                      future: _metricsFuture,
+                      builder: (context, snapshot) {
+                        final metrics =
+                            snapshot.data ?? ProductEngagementMetrics.empty;
+                        return _ProductCardBadges(
+                          promotionPercent: hasPromotion
+                              ? widget.product.promotionPercent
+                              : null,
+                          soldCount: metrics.soldCount,
+                          viewCount: metrics.viewCount,
+                        );
+                      },
                     ),
+                  ),
                   // Positioned(
                   //   top: 8,
                   //   left: 8,
@@ -219,7 +221,87 @@ class _ProductCardState extends State<ProductCard> {
               fontFamily: AppFonts.primary,
             ),
           ),
+          FutureBuilder<ProductEngagementMetrics>(
+            future: _metricsFuture,
+            builder: (context, snapshot) {
+              final soldCount = snapshot.data?.soldCount ?? 0;
+              if (soldCount < 5) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '$soldCount sold',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.primaryGreen,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+            },
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProductCardBadges extends StatelessWidget {
+  final int? promotionPercent;
+  final int soldCount;
+  final int viewCount;
+
+  const _ProductCardBadges({
+    required this.promotionPercent,
+    required this.soldCount,
+    required this.viewCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = <Widget>[
+      if (promotionPercent != null)
+        _BadgePill(label: '-$promotionPercent%', color: AppColors.errorRed),
+      if (soldCount >= 5)
+        const _BadgePill(label: 'Best Seller', color: Color(0xFFE65100)),
+      if (viewCount >= 5)
+        const _BadgePill(label: 'Most Viewed', color: Color(0xFF006D77)),
+    ];
+    if (badges.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < badges.length; i++) ...[
+          if (i > 0) const SizedBox(height: 5),
+          badges[i],
+        ],
+      ],
+    );
+  }
+}
+
+class _BadgePill extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _BadgePill({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          fontFamily: AppFonts.primary,
+        ),
       ),
     );
   }
