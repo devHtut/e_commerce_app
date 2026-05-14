@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
+import '../utils/payment_assets.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
@@ -162,22 +163,15 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   }
 
   Widget _paymentIconWidget(String type) {
-    switch (type) {
-      case 'KBZ Pay':
-        return Image.asset('assets/images/KBZPay.png', fit: BoxFit.contain);
-      case 'Wave Pay':
-        return Image.asset('assets/images/WavePay.png', fit: BoxFit.contain);
-      case 'AYA Pay':
-        return Image.asset('assets/images/AYAPay.png', fit: BoxFit.contain);
-      case 'CB Pay':
-        return Image.asset('assets/images/CBPay.png', fit: BoxFit.contain);
-      default:
-        return const Icon(
-          Icons.payment,
-          color: AppColors.primaryGreen,
-          size: 24,
-        );
+    final asset = paymentTypeAsset(type);
+    if (asset != null) {
+      return Image.asset(asset, fit: BoxFit.contain);
     }
+    return const Icon(
+      Icons.payment,
+      color: AppColors.primaryGreen,
+      size: 24,
+    );
   }
 
   Widget _buildPaymentEntry(int index, _VendorPaymentEntry entry) {

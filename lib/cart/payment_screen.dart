@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
+import '../utils/payment_assets.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/discard_changes_dialog.dart';
@@ -218,18 +219,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   String? _paymentIconAsset(String paymentType) {
-    switch (paymentType.trim().toLowerCase()) {
-      case 'kbz pay':
-        return 'assets/images/KBZPay.png';
-      case 'wave pay':
-        return 'assets/images/WavePay.png';
-      case 'aya pay':
-        return 'assets/images/AYAPay.png';
-      case 'cb pay':
-        return 'assets/images/CBPay.png';
-      default:
-        return null;
-    }
+    return paymentTypeAsset(paymentType);
   }
 
   Widget _buildPaymentMethodLogo(String paymentType, {double size = 52}) {
