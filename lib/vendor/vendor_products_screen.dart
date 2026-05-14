@@ -143,20 +143,52 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Product List',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.darkText,
-                      fontFamily: AppFonts.primary,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Product List',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.darkText,
+                          fontFamily: AppFonts.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_products.length} item${_products.length == 1 ? '' : 's'}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.subtleText,
+                          fontFamily: AppFonts.primary,
+                        ),
+                      ),
+                    ],
                   ),
-                  IconButton(
+                  TextButton(
                     onPressed: _addProduct,
-                    icon: const Icon(Icons.add, color: AppColors.primaryGreen),
-                    tooltip: 'Add product',
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.primaryGreen,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Create New Product',
+                      style: TextStyle(
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ],
               ),
