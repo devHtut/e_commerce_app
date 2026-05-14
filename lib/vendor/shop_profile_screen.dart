@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,6 +14,7 @@ import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/product_card.dart';
 import '../wishlist/wishlist_service.dart';
+import 'brand_analytics_service.dart';
 
 class ShopProfileScreen extends StatefulWidget {
   final String? brandId;
@@ -150,6 +153,15 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         _selectedCategoryIndex = 0;
         _selectedAudienceIndex = 0;
       });
+      if (!widget.embedded) {
+        final shop = _ShopInfo.fromRows(brandRow, vendorRow);
+        unawaited(
+          BrandAnalyticsService.instance.recordBrandProfileVisit(
+            brandId: shop.id,
+            ownerId: shop.ownerId,
+          ),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Unable to load shop profile.');
@@ -458,17 +470,11 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                         product: product,
                         isWishlisted: widget.embedded
                             ? false
-                            : WishlistService.instance.isWishlisted(
-                                product.id,
-                              ),
+                            : WishlistService.instance.isWishlisted(product.id),
                         onWishlistTap: widget.embedded
                             ? null
                             : () async {
-                                if (Supabase
-                                        .instance
-                                        .client
-                                        .auth
-                                        .currentUser ==
+                                if (Supabase.instance.client.auth.currentUser ==
                                     null) {
                                   await GuestAuthGatePanel.show(context);
                                   return;

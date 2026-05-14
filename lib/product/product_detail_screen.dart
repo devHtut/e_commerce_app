@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -6,6 +8,7 @@ import '../cart/cart_service.dart';
 import '../cart/checkout_screen.dart';
 import '../chat/chat_service.dart';
 import '../customer/chat_screen.dart';
+import '../vendor/brand_analytics_service.dart';
 import '../vendor/shop_profile_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
@@ -151,6 +154,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _youMayLike = related.$1;
         _moreFromShop = related.$2;
       });
+      if (!widget.hideShoppingActions && product.brandId != null) {
+        unawaited(
+          BrandAnalyticsService.instance.recordProductView(
+            productId: product.id,
+            brandId: product.brandId!,
+          ),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Unable to load product details.');
@@ -505,10 +516,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               const SizedBox(height: 8),
                               Text('Stock  :  ${selectedVariant.stock}'),
                               const SizedBox(height: 8),
-                              _buildVariantPrice(
-                                selectedVariant,
-                                displayPrice,
-                              ),
+                              _buildVariantPrice(selectedVariant, displayPrice),
                               const SizedBox(height: 12),
                               Container(
                                 height: 42,

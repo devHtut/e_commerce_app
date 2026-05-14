@@ -14,6 +14,7 @@ import '../widgets/app_bottom_navigation_bar.dart';
 import '../widgets/order_readable_id_search.dart';
 import '../widgets/price_formatter.dart';
 import 'brand_account_settings_screen.dart';
+import 'brand_analytics_service.dart';
 import 'shop_profile_screen.dart';
 import 'vendor_inventory_service.dart';
 import 'vendor_products_screen.dart';
@@ -36,6 +37,8 @@ class _VendorDashboardState extends State<VendorDashboard> {
   bool _vendorAccessGranted = false;
   int _activeVendorOrderCount = 0;
   final Map<OrderStatus, int> _viewedVendorOrderCounts = {};
+  BrandAnalyticsRange _analyticsRange = BrandAnalyticsRange.week;
+  late Future<BrandAnalyticsSnapshot> _brandAnalyticsFuture;
 
   @override
   void initState() {
@@ -47,6 +50,9 @@ class _VendorDashboardState extends State<VendorDashboard> {
     final ok = await VendorAccess.ensureVendorOrRedirect(context);
     if (!mounted || !ok) return;
     _vendorOrdersFuture = _loadVendorOrdersAndCount();
+    _brandAnalyticsFuture = BrandAnalyticsService.instance.loadSnapshot(
+      _analyticsRange,
+    );
     _loadVendorBrandOrderPrefix();
     NotificationService.instance.refreshUnreadCount(
       audience: AppNotificationAudience.vendor,
@@ -128,8 +134,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
     required IconData icon,
     required String title,
     required String value,
-    required String change,
-    required Color changeColor,
+    required String subtitle,
   }) {
     return Expanded(
       child: Container(
@@ -170,10 +175,12 @@ class _VendorDashboardState extends State<VendorDashboard> {
             ),
             const SizedBox(height: 10),
             Text(
-              change,
-              style: TextStyle(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 fontSize: 12,
-                color: changeColor,
+                color: AppColors.subtleText,
                 fontFamily: AppFonts.primary,
               ),
             ),
@@ -184,154 +191,384 @@ class _VendorDashboardState extends State<VendorDashboard> {
   }
 
   Widget _buildOverviewPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Overview',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: AppColors.darkText,
-              fontFamily: AppFonts.primary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Track the latest store performance and sales metrics.',
-            style: AppTextStyles.body,
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              _buildOverviewCard(
-                icon: Icons.people_alt_outlined,
-                title: 'Total Visitors',
-                value: '855',
-                change: '+4.8%',
-                changeColor: Colors.green,
-              ),
-              const SizedBox(width: 12),
-              _buildOverviewCard(
-                icon: Icons.shopping_bag_outlined,
-                title: 'Total Orders',
-                value: '658',
-                change: '+2.5%',
-                changeColor: Colors.green,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildOverviewCard(
-                icon: Icons.remove_red_eye_outlined,
-                title: 'Total Views',
-                value: '788',
-                change: '-1.8%',
-                changeColor: Colors.red,
-              ),
-              const SizedBox(width: 12),
-              _buildOverviewCard(
-                icon: Icons.chat_bubble_outline,
-                title: 'Conversion',
-                value: '82%',
-                change: '+2.0%',
-                changeColor: Colors.green,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, 10),
+    return FutureBuilder<BrandAnalyticsSnapshot>(
+      future: _brandAnalyticsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Unable to load analytics.',
+                  style: AppTextStyles.body,
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _refreshBrandAnalytics,
+                  child: const Text('Retry'),
                 ),
               ],
             ),
+          );
+        }
+
+        final analytics =
+            snapshot.data ?? BrandAnalyticsSnapshot.empty(_analyticsRange);
+        return RefreshIndicator(
+          onRefresh: () async {
+            await _refreshBrandAnalytics();
+            await _vendorOrdersFuture;
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildOverviewHeader(),
+                const SizedBox(height: 16),
+                _buildRangeSelector(),
+                const SizedBox(height: 20),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Weekly Sales',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.darkText,
-                        fontFamily: AppFonts.primary,
-                      ),
+                    _buildOverviewCard(
+                      icon: Icons.payments_outlined,
+                      title: 'Revenue',
+                      value: formatKyat(analytics.totalRevenue),
+                      subtitle: '${analytics.salesOrderCount} sales orders',
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.lightGrey,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Weekly',
-                        style: TextStyle(
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    const SizedBox(width: 12),
+                    _buildOverviewCard(
+                      icon: Icons.shopping_bag_outlined,
+                      title: 'Orders',
+                      value: '${analytics.totalOrders}',
+                      subtitle: '${analytics.pendingOrderCount} pending',
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  height: 190,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildChartBar(label: 'Sun', value: 0.5),
-                      _buildChartBar(label: 'Mon', value: 0.6),
-                      _buildChartBar(label: 'Tue', value: 0.4),
-                      _buildChartBar(label: 'Wed', value: 0.7),
-                      _buildChartBar(label: 'Thu', value: 0.8),
-                      _buildChartBar(label: 'Fri', value: 0.9),
-                      _buildChartBar(label: 'Sat', value: 0.65),
-                    ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _buildOverviewCard(
+                      icon: Icons.inventory_2_outlined,
+                      title: 'Products Sold',
+                      value: '${analytics.productsSold}',
+                      subtitle: '${analytics.lowStockItems.length} low stock',
+                    ),
+                    const SizedBox(width: 12),
+                    _buildOverviewCard(
+                      icon: Icons.remove_red_eye_outlined,
+                      title: 'Product Views',
+                      value: '${analytics.productViews}',
+                      subtitle:
+                          '${analytics.conversionRate.toStringAsFixed(1)}% conversion',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _buildOverviewCard(
+                      icon: Icons.storefront_outlined,
+                      title: 'Profile Visits',
+                      value: '${analytics.brandProfileVisits}',
+                      subtitle: '${analytics.uniqueProfileVisits} unique',
+                    ),
+                    const SizedBox(width: 12),
+                    _buildOverviewCard(
+                      icon: Icons.cancel_outlined,
+                      title: 'Canceled',
+                      value: '${analytics.canceledOrderCount}',
+                      subtitle: 'Excluded from revenue',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                _buildRevenuePanel(analytics),
+                const SizedBox(height: 16),
+                _buildBestSellingPanel(analytics.bestSellingProducts),
+                const SizedBox(height: 16),
+                _buildPopularProductsPanel(analytics.popularProducts),
+                const SizedBox(height: 16),
+                _buildLowStockPanel(analytics.lowStockItems),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOverviewHeader() {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Overview',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: AppColors.darkText,
+            fontFamily: AppFonts.primary,
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          'Track your sales, visitors, product demand, and stock health.',
+          style: AppTextStyles.body,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRangeSelector() {
+    return Row(
+      children: BrandAnalyticsRange.values.map((range) {
+        final selected = _analyticsRange == range;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            label: Text(range.label),
+            selected: selected,
+            onSelected: (_) => _changeAnalyticsRange(range),
+            selectedColor: AppColors.primaryGreen,
+            showCheckmark: false,
+            labelStyle: TextStyle(
+              color: selected ? Colors.white : AppColors.darkText,
+              fontFamily: AppFonts.primary,
+              fontWeight: FontWeight.w700,
+            ),
+            side: BorderSide(
+              color: selected ? AppColors.primaryGreen : Colors.black12,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRevenuePanel(BrandAnalyticsSnapshot analytics) {
+    final maxValue = analytics.revenueSeries.fold<double>(
+      0,
+      (max, point) => point.value > max ? point.value : max,
+    );
+    return _analyticsPanel(
+      title: '${analytics.range.label} Revenue',
+      trailing: formatKyat(analytics.totalRevenue),
+      child: SizedBox(
+        height: 190,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: analytics.revenueSeries.map((point) {
+            final value = maxValue == 0 ? 0.06 : (point.value / maxValue);
+            return _buildChartBar(label: point.label, value: value);
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBestSellingPanel(List<BrandProductSalesItem> products) {
+    return _analyticsPanel(
+      title: 'Best Selling',
+      child: products.isEmpty
+          ? _emptyAnalyticsText('No sales in this period yet.')
+          : Column(
+              children: products
+                  .map(
+                    (item) => _analyticsRow(
+                      title: item.productTitle,
+                      subtitle:
+                          '${item.variantLabel} • ${item.orderCount} orders',
+                      value: '${item.quantitySold} sold',
+                      footnote: formatKyat(item.grossRevenue),
+                    ),
+                  )
+                  .toList(),
+            ),
+    );
+  }
+
+  Widget _buildPopularProductsPanel(List<BrandProductViewItem> products) {
+    return _analyticsPanel(
+      title: 'Most Popular',
+      child: products.isEmpty
+          ? _emptyAnalyticsText('No product views in this period yet.')
+          : Column(
+              children: products
+                  .map(
+                    (item) => _analyticsRow(
+                      title: item.productTitle,
+                      subtitle: '${item.uniqueViews} unique viewers',
+                      value: '${item.totalViews} views',
+                    ),
+                  )
+                  .toList(),
+            ),
+    );
+  }
+
+  Widget _buildLowStockPanel(List<BrandLowStockItem> items) {
+    return _analyticsPanel(
+      title: 'Low Stock',
+      child: items.isEmpty
+          ? _emptyAnalyticsText('No low stock products right now.')
+          : Column(
+              children: items
+                  .map(
+                    (item) => _analyticsRow(
+                      title: item.productTitle,
+                      subtitle: item.variantLabel,
+                      value: '${item.stockQuantity} left',
+                    ),
+                  )
+                  .toList(),
+            ),
+    );
+  }
+
+  Widget _analyticsPanel({
+    required String title,
+    required Widget child,
+    String? trailing,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Sales in USD',
-                  style: TextStyle(
+              ),
+              if (trailing != null)
+                Text(
+                  trailing,
+                  style: const TextStyle(
+                    color: AppColors.primaryGreen,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _analyticsRow({
+    required String title,
+    required String subtitle,
+    required String value,
+    String? footnote,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: AppColors.subtleText,
                     fontFamily: AppFonts.primary,
+                    fontSize: 12,
                   ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.primaryGreen,
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (footnote != null) ...[
+                const SizedBox(height: 3),
+                Text(
+                  footnote,
+                  style: const TextStyle(
+                    color: AppColors.subtleText,
+                    fontFamily: AppFonts.primary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
     );
   }
 
+  Widget _emptyAnalyticsText(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(message, style: AppTextStyles.body),
+    );
+  }
+
   Widget _buildChartBar({required String label, required double value}) {
+    final height = 140 * value.clamp(0.06, 1.0);
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Container(
           width: 20,
-          height: 140 * value,
+          height: height,
           decoration: BoxDecoration(
             color: AppColors.primaryGreen,
             borderRadius: BorderRadius.circular(12),
@@ -352,10 +589,14 @@ class _VendorDashboardState extends State<VendorDashboard> {
   Future<void> _refreshVendorOrders() async {
     await _loadVendorBrandOrderPrefix();
     final future = _loadVendorOrdersAndCount();
+    final analyticsFuture = BrandAnalyticsService.instance.loadSnapshot(
+      _analyticsRange,
+    );
     setState(() {
       _vendorOrdersFuture = future;
+      _brandAnalyticsFuture = analyticsFuture;
     });
-    await future;
+    await Future.wait([future, analyticsFuture]);
   }
 
   Future<void> _openNotifications() async {
@@ -426,10 +667,25 @@ class _VendorDashboardState extends State<VendorDashboard> {
     );
   }
 
-  Widget _bottomNavIconWithBadge({
-    required IconData icon,
-    required int count,
-  }) {
+  void _changeAnalyticsRange(BrandAnalyticsRange range) {
+    if (_analyticsRange == range) return;
+    setState(() {
+      _analyticsRange = range;
+      _brandAnalyticsFuture = BrandAnalyticsService.instance.loadSnapshot(
+        _analyticsRange,
+      );
+    });
+  }
+
+  Future<void> _refreshBrandAnalytics() async {
+    final future = BrandAnalyticsService.instance.loadSnapshot(_analyticsRange);
+    setState(() {
+      _brandAnalyticsFuture = future;
+    });
+    await future;
+  }
+
+  Widget _bottomNavIconWithBadge({required IconData icon, required int count}) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -665,7 +921,8 @@ class _VendorDashboardState extends State<VendorDashboard> {
           ('In Delivery', inDelivery.length, OrderStatus.inDelivery),
           ('Completed', completed.length, OrderStatus.completed),
           ('Canceled', canceled.length, OrderStatus.canceled),
-          if (refunds.isNotEmpty) ('Refund', refunds.length, OrderStatus.refund),
+          if (refunds.isNotEmpty)
+            ('Refund', refunds.length, OrderStatus.refund),
         ];
         final displayedIndex = _orderTabIndex < tabs.length
             ? _orderTabIndex
@@ -990,8 +1247,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
       ),
       body: pages[_currentIndex],
       bottomNavigationBar: ValueListenableBuilder<int>(
-        valueListenable:
-            VendorInventoryService.instance.lowStockCountNotifier,
+        valueListenable: VendorInventoryService.instance.lowStockCountNotifier,
         builder: (context, lowStockCount, _) {
           return AppBottomNavigationBar(
             currentIndex: _currentIndex,
