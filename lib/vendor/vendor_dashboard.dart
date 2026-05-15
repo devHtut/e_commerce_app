@@ -720,26 +720,36 @@ class _VendorDashboardState extends State<VendorDashboard> {
     required String label,
     required int count,
     required bool selected,
+    required OrderStatus status,
   }) {
+    final statusColor = _orderStatusColor(status);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label),
         if (count > 0) ...[
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Container(
-            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-            padding: const EdgeInsets.symmetric(horizontal: 5),
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: selected ? Colors.white : AppColors.errorRed,
-              shape: BoxShape.circle,
+              color: selected
+                  ? Colors.white
+                  : statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: selected
+                    ? Colors.white
+                    : statusColor.withValues(alpha: 0.28),
+              ),
             ),
             child: Text(
               count > 99 ? '99+' : '$count',
               style: TextStyle(
-                color: selected ? AppColors.errorRed : Colors.white,
+                color: selected ? AppColors.primaryGreen : statusColor,
                 fontSize: 10,
+                fontFamily: AppFonts.primary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -976,6 +986,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       label: tab.$1,
                       count: _unviewedOrderCount(tab.$3, tab.$2),
                       selected: selected,
+                      status: tab.$3,
                     ),
                     selected: selected,
                     onSelected: (_) => setState(() {
