@@ -40,7 +40,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   List<ProductModel> _products = [];
   Map<String, ProductEngagementMetrics> _productMetrics = {};
   List<String> _categories = const ['Discover'];
-  List<String> _audiences = const ['All Audiences'];
+  List<String> _audiences = const ['All'];
   int _selectedCategoryIndex = 0;
   int _selectedAudienceIndex = 0;
   _ShopSort? _sort = _ShopSort.latestArrival;
@@ -102,7 +102,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           _shop = null;
           _products = [];
           _categories = const ['Discover'];
-          _audiences = const ['All Audiences'];
+          _audiences = const ['All'];
           _error = 'Shop profile not found.';
         });
         return;
@@ -155,7 +155,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
         _products = products;
         _productMetrics = metrics;
         _categories = ['Discover', ...categories];
-        _audiences = ['All Audiences', ...audiences];
+        _audiences = ['All', ...audiences];
         _selectedCategoryIndex = 0;
         _selectedAudienceIndex = 0;
       });
@@ -189,7 +189,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
           selectedCategory == 'Discover' ||
           product.category == selectedCategory;
       final audienceMatch =
-          selectedAudience == 'All Audiences' ||
+          selectedAudience == 'All' ||
           product.audience == selectedAudience;
       return categoryMatch && audienceMatch;
     }).toList();
@@ -475,13 +475,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 104),
                   sliver: SliverGrid.builder(
                     itemCount: _visibleProducts.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 14,
-                          childAspectRatio: 0.58,
-                        ),
+                    gridDelegate: ProductCard.gridDelegate,
                     itemBuilder: (context, index) {
                       final product = _visibleProducts[index];
                       return ProductCard(
@@ -833,7 +827,7 @@ class _ShopBottomSheetPanel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30), bottom: Radius.circular(30)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

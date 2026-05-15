@@ -48,7 +48,8 @@ class WishlistService {
           .from('products')
           .select(
             'id, brand_id, category_id, title, description, base_price, created_at, '
-            'categories(name), brands(brand_name,logo_url), product_variants(image_url)',
+            'categories(name), brands(brand_name,logo_url), '
+            'product_variants(image_url,price_adjustment,promo_price)',
           )
           .filter('id', 'in', productIds);
       final productsById = {

@@ -396,12 +396,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           centerTitle: true,
-          actions: const [
-            Padding(
-              padding: EdgeInsets.only(right: 8),
-              child: Icon(Icons.more_vert, color: AppColors.darkText),
-            ),
-          ],
+          // actions: const [
+          //   Padding(
+          //     padding: EdgeInsets.only(right: 8),
+          //     child: Icon(Icons.more_vert, color: AppColors.darkText),
+          //   ),
+          // ],
         ),
         body: SafeArea(
           child: Column(
@@ -1798,7 +1798,7 @@ class _OrderSection extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(Icons.add, color: AppColors.darkText),
+              // const Icon(Icons.add, color: AppColors.darkText),
             ],
           ),
           const SizedBox(height: 8),

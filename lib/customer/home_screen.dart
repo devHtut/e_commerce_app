@@ -757,12 +757,7 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: products.length,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.58,
-      ),
+      gridDelegate: ProductCard.gridDelegate,
       itemBuilder: (context, index) {
         final product = products[index];
         return ProductCard(
@@ -1865,12 +1860,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return GridView.builder(
           padding: const EdgeInsets.all(12),
           itemCount: wishlistItems.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.58,
-          ),
+          gridDelegate: ProductCard.gridDelegate,
           itemBuilder: (context, index) {
             final product = wishlistItems[index];
             return ProductCard(
@@ -2850,7 +2840,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: AppColors.lightGrey,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          leading: _chatButton(),
+          // leading: _chatButton(),
           leadingWidth: 56,
           title: _currentIndex == 2
               ? ValueListenableBuilder<List<CartItem>>(

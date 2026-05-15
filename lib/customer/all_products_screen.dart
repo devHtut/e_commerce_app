@@ -429,12 +429,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 92),
       itemCount: products.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.56,
-      ),
+      gridDelegate: ProductCard.gridDelegate,
       itemBuilder: (context, index) {
         final product = products[index];
         return ProductCard(

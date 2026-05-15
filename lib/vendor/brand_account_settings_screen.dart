@@ -80,7 +80,7 @@ class _BrandAccountSettingsScreenState
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(30),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,

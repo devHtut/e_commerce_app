@@ -8,6 +8,13 @@ import '../theme_config.dart';
 import 'price_formatter.dart';
 
 class ProductCard extends StatefulWidget {
+  static const gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 2,
+    crossAxisSpacing: 12,
+    mainAxisSpacing: 12,
+    childAspectRatio: 0.58,
+  );
+
   final ProductModel product;
   final VoidCallback onTap;
   final VoidCallback? onWishlistTap;
