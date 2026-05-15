@@ -79,6 +79,14 @@ class DeliveryAddressResult {
   });
 }
 
+bool _isMainAddressLabel(String label) {
+  final normalized = label.trim().toLowerCase().replaceAll(
+    RegExp(r'[-_]+'),
+    ' ',
+  );
+  return normalized == 'main address';
+}
+
 class DeliveryAddressScreen extends StatefulWidget {
   final List<DeliveryAddress> initialAddresses;
   final String selectedAddressId;
@@ -417,7 +425,8 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (address.isPrimary)
+                    if (address.isPrimary &&
+                        !_isMainAddressLabel(address.label))
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -835,7 +844,8 @@ class _ChooseAddressCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (address.isPrimary)
+                  if (address.isPrimary &&
+                      !_isMainAddressLabel(address.label))
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,

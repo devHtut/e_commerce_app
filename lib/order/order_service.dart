@@ -373,11 +373,14 @@ class OrderService {
 
   Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
     final previousStatus = await _loadOrderStatus(orderId);
+    final changedAt = DateTime.now();
 
     await Supabase.instance.client
         .from('orders')
         .update({'status': _statusToDatabaseValue(status)})
         .eq('id', orderId);
+
+    await _recordStatusHistory(orderId, status, changedAt);
 
     if (status == OrderStatus.canceled &&
         previousStatus != OrderStatus.canceled &&
@@ -394,7 +397,7 @@ class OrderService {
                     ...order.statusHistory,
                     OrderStatusHistoryEntry(
                       status: status,
-                      changedAt: DateTime.now(),
+                      changedAt: changedAt,
                     ),
                   ],
                 )
@@ -402,6 +405,22 @@ class OrderService {
         )
         .toList();
     ordersNotifier.value = orders;
+  }
+
+  Future<void> _recordStatusHistory(
+    String orderId,
+    OrderStatus status,
+    DateTime changedAt,
+  ) async {
+    try {
+      await Supabase.instance.client.from('order_status_history').insert({
+        'order_id': orderId,
+        'status': _statusToDatabaseValue(status),
+        'changed_at': changedAt.toUtc().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Error recording order status history: $e');
+    }
   }
 
   Future<void> reserveStockForOrder(String orderId) async {

@@ -8,6 +8,7 @@ import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 
 class CreateProductScreen extends StatefulWidget {
@@ -251,7 +252,16 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
 
   Future<void> _save() async {
     if (_isSaving) return;
-    if (!_formKey.currentState!.validate()) return;
+    final inputIssues = _collectInputIssues();
+    if (inputIssues.isNotEmpty) {
+      await _showInputIssues(inputIssues);
+      _formKey.currentState!.validate();
+      return;
+    }
+    if (!_formKey.currentState!.validate()) {
+      await _showInputIssues(['Please check the highlighted fields.']);
+      return;
+    }
 
     setState(() => _isSaving = true);
     String? createdProductId;
@@ -314,6 +324,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
 
       final brand = await AuthUserService.getVendorBrand(currentUser.id);
       if (brand == null) {
+        if (!mounted) return;
         await showCustomPopup(
           context,
           title: 'Brand profile missing',
@@ -469,6 +480,75 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     }
   }
 
+  Future<void> _showInputIssues(List<String> issues) {
+    return showCustomPopup(
+      context,
+      title: 'Missing product details',
+      message: issues.map((issue) => '• $issue').join('\n'),
+      type: PopupType.error,
+    );
+  }
+
+  List<String> _collectInputIssues() {
+    final issues = <String>[];
+    if (_nameController.text.trim().isEmpty) {
+      issues.add('Product name is required.');
+    }
+    if (_descriptionController.text.trim().isEmpty) {
+      issues.add('Product description is required.');
+    }
+    if (_selectedCategoryId == null || _selectedCategoryId!.isEmpty) {
+      issues.add('Please choose a category.');
+    }
+    if (_selectedAudienceId == null || _selectedAudienceId!.isEmpty) {
+      issues.add('Please choose an audience.');
+    }
+
+    if (_hasVariants) {
+      for (
+        var groupIndex = 0;
+        groupIndex < _variantGroups.length;
+        groupIndex++
+      ) {
+        final group = _variantGroups[groupIndex];
+        final colorLabel = group.color.trim().isEmpty
+            ? 'Color ${groupIndex + 1}'
+            : group.color;
+        if (group.images.isEmpty) {
+          issues.add('Add at least one photo for $colorLabel.');
+        }
+        for (var index = 0; index < group.variants.length; index++) {
+          final variant = group.variants[index];
+          final label = '$colorLabel ${variant.size}';
+          final stockError = _validateStock(variant.stockController.text);
+          final priceError = _validatePrice(variant.priceController.text);
+          final promoError = _validatePromo(
+            variant.promoPriceController.text,
+            variant.priceController.text,
+          );
+          if (stockError != null) issues.add('$label stock: $stockError');
+          if (priceError != null) issues.add('$label price: $priceError');
+          if (promoError != null) issues.add('$label promo: $promoError');
+        }
+      }
+      return issues;
+    }
+
+    if (_simpleImages.isEmpty) {
+      issues.add('Add at least one product photo.');
+    }
+    final stockError = _validateStock(_simpleStockController.text);
+    final priceError = _validatePrice(_simplePriceController.text);
+    final promoError = _validatePromo(
+      _simplePromoController.text,
+      _simplePriceController.text,
+    );
+    if (stockError != null) issues.add('Stock: $stockError');
+    if (priceError != null) issues.add('Price: $priceError');
+    if (promoError != null) issues.add('Promo: $promoError');
+    return issues;
+  }
+
   Future<void> _pickVariantGroupColor(_ColorGroupDraft group) async {
     final selected = await showDialog<Color>(
       context: context,
@@ -540,9 +620,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   }) async {
     if (storagePaths.isNotEmpty) {
       try {
-        await Supabase.instance.client.storage.from('media').remove(
-          storagePaths,
-        );
+        await Supabase.instance.client.storage
+            .from('media')
+            .remove(storagePaths);
       } catch (_) {
         // Best-effort cleanup. The user-facing error is shown by _save().
       }
@@ -604,8 +684,9 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     final promo = double.tryParse(raw);
     final price = double.tryParse(priceText.trim());
     if (promo == null || promo <= 0) return 'Invalid promo.';
-    if (price != null && promo >= price)
+    if (price != null && promo >= price) {
       return 'Promo must be lower than price.';
+    }
     return null;
   }
 
@@ -619,144 +700,146 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _requestLeave();
       },
-      child: Scaffold(
-        backgroundColor: AppColors.lightGrey,
-        appBar: AppBar(
-          elevation: 0,
-          centerTitle: true,
-          backgroundColor: Colors.transparent,
-          leading: IconButton(
-            onPressed: _requestLeave,
-            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
-          ),
-          title: const Text(
-            'Create Product',
-            style: TextStyle(
-              color: AppColors.darkText,
-              fontFamily: AppFonts.primary,
-              fontWeight: FontWeight.w700,
+      child: LoadingOverlay(
+        isLoading: _isSaving,
+        child: Scaffold(
+          backgroundColor: AppColors.lightGrey,
+          appBar: AppBar(
+            elevation: 0,
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            leading: IconButton(
+              onPressed: _requestLeave,
+              icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+            ),
+            title: const Text(
+              'Create Product',
+              style: TextStyle(
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomTextField(
-                    controller: _nameController,
-                    labelText: 'Product name',
-                    hintText: 'Product name',
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Product name is required.'
-                        : null,
-                  ),
-                  const SizedBox(height: 10),
-                  CustomTextField(
-                    controller: _descriptionController,
-                    labelText: 'Product description',
-                    hintText: 'Product description',
-                    maxLength: 500,
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Description is required.'
-                        : null,
-                  ),
-                  const SizedBox(height: 10),
-                  if (_isLoadingCategories)
-                    const LinearProgressIndicator()
-                  else
-                    DropdownButtonFormField<String>(
-                      value: _selectedCategoryId,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        labelStyle: TextStyle(
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        hintText: 'Choose category',
-                      ),
-                      items: _categories
-                          .map(
-                            (e) => DropdownMenuItem(
-                              value: e.id,
-                              child: Text(e.name),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: _isSaving
-                          ? null
-                          : (value) =>
-                                setState(() => _selectedCategoryId = value),
-                      validator: (v) => (v == null || v.isEmpty)
-                          ? 'Category is required.'
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomTextField(
+                      controller: _nameController,
+                      labelText: 'Product name',
+                      hintText: 'Product name',
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Product name is required.'
                           : null,
                     ),
-                  const SizedBox(height: 12),
-                  if (_isLoadingCategories)
-                    const SizedBox.shrink()
-                  else
-                    DropdownButtonFormField<String>(
-                      value: _selectedAudienceId,
-                      decoration: const InputDecoration(
-                        labelText: 'Audience',
-                        labelStyle: TextStyle(
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        hintText: 'Choose audience',
-                      ),
-                      items: _audiences
-                          .map(
-                            (e) => DropdownMenuItem(
-                              value: e.id,
-                              child: Text(e.name),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: _isSaving
-                          ? null
-                          : (value) =>
-                                setState(() => _selectedAudienceId = value),
-                      validator: (v) => (v == null || v.isEmpty)
-                          ? 'Audience is required.'
+                    const SizedBox(height: 10),
+                    CustomTextField(
+                      controller: _descriptionController,
+                      labelText: 'Product description',
+                      hintText: 'Product description',
+                      maxLength: 500,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Description is required.'
                           : null,
                     ),
-                  const SizedBox(height: 12),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _hasVariants,
-                    activeThumbColor: AppColors.primaryGreen,
-                    title: const Text('Has variants (color + size)'),
-                    onChanged: _isSaving
-                        ? null
-                        : (value) => setState(() => _hasVariants = value),
-                  ),
-                  const SizedBox(height: 6),
-                  if (_hasVariants)
-                    _buildVariantsSection()
-                  else
-                    _buildSimpleSection(),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: _isSaving
-                        ? const Center(child: CircularProgressIndicator())
-                        : CustomButton(
-                            text: 'Create product',
-                            onPressed: _save,
+                    const SizedBox(height: 10),
+                    if (_isLoadingCategories)
+                      const LinearProgressIndicator()
+                    else
+                      DropdownButtonFormField<String>(
+                        value: _selectedCategoryId,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          labelStyle: TextStyle(
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w600,
                           ),
-                  ),
-                ],
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Choose category',
+                        ),
+                        items: _categories
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.id,
+                                child: Text(e.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _isSaving
+                            ? null
+                            : (value) =>
+                                  setState(() => _selectedCategoryId = value),
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? 'Category is required.'
+                            : null,
+                      ),
+                    const SizedBox(height: 12),
+                    if (_isLoadingCategories)
+                      const SizedBox.shrink()
+                    else
+                      DropdownButtonFormField<String>(
+                        value: _selectedAudienceId,
+                        decoration: const InputDecoration(
+                          labelText: 'Audience',
+                          labelStyle: TextStyle(
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Choose audience',
+                        ),
+                        items: _audiences
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.id,
+                                child: Text(e.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _isSaving
+                            ? null
+                            : (value) =>
+                                  setState(() => _selectedAudienceId = value),
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? 'Audience is required.'
+                            : null,
+                      ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _hasVariants,
+                      activeThumbColor: AppColors.primaryGreen,
+                      title: const Text('Has variants (color + size)'),
+                      onChanged: _isSaving
+                          ? null
+                          : (value) => setState(() => _hasVariants = value),
+                    ),
+                    const SizedBox(height: 6),
+                    if (_hasVariants)
+                      _buildVariantsSection()
+                    else
+                      _buildSimpleSection(),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: CustomButton(
+                        text: 'Create product',
+                        onPressed: _save,
+                        isLoading: _isSaving,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1360,7 +1443,8 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                 spacing: 10,
                 runSpacing: 10,
                 children: _swatchPalette.map((color) {
-                  final isSelected = color.toARGB32() == _selectedColor.toARGB32();
+                  final isSelected =
+                      color.toARGB32() == _selectedColor.toARGB32();
                   return InkWell(
                     onTap: () => _setColor(color),
                     borderRadius: BorderRadius.circular(999),

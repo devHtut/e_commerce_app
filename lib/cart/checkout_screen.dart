@@ -4,6 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../customer/home_screen.dart';
 import '../theme_config.dart';
+import '../widgets/custom_buttom.dart';
+import '../widgets/custom_loading_state.dart';
+import '../widgets/custom_pop_up.dart';
 import '../widgets/discard_changes_dialog.dart';
 import '../widgets/price_formatter.dart';
 import '../address/myanmar_location_data.dart';
@@ -161,7 +164,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _confirmOrder() async {
-    if (_addresses.isEmpty || _isPlacingOrder) return;
+    if (_isPlacingOrder) return;
+    if (_addresses.isEmpty || _selectedAddressId.isEmpty) {
+      await showCustomPopup(
+        context,
+        title: 'Delivery address required',
+        message:
+            'Please add or select a delivery address before confirming your order.',
+        type: PopupType.error,
+      );
+      return;
+    }
     setState(() => _isPlacingOrder = true);
 
     // Instead of processing payment here, navigate to payment screen
@@ -366,94 +379,84 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     const promo = '-';
     final totalPayment = subtotal;
 
-    return Scaffold(
-      backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const BackButton(color: AppColors.darkText),
-        title: const Text(
-          'Checkout',
-          style: TextStyle(
-            fontFamily: AppFonts.primary,
-            color: AppColors.darkText,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: Icon(Icons.more_vert, color: AppColors.darkText),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                children: [
-                  if (_loadingAddresses)
-                    const SizedBox(
-                      height: 120,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryGreen,
-                        ),
-                      ),
-                    )
-                  else if (_addresses.isEmpty)
-                    _EmptyDeliveryAddressCard(onTap: _openChooseDeliveryAddress)
-                  else
-                    _SelectedDeliveryAddressTile(
-                      address: _selectedAddress,
-                      onTap: _openChooseDeliveryAddress,
-                    ),
-                  const SizedBox(height: 12),
-                  _OrderSection(items: items),
-                  const SizedBox(height: 12),
-                  _ReviewSummaryCard(
-                    itemCount: items.length,
-                    subtotal: subtotal,
-                    promo: promo,
-                    totalPayment: totalPayment,
-                  ),
-                ],
-              ),
+    return LoadingOverlay(
+      isLoading: _isPlacingOrder,
+      child: Scaffold(
+        backgroundColor: AppColors.lightGrey,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: const BackButton(color: AppColors.darkText),
+          title: const Text(
+            'Checkout',
+            style: TextStyle(
+              fontFamily: AppFonts.primary,
+              color: AppColors.darkText,
+              fontWeight: FontWeight.w700,
             ),
+          ),
+          centerTitle: true,
+          actions: const [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: SafeArea(
-                top: false,
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: _selectedAddressId.isNotEmpty && !_isPlacingOrder
-                        ? _confirmOrder
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: AppColors.primaryGreen,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
+              padding: EdgeInsets.only(right: 8),
+              child: Icon(Icons.more_vert, color: AppColors.darkText),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  children: [
+                    if (_loadingAddresses)
+                      const SizedBox(
+                        height: 120,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                      )
+                    else if (_addresses.isEmpty)
+                      _EmptyDeliveryAddressCard(
+                        onTap: _openChooseDeliveryAddress,
+                      )
+                    else
+                      _SelectedDeliveryAddressTile(
+                        address: _selectedAddress,
+                        onTap: _openChooseDeliveryAddress,
                       ),
+                    const SizedBox(height: 12),
+                    _OrderSection(items: items),
+                    const SizedBox(height: 12),
+                    _ReviewSummaryCard(
+                      itemCount: items.length,
+                      subtotal: subtotal,
+                      promo: promo,
+                      totalPayment: totalPayment,
                     ),
-                    child: const Text(
-                      'Confirm Order',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: AppFonts.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: CustomButton(
+                      text: 'Confirm Order',
+                      onPressed: _confirmOrder,
+                      isLoading: _isPlacingOrder,
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -526,6 +529,14 @@ class _AddressFlowResult {
     required this.addresses,
     required this.selectedAddressId,
   });
+}
+
+bool _isMainAddressLabel(String label) {
+  final normalized = label.trim().toLowerCase().replaceAll(
+    RegExp(r'[-_]+'),
+    ' ',
+  );
+  return normalized == 'main address';
 }
 
 class _SelectedDeliveryAddressTile extends StatelessWidget {
@@ -892,7 +903,8 @@ class _ChooseAddressCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (address.isPrimary)
+                  if (address.isPrimary &&
+                      !_isMainAddressLabel(address.label))
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -1170,7 +1182,8 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (address.isPrimary)
+                    if (address.isPrimary &&
+                        !_isMainAddressLabel(address.label))
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -1419,6 +1432,20 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
         region.isEmpty ||
         district.isEmpty ||
         township.isEmpty) {
+      final missing = <String>[
+        if (label.isEmpty) 'Address label',
+        if (phone.isEmpty) 'Phone number',
+        if (street.isEmpty) 'Street address',
+        if (region.isEmpty) 'Region',
+        if (district.isEmpty) 'District',
+        if (township.isEmpty) 'Township',
+      ];
+      await showCustomPopup(
+        context,
+        title: 'Missing address details',
+        message: missing.map((field) => '• $field').join('\n'),
+        type: PopupType.error,
+      );
       return;
     }
 

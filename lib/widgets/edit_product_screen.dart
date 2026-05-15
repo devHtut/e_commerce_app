@@ -9,6 +9,7 @@ import '../auth/vendor_access.dart';
 import '../theme_config.dart';
 import 'custom_buttom.dart';
 import 'custom_input.dart';
+import 'custom_loading_state.dart';
 import 'custom_pop_up.dart';
 
 class EditProductScreen extends StatefulWidget {
@@ -234,7 +235,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
         for (final entry in colorMap.entries) {
           final group = _ColorGroupDraft(
             color: entry.key,
-            colorValue: _nullableColorValue(entry.value.first['color_value']) ??
+            colorValue:
+                _nullableColorValue(entry.value.first['color_value']) ??
                 _colorValueForName(entry.key).toARGB32(),
             images: [],
             variants: [],
@@ -330,7 +332,16 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
-    if (!_formKey.currentState!.validate()) return;
+    final inputIssues = _collectInputIssues();
+    if (inputIssues.isNotEmpty) {
+      await _showInputIssues(inputIssues);
+      _formKey.currentState!.validate();
+      return;
+    }
+    if (!_formKey.currentState!.validate()) {
+      await _showInputIssues(['Please check the highlighted fields.']);
+      return;
+    }
 
     setState(() => _saving = true);
     try {
@@ -440,6 +451,74 @@ class _EditProductScreenState extends State<EditProductScreen> {
       }
     }
     return variants;
+  }
+
+  Future<void> _showInputIssues(List<String> issues) {
+    return showCustomPopup(
+      context,
+      title: 'Missing product details',
+      message: issues.map((issue) => '• $issue').join('\n'),
+      type: PopupType.error,
+    );
+  }
+
+  List<String> _collectInputIssues() {
+    final issues = <String>[];
+    if (_nameController.text.trim().isEmpty) {
+      issues.add('Product name is required.');
+    }
+    if (_descriptionController.text.trim().isEmpty) {
+      issues.add('Product description is required.');
+    }
+    if (_selectedCategoryId == null || _selectedCategoryId!.isEmpty) {
+      issues.add('Please choose a category.');
+    }
+    if (_selectedAudienceId == null || _selectedAudienceId!.isEmpty) {
+      issues.add('Please choose an audience.');
+    }
+
+    if (_hasVariants) {
+      for (
+        var groupIndex = 0;
+        groupIndex < _variantGroups.length;
+        groupIndex++
+      ) {
+        final group = _variantGroups[groupIndex];
+        final colorLabel = group.color.trim().isEmpty
+            ? 'Color ${groupIndex + 1}'
+            : group.color;
+        if (group.images.isEmpty) {
+          issues.add('Add at least one photo for $colorLabel.');
+        }
+        for (final variant in group.variants) {
+          final label = '$colorLabel ${variant.size}';
+          final stockError = _validateStock(variant.stockController.text);
+          final priceError = _validatePrice(variant.priceController.text);
+          final promoError = _validatePromo(
+            variant.promoPriceController.text,
+            variant.priceController.text,
+          );
+          if (stockError != null) issues.add('$label stock: $stockError');
+          if (priceError != null) issues.add('$label price: $priceError');
+          if (promoError != null) issues.add('$label promo: $promoError');
+        }
+      }
+      return issues;
+    }
+
+    if (_simpleImages.isEmpty) {
+      issues.add('Add at least one product photo.');
+    }
+    final stockError = _validateStock(_simpleStockController.text);
+    final priceError = _validatePrice(_simplePriceController.text);
+    final promoError = _validatePromo(
+      _simplePromoController.text,
+      _simplePriceController.text,
+    );
+    if (stockError != null) issues.add('Stock: $stockError');
+    if (priceError != null) issues.add('Price: $priceError');
+    if (promoError != null) issues.add('Promo: $promoError');
+    return issues;
   }
 
   Future<void> _pickVariantGroupColor(_ColorGroupDraft group) async {
@@ -563,8 +642,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
     final promo = double.tryParse(raw);
     final price = double.tryParse(priceText.trim());
     if (promo == null || promo <= 0) return 'Invalid promo.';
-    if (price != null && promo >= price)
+    if (price != null && promo >= price) {
       return 'Promo must be lower than price.';
+    }
     return null;
   }
 
@@ -582,113 +662,118 @@ class _EditProductScreenState extends State<EditProductScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _requestLeave();
       },
-      child: Scaffold(
-        backgroundColor: AppColors.lightGrey,
-        appBar: AppBar(
-          elevation: 0,
-          centerTitle: true,
-          backgroundColor: Colors.transparent,
-          leading: IconButton(
-            onPressed: _requestLeave,
-            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+      child: LoadingOverlay(
+        isLoading: _saving,
+        child: Scaffold(
+          backgroundColor: AppColors.lightGrey,
+          appBar: AppBar(
+            elevation: 0,
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            leading: IconButton(
+              onPressed: _requestLeave,
+              icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+            ),
+            title: const Text('Edit Product'),
           ),
-          title: const Text('Edit Product'),
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  CustomTextField(
-                    controller: _nameController,
-                    labelText: 'Product name',
-                    hintText: 'Product name',
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  CustomTextField(
-                    controller: _descriptionController,
-                    labelText: 'Product description',
-                    hintText: 'Product description',
-                    maxLength: 500,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    value: _selectedCategoryId,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      labelStyle: TextStyle(
-                        color: AppColors.darkText,
-                        fontFamily: AppFonts.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'Choose category',
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    CustomTextField(
+                      controller: _nameController,
+                      labelText: 'Product name',
+                      hintText: 'Product name',
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
-                    items: _categories
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.id,
-                            child: Text(e.name),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedCategoryId = v),
-                    validator: (v) => (v == null || v.isEmpty)
-                        ? 'Category is required.'
-                        : null,
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    value: _selectedAudienceId,
-                    decoration: const InputDecoration(
-                      labelText: 'Audience',
-                      labelStyle: TextStyle(
-                        color: AppColors.darkText,
-                        fontFamily: AppFonts.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'Choose audience',
+                    const SizedBox(height: 10),
+                    CustomTextField(
+                      controller: _descriptionController,
+                      labelText: 'Product description',
+                      hintText: 'Product description',
+                      maxLength: 500,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
-                    items: _audiences
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.id,
-                            child: Text(e.name),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedAudienceId = v),
-                    validator: (v) => (v == null || v.isEmpty)
-                        ? 'Audience is required.'
-                        : null,
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _hasVariants,
-                    title: const Text('Has variants'),
-                    onChanged: (v) => setState(() => _hasVariants = v),
-                  ),
-                  const SizedBox(height: 8),
-                  _hasVariants ? _buildVariantEditor() : _buildSimpleEditor(),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: _saving
-                        ? const Center(child: CircularProgressIndicator())
-                        : CustomButton(text: 'Save', onPressed: _save),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: _selectedCategoryId,
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        labelStyle: TextStyle(
+                          color: AppColors.darkText,
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        hintText: 'Choose category',
+                      ),
+                      items: _categories
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e.id,
+                              child: Text(e.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedCategoryId = v),
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Category is required.'
+                          : null,
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: _selectedAudienceId,
+                      decoration: const InputDecoration(
+                        labelText: 'Audience',
+                        labelStyle: TextStyle(
+                          color: AppColors.darkText,
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        hintText: 'Choose audience',
+                      ),
+                      items: _audiences
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e.id,
+                              child: Text(e.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedAudienceId = v),
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Audience is required.'
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _hasVariants,
+                      title: const Text('Has variants'),
+                      onChanged: (v) => setState(() => _hasVariants = v),
+                    ),
+                    const SizedBox(height: 8),
+                    _hasVariants ? _buildVariantEditor() : _buildSimpleEditor(),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: CustomButton(
+                        text: 'Save',
+                        onPressed: _save,
+                        isLoading: _saving,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1253,7 +1338,8 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                 spacing: 10,
                 runSpacing: 10,
                 children: _swatchPalette.map((color) {
-                  final isSelected = color.toARGB32() == _selectedColor.toARGB32();
+                  final isSelected =
+                      color.toARGB32() == _selectedColor.toARGB32();
                   return InkWell(
                     onTap: () => _setColor(color),
                     borderRadius: BorderRadius.circular(999),

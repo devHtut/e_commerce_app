@@ -87,15 +87,32 @@ class MyApp extends StatelessWidget {
         future: _resolveStartScreen(),
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
+            return const _AppSplashScreen();
           }
           if (snapshot.hasError) {
             return const HomeScreen();
           }
           return snapshot.data ?? const HomeScreen();
         },
+      ),
+    );
+  }
+}
+
+class _AppSplashScreen extends StatelessWidget {
+  const _AppSplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Image(
+          image: AssetImage('assets/icon_logo.png'),
+          width: 132,
+          height: 132,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }

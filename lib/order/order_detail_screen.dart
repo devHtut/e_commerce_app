@@ -378,6 +378,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildStatusPanel() {
+    final averageDeliveryDate = _averageDeliveryDate;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -385,7 +387,36 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         color: _orderStatusBackgroundColor(_order.status),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: _buildStatusChip(_order.status),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatusChip(_order.status),
+          if (averageDeliveryDate != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.event_available_outlined,
+                  color: _orderStatusColor(_order.status),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Average delivery date: '
+                    '${_formatOrderDate(averageDeliveryDate)}',
+                    style: TextStyle(
+                      color: _orderStatusColor(_order.status),
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -877,6 +908,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final hour = localDate.hour.toString().padLeft(2, '0');
     final minute = localDate.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+
+  String _formatOrderDate(DateTime date) {
+    final localDate = date.toLocal();
+    final day = localDate.day.toString().padLeft(2, '0');
+    final month = localDate.month.toString().padLeft(2, '0');
+    return '$day.$month.${localDate.year}';
+  }
+
+  DateTime? get _averageDeliveryDate {
+    if (_order.status != OrderStatus.inDelivery) return null;
+
+    final inDeliveryAt = _order.statusHistory
+        .where((entry) => entry.status == OrderStatus.inDelivery)
+        .map((entry) => entry.changedAt)
+        .fold<DateTime?>(null, (latest, changedAt) {
+          if (latest == null || changedAt.isAfter(latest)) return changedAt;
+          return latest;
+        });
+
+    return (inDeliveryAt ?? DateTime.now()).add(const Duration(days: 4));
   }
 
   bool _trackStepActive(OrderStatus status) {
