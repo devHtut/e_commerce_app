@@ -474,14 +474,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           SizedBox(
                             width: double.infinity,
                             height: 56,
-                            child: _isLoading
-                                ? const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                : CustomButton(
-                                    text: _buttonText,
-                                    onPressed: _submitCurrentStep,
-                                  ),
+                            child: CustomButton(
+                              isLoading: _isLoading,
+                              text: _buttonText,
+                              onPressed: _submitCurrentStep,
+                            ),
                           ),
                         ],
                       ),

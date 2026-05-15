@@ -6,6 +6,7 @@ import '../auth/signin_screen.dart';
 import '../auth/vendor_access.dart';
 import '../notification/notification_service.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 import 'brand_business_info_screen.dart';
 import 'brand_profile_screen.dart';
@@ -163,7 +164,7 @@ class _BrandAccountSettingsScreenState
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk || _isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: CustomLoadingCenter());
     }
 
     final brandName = _brand?['brand_name']?.toString().trim() ?? 'Brand Name';

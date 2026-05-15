@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
@@ -185,7 +186,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: CustomLoadingCenter());
     }
     return PopScope(
       canPop: _allowPop,
@@ -377,12 +378,11 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: _isSaving
-                        ? const Center(child: CircularProgressIndicator())
-                        : CustomButton(
-                            text: 'Next',
-                            onPressed: _saveVendorInfo,
-                          ),
+                    child: CustomButton(
+                      isLoading: _isSaving,
+                      text: 'Next',
+                      onPressed: _saveVendorInfo,
+                    ),
                   ),
                 ],
               ),

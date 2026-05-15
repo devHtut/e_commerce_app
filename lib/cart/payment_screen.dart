@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../utils/payment_assets.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_pop_up.dart';
@@ -542,7 +543,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
         body: SafeArea(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const CustomLoadingCenter()
               : SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
@@ -701,12 +702,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       SizedBox(
                         width: double.infinity,
                         height: 56,
-                        child: _isProcessing
-                            ? const Center(child: CircularProgressIndicator())
-                            : CustomButton(
-                                text: 'Make Payment',
-                                onPressed: _makePayment,
-                              ),
+                        child: CustomButton(
+                          isLoading: _isProcessing,
+                          text: 'Make Payment',
+                          onPressed: _makePayment,
+                        ),
                       ),
                     ],
                   ),

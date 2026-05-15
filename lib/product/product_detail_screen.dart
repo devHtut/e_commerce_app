@@ -11,6 +11,7 @@ import '../customer/chat_screen.dart';
 import '../vendor/brand_analytics_service.dart';
 import '../vendor/shop_profile_screen.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/price_formatter.dart';
@@ -392,7 +393,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       builder: (context, snapshot) {
         final reviews = snapshot.data ?? const <ProductReview>[];
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const CustomLoadingCenter();
         }
         if (reviews.isEmpty) {
           return const SizedBox.shrink();
@@ -954,7 +955,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (_loading) {
       return const Scaffold(
         backgroundColor: AppColors.lightGrey,
-        body: Center(child: CircularProgressIndicator()),
+        body: const CustomLoadingCenter(),
       );
     }
     if (_error != null) {

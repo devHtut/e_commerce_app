@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import 'order_receipt_content.dart';
 import 'order_receipt_generator.dart';
 import 'order_service.dart';
@@ -132,12 +133,9 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                 onPressed: _saving ? null : _saveImage,
                 icon: _saving
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                        width: 42,
+                        height: 24,
+                        child: ButtonLoadingDots(width: 42, height: 24),
                       )
                     : const Icon(Icons.save_alt),
                 label: Text(_saving ? 'Saving...' : 'Save Image'),

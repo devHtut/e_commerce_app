@@ -212,10 +212,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 SizedBox(
                   width: 46,
                   height: 46,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 5,
-                    color: AppColors.primaryGreen,
-                  ),
+                  child: CustomLoadingIndicator(size: 46),
                 ),
                 SizedBox(height: 18),
                 Text(
@@ -413,11 +410,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     if (_loadingAddresses)
                       const SizedBox(
                         height: 120,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primaryGreen,
-                          ),
-                        ),
+                        child: CustomLoadingCenter(size: 88),
                       )
                     else if (_addresses.isEmpty)
                       _EmptyDeliveryAddressCard(

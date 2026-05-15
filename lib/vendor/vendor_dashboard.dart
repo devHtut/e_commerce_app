@@ -10,6 +10,7 @@ import '../notification/notification_service.dart';
 import '../order/order_detail_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
 import '../widgets/order_readable_id_search.dart';
 import '../widgets/price_formatter.dart';
@@ -195,7 +196,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
       future: _brandAnalyticsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const CustomLoadingCenter();
         }
 
         if (snapshot.hasError) {
@@ -885,7 +886,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
       future: _vendorOrdersFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const CustomLoadingCenter();
         }
 
         if (snapshot.hasError) {
@@ -1233,7 +1234,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessGranted) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: CustomLoadingCenter());
     }
 
     final pages = <Widget>[

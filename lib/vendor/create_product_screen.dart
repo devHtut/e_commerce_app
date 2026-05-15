@@ -693,7 +693,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: CustomLoadingCenter());
     }
     return PopScope(
       canPop: _allowPop,

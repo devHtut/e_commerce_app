@@ -5,6 +5,7 @@ import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
 import '../product/product_sales_service.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/product_card.dart';
 import '../widgets/search_box.dart';
@@ -390,7 +391,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
 
   Widget _buildContent() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const CustomLoadingCenter();
     }
     if (_error != null) {
       return Center(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import 'notification_service.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -114,7 +115,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         future: _notificationsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const CustomLoadingCenter();
           }
 
           if (snapshot.hasError) {

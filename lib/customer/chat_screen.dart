@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../chat/chat_service.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -688,7 +689,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildInbox(BuildContext context) {
     if (_isLoadingChats) {
-      return const Center(child: CircularProgressIndicator());
+      return const CustomLoadingCenter();
     }
 
     if (_errorMessage != null) {
@@ -763,7 +764,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: _isLoadingMessages
-                ? const Center(child: CircularProgressIndicator())
+                ? const CustomLoadingCenter()
                 : _messages.isEmpty
                 ? const _ChatEmptyState(
                     icon: Icons.chat_outlined,
@@ -1459,13 +1460,7 @@ class _MessageComposer extends StatelessWidget {
                   width: 44,
                   height: 44,
                   child: isSending
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                      ? const ButtonLoadingDots(width: 40, height: 24)
                       : const Icon(
                           Icons.send_rounded,
                           color: Colors.white,
@@ -1609,7 +1604,7 @@ class _StartChatSheetState extends State<_StartChatSheet> {
                   future: _optionsFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const CustomLoadingCenter();
                     }
 
                     if (snapshot.hasError) {

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/edit_product_screen.dart';
 import '../widgets/price_formatter.dart';
@@ -249,10 +250,10 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: CustomLoadingCenter());
     }
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: CustomLoadingCenter());
     }
     if (_error != null) {
       return Scaffold(body: Center(child: Text(_error!)));

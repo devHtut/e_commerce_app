@@ -423,14 +423,13 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: _isSaving
-                        ? const Center(child: CircularProgressIndicator())
-                        : CustomButton(
-                            text: widget.initialFullName == null
-                                ? 'Save Profile'
-                                : 'Update Profile',
-                            onPressed: _saveProfile,
-                          ),
+                    child: CustomButton(
+                      isLoading: _isSaving,
+                      text: widget.initialFullName == null
+                          ? 'Save Profile'
+                          : 'Update Profile',
+                      onPressed: _saveProfile,
+                    ),
                   ),
                 ],
               ),

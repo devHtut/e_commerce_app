@@ -23,6 +23,7 @@ import '../widgets/guest_auth_gate.dart';
 import '../widgets/order_readable_id_search.dart';
 import '../widgets/search_box.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import 'all_products_screen.dart';
 import 'chat_screen.dart';
 import 'help_support_screen.dart';
@@ -844,7 +845,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (_isLoadingBrands)
           const SizedBox(
             height: 100,
-            child: Center(child: CircularProgressIndicator()),
+            child: const CustomLoadingCenter(),
           )
         else if (_brandsError != null)
           Text(
@@ -2393,7 +2394,7 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (_currentIndex) {
       case 0:
         if (_isLoadingProducts) {
-          return const Center(child: CircularProgressIndicator());
+          return const CustomLoadingCenter();
         }
         if (_productsError != null) {
           return Center(
@@ -2468,7 +2469,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (_isAccountLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const CustomLoadingCenter();
         }
 
         final displayName =

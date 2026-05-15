@@ -266,12 +266,11 @@ class _SignInScreenState extends State<SignInScreen> {
                         SizedBox(
                           width: double.infinity,
                           height: 56,
-                          child: _isLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : CustomButton(
-                                  text: 'Sign in',
-                                  onPressed: _signInWithEmail,
-                                ),
+                          child: CustomButton(
+                            isLoading: _isLoading,
+                            text: 'Sign in',
+                            onPressed: _signInWithEmail,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         SizedBox(

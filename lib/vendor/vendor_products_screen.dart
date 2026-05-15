@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/vendor_access.dart';
 import '../notification/notification_service.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/price_formatter.dart';
 import '../widgets/search_box.dart';
 import 'create_product_screen.dart';
@@ -159,7 +160,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk) {
-      return const Center(child: CircularProgressIndicator());
+      return const CustomLoadingCenter();
     }
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
@@ -230,7 +231,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
               const SizedBox(height: 16),
               Expanded(
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const CustomLoadingCenter()
                     : _error != null
                         ? Center(
                             child: Column(

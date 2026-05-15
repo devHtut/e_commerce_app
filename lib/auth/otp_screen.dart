@@ -151,13 +151,11 @@ class _OtpScreenState extends State<OtpScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 56,
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : CustomButton(
-                          text: "Verify",
-                          onPressed:
-                              _verifyOtp, // This now works safely with _isLoading
-                        ),
+                  child: CustomButton(
+                    isLoading: _isLoading,
+                    text: "Verify",
+                    onPressed: _verifyOtp,
+                  ),
                 ),
 
                 const SizedBox(height: 24),

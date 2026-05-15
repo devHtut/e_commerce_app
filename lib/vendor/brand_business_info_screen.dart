@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../utils/payment_assets.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
@@ -557,7 +558,7 @@ class _BrandBusinessInfoScreenState extends State<BrandBusinessInfoScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: CustomLoadingCenter());
     }
 
     return PopScope(
@@ -579,7 +580,7 @@ class _BrandBusinessInfoScreenState extends State<BrandBusinessInfoScreen> {
         ),
         body: SafeArea(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const CustomLoadingCenter()
               : SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
@@ -667,12 +668,11 @@ class _BrandBusinessInfoScreenState extends State<BrandBusinessInfoScreen> {
                         SizedBox(
                           width: double.infinity,
                           height: 56,
-                          child: _isSaving
-                              ? const Center(child: CircularProgressIndicator())
-                              : CustomButton(
-                                  text: 'Save Changes',
-                                  onPressed: _saveBusinessInfo,
-                                ),
+                          child: CustomButton(
+                            isLoading: _isSaving,
+                            text: 'Save Changes',
+                            onPressed: _saveBusinessInfo,
+                          ),
                         ),
                       ],
                     ),

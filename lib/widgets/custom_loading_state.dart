@@ -3,6 +3,69 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
+const String kPageLoadingAnimation = 'assets/animations/sandy_loading.json';
+const String kButtonLoadingAnimation = 'assets/animations/loading_dots.json';
+
+class CustomLoadingIndicator extends StatelessWidget {
+  final double size;
+  final String animationAsset;
+
+  const CustomLoadingIndicator({
+    super.key,
+    this.size = 120,
+    this.animationAsset = kPageLoadingAnimation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Lottie.asset(
+      animationAsset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+    );
+  }
+}
+
+class CustomLoadingCenter extends StatelessWidget {
+  final double size;
+  final String animationAsset;
+
+  const CustomLoadingCenter({
+    super.key,
+    this.size = 120,
+    this.animationAsset = kPageLoadingAnimation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: CustomLoadingIndicator(size: size, animationAsset: animationAsset),
+    );
+  }
+}
+
+class ButtonLoadingDots extends StatelessWidget {
+  final double width;
+  final double height;
+
+  const ButtonLoadingDots({
+    super.key,
+    this.width = 72,
+    this.height = 36,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Lottie.asset(
+      kButtonLoadingAnimation,
+      width: width,
+      height: height,
+      fit: BoxFit.contain,
+    );
+  }
+}
+
 class LoadingOverlay extends StatelessWidget {
   final bool isLoading;
   final Widget child;
@@ -12,7 +75,7 @@ class LoadingOverlay extends StatelessWidget {
     super.key,
     required this.isLoading,
     required this.child,
-    this.animationAsset = 'assets/animations/sandy_loading.json',
+    this.animationAsset = kPageLoadingAnimation,
   });
 
   @override
@@ -29,7 +92,10 @@ class LoadingOverlay extends StatelessWidget {
                 child: Container(
                   color: Colors.black.withValues(alpha: 0.15),
                   alignment: Alignment.center,
-                  child: Lottie.asset(animationAsset, width: 140, height: 140),
+                  child: CustomLoadingIndicator(
+                    animationAsset: animationAsset,
+                    size: 140,
+                  ),
                 ),
               ),
             ),

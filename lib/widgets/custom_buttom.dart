@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
 
 import '../theme_config.dart';
+import 'custom_loading_state.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -25,12 +25,7 @@ class CustomButton extends StatelessWidget {
         textStyle: AppTextStyles.button,
       ),
       child: isLoading
-          ? Lottie.asset(
-              'assets/animations/loading_dots.json',
-              width: 72,
-              height: 36,
-              fit: BoxFit.contain,
-            )
+          ? const ButtonLoadingDots()
           : Text(text, style: const TextStyle(color: Colors.white)),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../cart/cart_item.dart';
 import '../product/product_review_service.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/price_formatter.dart';
 import 'order_service.dart';
 import 'receipt_screen.dart';
@@ -537,9 +538,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildStatusButtonChild(String label) {
     if (_savingStatus) {
       return const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        width: 72,
+        height: 36,
+        child: ButtonLoadingDots(),
       );
     }
 
@@ -1320,12 +1321,9 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                 ),
                 child: _saving
                     ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                        width: 72,
+                        height: 36,
+                        child: ButtonLoadingDots(),
                       )
                     : const Text(
                         'Submit Review',

@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
@@ -244,7 +245,7 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_vendorAccessOk || _isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: CustomLoadingCenter());
     }
 
     return PopScope(
@@ -422,12 +423,11 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: _isSaving
-                        ? const Center(child: CircularProgressIndicator())
-                        : CustomButton(
-                            text: 'Save Changes',
-                            onPressed: _saveBrandProfile,
-                          ),
+                    child: CustomButton(
+                      isLoading: _isSaving,
+                      text: 'Save Changes',
+                      onPressed: _saveBrandProfile,
+                    ),
                   ),
                 ],
               ),

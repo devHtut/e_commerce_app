@@ -11,6 +11,7 @@ import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
 import '../product/product_sales_service.dart';
 import '../theme_config.dart';
+import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/product_card.dart';
@@ -390,7 +391,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.embedded && _embeddedVendorAccessPending) {
-      return const Center(child: CircularProgressIndicator());
+      return const CustomLoadingCenter();
     }
 
     final body = _buildBody();
@@ -421,7 +422,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const CustomLoadingCenter();
     }
 
     if (_error != null) {

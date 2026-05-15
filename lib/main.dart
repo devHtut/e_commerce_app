@@ -109,8 +109,8 @@ class _AppSplashScreen extends StatelessWidget {
       body: Center(
         child: Image(
           image: AssetImage('assets/icon_logo.png'),
-          width: 132,
-          height: 132,
+          width: 200,
+          height: 200,
           fit: BoxFit.contain,
         ),
       ),
