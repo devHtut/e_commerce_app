@@ -719,45 +719,8 @@ class _VendorDashboardState extends State<VendorDashboard> {
 
   Widget _orderTabLabel({
     required String label,
-    required int count,
-    required bool selected,
-    required OrderStatus status,
   }) {
-    final statusColor = _orderStatusColor(status);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label),
-        if (count > 0) ...[
-          const SizedBox(width: 8),
-          Container(
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 20),
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected
-                  ? Colors.white
-                  : statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: selected
-                    ? Colors.white
-                    : statusColor.withValues(alpha: 0.28),
-              ),
-            ),
-            child: Text(
-              count > 99 ? '99+' : '$count',
-              style: TextStyle(
-                color: selected ? AppColors.primaryGreen : statusColor,
-                fontSize: 10,
-                fontFamily: AppFonts.primary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
+    return Text(label);
   }
 
   Widget _notificationButton() {
@@ -982,12 +945,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
                 itemBuilder: (context, index) {
                   final tab = tabs[index];
                   final selected = displayedIndex == index;
+                  final hasUnviewed =
+                      _unviewedOrderCount(tab.$3, tab.$2) > 0;
                   return ChoiceChip(
                     label: _orderTabLabel(
                       label: tab.$1,
-                      count: _unviewedOrderCount(tab.$3, tab.$2),
-                      selected: selected,
-                      status: tab.$3,
                     ),
                     selected: selected,
                     onSelected: (_) => setState(() {
@@ -997,6 +959,12 @@ class _VendorDashboardState extends State<VendorDashboard> {
                     }),
                     showCheckmark: false,
                     selectedColor: AppColors.primaryGreen,
+                    side: BorderSide(
+                      color: hasUnviewed && !selected
+                          ? AppColors.errorRed
+                          : Colors.grey.shade300,
+                      width: hasUnviewed && !selected ? 1.4 : 1,
+                    ),
                     labelStyle: TextStyle(
                       fontFamily: AppFonts.primary,
                       color: selected ? Colors.white : AppColors.darkText,

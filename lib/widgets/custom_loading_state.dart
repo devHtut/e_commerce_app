@@ -48,20 +48,60 @@ class CustomLoadingCenter extends StatelessWidget {
 class ButtonLoadingDots extends StatelessWidget {
   final double width;
   final double height;
+  final Color color;
 
   const ButtonLoadingDots({
     super.key,
-    this.width = 72,
-    this.height = 36,
+    this.width = 70,
+    this.height = 34,
+    this.color = Colors.white,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Lottie.asset(
-      kButtonLoadingAnimation,
+    final renderWidth = width * 5;
+    final renderHeight = renderWidth * 9 / 16;
+
+    return ClipRect(
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: OverflowBox(
+          maxWidth: renderWidth,
+          maxHeight: renderHeight,
+          child: ColorFiltered(
+            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+            child: Lottie.asset(
+              kButtonLoadingAnimation,
+              width: renderWidth,
+              height: renderHeight,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class InlineButtonLoadingDots extends StatelessWidget {
+  final double width;
+  final double height;
+  final Color color;
+
+  const InlineButtonLoadingDots({
+    super.key,
+    this.width = 42,
+    this.height = 24,
+    this.color = Colors.white,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ButtonLoadingDots(
       width: width,
       height: height,
-      fit: BoxFit.contain,
+      color: color,
     );
   }
 }
