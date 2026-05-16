@@ -2820,7 +2820,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: AppColors.lightGrey,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          // leading: _chatButton(),
+          leading: _chatButton(),
           leadingWidth: 56,
           title: _currentIndex == 2
               ? ValueListenableBuilder<List<CartItem>>(

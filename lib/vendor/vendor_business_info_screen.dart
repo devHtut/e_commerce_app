@@ -389,7 +389,16 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
   }
 
   Future<void> _saveVendorBusinessInfo() async {
-    if (!_formKey.currentState!.validate()) return;
+    final inputIssues = _collectInputIssues();
+    if (inputIssues.isNotEmpty) {
+      await _showInputIssues(inputIssues);
+      _formKey.currentState!.validate();
+      return;
+    }
+    if (!_formKey.currentState!.validate()) {
+      await _showInputIssues(['Please check the highlighted fields.']);
+      return;
+    }
 
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser == null) return;
@@ -463,6 +472,43 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _showInputIssues(List<String> issues) {
+    return showCustomPopup(
+      context,
+      title: 'Missing business details',
+      message: issues.map((issue) => '- $issue').join('\n'),
+      type: PopupType.error,
+    );
+  }
+
+  List<String> _collectInputIssues() {
+    final issues = <String>[];
+    if (_phoneController.text.trim().isEmpty) {
+      issues.add('Phone number is required.');
+    }
+    if (_hasInPersonShop && _addressController.text.trim().isEmpty) {
+      issues.add('Business address is required.');
+    }
+    final addressUrl = _addressUrlController.text.trim();
+    if (addressUrl.isNotEmpty && !_isValidUrl(addressUrl)) {
+      issues.add('Address URL must start with http or https.');
+    }
+    for (var index = 0; index < _paymentEntries.length; index++) {
+      final entry = _paymentEntries[index];
+      final label = 'Payment method ${index + 1}';
+      if ((entry.paymentType ?? '').trim().isEmpty) {
+        issues.add('$label: select a payment type.');
+      }
+      if (entry.accountNameController.text.trim().isEmpty) {
+        issues.add('$label: account name is required.');
+      }
+      if (entry.accountNumberController.text.trim().isEmpty) {
+        issues.add('$label: account number is required.');
+      }
+    }
+    return issues;
   }
 
   String get _draftSignature {

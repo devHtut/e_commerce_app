@@ -31,6 +31,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   bool _hasVariants = true;
   bool _isLoadingCategories = true;
   bool _vendorAccessOk = false;
+  double _saveProgress = 0;
+  String _saveProgressLabel = 'Preparing product...';
   String? _selectedCategoryId;
   String? _selectedAudienceId;
   final List<_CategoryOption> _categories = [];
@@ -263,11 +265,16 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       return;
     }
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _saveProgress = 0.03;
+      _saveProgressLabel = 'Preparing product details...';
+    });
     String? createdProductId;
     final uploadedStoragePaths = <String>[];
 
     try {
+      _updateSaveProgress(0.08, 'Checking selected category...');
       if (_selectedCategoryId == null || _selectedCategoryId!.isEmpty) {
         await showCustomPopup(
           context,
@@ -277,6 +284,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         );
         return;
       }
+      _updateSaveProgress(0.12, 'Checking selected audience...');
       if (_selectedAudienceId == null || _selectedAudienceId!.isEmpty) {
         await showCustomPopup(
           context,
@@ -287,6 +295,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         return;
       }
 
+      _updateSaveProgress(0.16, 'Checking product photos...');
       if (_hasVariants) {
         for (final group in _variantGroups) {
           if (group.images.length > 3) {
@@ -311,6 +320,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         }
       }
 
+      _updateSaveProgress(0.20, 'Checking your account...');
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) {
         await showCustomPopup(
@@ -322,6 +332,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         return;
       }
 
+      _updateSaveProgress(0.24, 'Loading brand profile...');
       final brand = await AuthUserService.getVendorBrand(currentUser.id);
       if (brand == null) {
         if (!mounted) return;
@@ -344,11 +355,13 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       final uploadFolderId =
           '${currentUser.id}_${DateTime.now().microsecondsSinceEpoch}';
 
+      _updateSaveProgress(0.28, 'Uploading product photos...');
       final colorImages = await _uploadImagesByColor(
         uploadFolderId,
         uploadedStoragePaths,
       );
 
+      _updateSaveProgress(0.76, 'Creating product...');
       final productRow = await Supabase.instance.client
           .from('products')
           .insert({
@@ -364,6 +377,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       final productId = productRow['id'].toString();
       createdProductId = productId;
 
+      _updateSaveProgress(0.88, 'Saving variants...');
       await Supabase.instance.client
           .from('product_variants')
           .insert(
@@ -388,6 +402,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
             }).toList(),
           );
 
+      _updateSaveProgress(1, 'Product saved.');
       if (!mounted) return;
       await showCustomPopup(
         context,
@@ -429,8 +444,22 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         type: PopupType.error,
       );
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _saveProgress = 0;
+          _saveProgressLabel = 'Preparing product...';
+        });
+      }
     }
+  }
+
+  void _updateSaveProgress(double progress, String label) {
+    if (!mounted) return;
+    setState(() {
+      _saveProgress = progress.clamp(0, 1).toDouble();
+      _saveProgressLabel = label;
+    });
   }
 
   List<_ResolvedVariant> _buildResolvedVariants() {
@@ -563,6 +592,23 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     List<String> uploadedStoragePaths,
   ) async {
     final result = <String, List<String>>{};
+    final totalImages = _totalImagesToUpload();
+    var uploadedCount = 0;
+
+    void updateUploadProgress() {
+      if (totalImages <= 0) {
+        _updateSaveProgress(0.70, 'Photos uploaded.');
+        return;
+      }
+      final uploadProgress = uploadedCount / totalImages;
+      final progress = 0.28 + (uploadProgress * 0.42);
+      _updateSaveProgress(
+        progress,
+        'Uploading product photos ($uploadedCount of $totalImages)...',
+      );
+    }
+
+    updateUploadProgress();
     if (_hasVariants) {
       for (final group in _variantGroups) {
         final urls = <String>[];
@@ -584,6 +630,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           urls.add(
             Supabase.instance.client.storage.from('media').getPublicUrl(path),
           );
+          uploadedCount++;
+          updateUploadProgress();
         }
         result[group.color] = urls;
       }
@@ -609,9 +657,19 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       urls.add(
         Supabase.instance.client.storage.from('media').getPublicUrl(path),
       );
+      uploadedCount++;
+      updateUploadProgress();
     }
     result['Default'] = urls;
     return result;
+  }
+
+  int _totalImagesToUpload() {
+    if (!_hasVariants) return _simpleImages.length;
+    return _variantGroups.fold<int>(
+      0,
+      (sum, group) => sum + group.images.length,
+    );
   }
 
   Future<void> _cleanupFailedCreate({
@@ -700,150 +758,156 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _requestLeave();
       },
-      child: LoadingOverlay(
-        isLoading: _isSaving,
-        child: Scaffold(
-          backgroundColor: AppColors.lightGrey,
-          appBar: AppBar(
-            elevation: 0,
-            centerTitle: true,
-            backgroundColor: Colors.transparent,
-            leading: IconButton(
-              onPressed: _requestLeave,
-              icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
-            ),
-            title: const Text(
-              'Create Product',
-              style: TextStyle(
-                color: AppColors.darkText,
-                fontFamily: AppFonts.primary,
-                fontWeight: FontWeight.w700,
+      child: Stack(
+        children: [
+          Scaffold(
+            backgroundColor: AppColors.lightGrey,
+            appBar: AppBar(
+              elevation: 0,
+              centerTitle: true,
+              backgroundColor: Colors.transparent,
+              leading: IconButton(
+                onPressed: _requestLeave,
+                icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+              ),
+              title: const Text(
+                'Create Product',
+                style: TextStyle(
+                  color: AppColors.darkText,
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CustomTextField(
-                      controller: _nameController,
-                      labelText: 'Product name',
-                      hintText: 'Product name',
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Product name is required.'
-                          : null,
-                    ),
-                    const SizedBox(height: 10),
-                    CustomTextField(
-                      controller: _descriptionController,
-                      labelText: 'Product description',
-                      hintText: 'Product description',
-                      maxLength: 500,
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Description is required.'
-                          : null,
-                    ),
-                    const SizedBox(height: 10),
-                    if (_isLoadingCategories)
-                      const LinearProgressIndicator()
-                    else
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategoryId,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          labelStyle: TextStyle(
-                            color: AppColors.darkText,
-                            fontFamily: AppFonts.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Choose category',
-                        ),
-                        items: _categories
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: e.id,
-                                child: Text(e.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: _isSaving
-                            ? null
-                            : (value) =>
-                                  setState(() => _selectedCategoryId = value),
-                        validator: (v) => (v == null || v.isEmpty)
-                            ? 'Category is required.'
+            body: SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomTextField(
+                        controller: _nameController,
+                        labelText: 'Product name',
+                        hintText: 'Product name',
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Product name is required.'
                             : null,
                       ),
-                    const SizedBox(height: 12),
-                    if (_isLoadingCategories)
-                      const SizedBox.shrink()
-                    else
-                      DropdownButtonFormField<String>(
-                        value: _selectedAudienceId,
-                        decoration: const InputDecoration(
-                          labelText: 'Audience',
-                          labelStyle: TextStyle(
-                            color: AppColors.darkText,
-                            fontFamily: AppFonts.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Choose audience',
-                        ),
-                        items: _audiences
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: e.id,
-                                child: Text(e.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: _isSaving
-                            ? null
-                            : (value) =>
-                                  setState(() => _selectedAudienceId = value),
-                        validator: (v) => (v == null || v.isEmpty)
-                            ? 'Audience is required.'
+                      const SizedBox(height: 10),
+                      CustomTextField(
+                        controller: _descriptionController,
+                        labelText: 'Product description',
+                        hintText: 'Product description',
+                        maxLength: 500,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Description is required.'
                             : null,
                       ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _hasVariants,
-                      activeThumbColor: AppColors.primaryGreen,
-                      title: const Text('Has variants (color + size)'),
-                      onChanged: _isSaving
-                          ? null
-                          : (value) => setState(() => _hasVariants = value),
-                    ),
-                    const SizedBox(height: 6),
-                    if (_hasVariants)
-                      _buildVariantsSection()
-                    else
-                      _buildSimpleSection(),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: CustomButton(
-                        text: 'Create product',
-                        onPressed: _save,
-                        isLoading: _isSaving,
+                      const SizedBox(height: 10),
+                      if (_isLoadingCategories)
+                        const LinearProgressIndicator()
+                      else
+                        DropdownButtonFormField<String>(
+                          value: _selectedCategoryId,
+                          decoration: const InputDecoration(
+                            labelText: 'Category',
+                            labelStyle: TextStyle(
+                              color: AppColors.darkText,
+                              fontFamily: AppFonts.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            hintText: 'Choose category',
+                          ),
+                          items: _categories
+                              .map(
+                                (e) => DropdownMenuItem(
+                                  value: e.id,
+                                  child: Text(e.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: _isSaving
+                              ? null
+                              : (value) =>
+                                    setState(() => _selectedCategoryId = value),
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Category is required.'
+                              : null,
+                        ),
+                      const SizedBox(height: 12),
+                      if (_isLoadingCategories)
+                        const SizedBox.shrink()
+                      else
+                        DropdownButtonFormField<String>(
+                          value: _selectedAudienceId,
+                          decoration: const InputDecoration(
+                            labelText: 'Audience',
+                            labelStyle: TextStyle(
+                              color: AppColors.darkText,
+                              fontFamily: AppFonts.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            hintText: 'Choose audience',
+                          ),
+                          items: _audiences
+                              .map(
+                                (e) => DropdownMenuItem(
+                                  value: e.id,
+                                  child: Text(e.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: _isSaving
+                              ? null
+                              : (value) =>
+                                    setState(() => _selectedAudienceId = value),
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Audience is required.'
+                              : null,
+                        ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _hasVariants,
+                        activeThumbColor: AppColors.primaryGreen,
+                        title: const Text('Has variants (color + size)'),
+                        onChanged: _isSaving
+                            ? null
+                            : (value) => setState(() => _hasVariants = value),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      if (_hasVariants)
+                        _buildVariantsSection()
+                      else
+                        _buildSimpleSection(),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: CustomButton(
+                          text: 'Create product',
+                          onPressed: _save,
+                          isLoading: _isSaving,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+          if (_isSaving)
+            _SaveProgressOverlay(
+              progress: _saveProgress,
+              label: _saveProgressLabel,
+            ),
+        ],
       ),
     );
   }
@@ -1188,6 +1252,88 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           );
         }),
       ],
+    );
+  }
+}
+
+class _SaveProgressOverlay extends StatelessWidget {
+  final double progress;
+  final String label;
+
+  const _SaveProgressOverlay({required this.progress, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final clampedProgress = progress.clamp(0, 1).toDouble();
+    final percent = (clampedProgress * 100).round().clamp(0, 100);
+
+    return Positioned.fill(
+      child: AbsorbPointer(
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.28),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(24),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Saving product',
+                      style: TextStyle(
+                        color: AppColors.darkText,
+                        fontFamily: AppFonts.primary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: AppColors.subtleText,
+                        fontFamily: AppFonts.primary,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: clampedProgress,
+                        minHeight: 10,
+                        backgroundColor: AppColors.lightGrey,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.primaryGreen,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '$percent%',
+                        style: const TextStyle(
+                          color: AppColors.darkText,
+                          fontFamily: AppFonts.primary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

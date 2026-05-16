@@ -388,6 +388,34 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
     }
   }
 
+  Future<void> _toggleWishlist(ProductModel product) async {
+    if (Supabase.instance.client.auth.currentUser == null) {
+      await GuestAuthGatePanel.show(context);
+      return;
+    }
+    try {
+      final added = await WishlistService.instance.toggle(product);
+      if (!mounted) return;
+      setState(() {});
+      if (added) {
+        await showCustomPopup(
+          context,
+          title: 'Saved',
+          message: '${product.name} added to wishlist.',
+          type: PopupType.success,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Wishlist failed',
+        message: 'Unable to update wishlist. Please try again.',
+        type: PopupType.error,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.embedded && _embeddedVendorAccessPending) {
@@ -412,7 +440,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
             color: AppColors.darkText,
             fontFamily: AppFonts.primary,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontSize: 20,
           ),
         ),
       ),
@@ -486,21 +514,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                             : WishlistService.instance.isWishlisted(product.id),
                         onWishlistTap: widget.embedded
                             ? null
-                            : () async {
-                                if (Supabase.instance.client.auth.currentUser ==
-                                    null) {
-                                  await GuestAuthGatePanel.show(context);
-                                  return;
-                                }
-                                try {
-                                  await WishlistService.instance.toggle(
-                                    product,
-                                  );
-                                } catch (e) {
-                                  debugPrint('Unable to update wishlist: $e');
-                                }
-                                if (mounted) setState(() {});
-                              },
+                            : () => _toggleWishlist(product),
                         onTap: () {
                           Navigator.push(
                             context,

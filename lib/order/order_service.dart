@@ -37,6 +37,7 @@ class OrderPaymentDetails {
 class OrderModel {
   final String id;
   final String readableId;
+  final String customerId;
   final List<CartItem> items;
   final DateTime createdAt;
   final OrderStatus status;
@@ -50,6 +51,7 @@ class OrderModel {
   const OrderModel({
     required this.id,
     required this.readableId,
+    required this.customerId,
     required this.items,
     required this.createdAt,
     required this.status,
@@ -64,6 +66,7 @@ class OrderModel {
   double get total => items.fold<double>(0, (sum, item) => sum + item.subtotal);
 
   OrderModel copyWith({
+    String? customerId,
     List<CartItem>? items,
     DateTime? createdAt,
     OrderStatus? status,
@@ -77,6 +80,7 @@ class OrderModel {
     return OrderModel(
       id: id,
       readableId: readableId,
+      customerId: customerId ?? this.customerId,
       items: items ?? this.items,
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
@@ -352,6 +356,7 @@ class OrderService {
           OrderModel(
             id: orderId,
             readableId: readableId,
+            customerId: customerId ?? '',
             items: items,
             createdAt: createdAt,
             status: status,
@@ -600,6 +605,7 @@ class OrderService {
     List<CartItem> items, {
     String? orderId,
     String? readableId,
+    String customerId = '',
     OrderStatus status = OrderStatus.pending,
     String shippingAddressLabel = '',
     String shippingAddressRecipient = '',
@@ -614,6 +620,7 @@ class OrderService {
       OrderModel(
         id: orderId ?? 'ord_${DateTime.now().microsecondsSinceEpoch}',
         readableId: readableId ?? 'PENDING',
+        customerId: customerId,
         items: List<CartItem>.from(items),
         createdAt: DateTime.now(),
         status: status,

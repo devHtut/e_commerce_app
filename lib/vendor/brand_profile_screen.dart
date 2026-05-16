@@ -118,7 +118,16 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
   }
 
   Future<void> _saveBrandProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+    final inputIssues = _collectInputIssues();
+    if (inputIssues.isNotEmpty) {
+      await _showInputIssues(inputIssues);
+      _formKey.currentState!.validate();
+      return;
+    }
+    if (!_formKey.currentState!.validate()) {
+      await _showInputIssues(['Please check the highlighted fields.']);
+      return;
+    }
 
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser == null) {
@@ -211,6 +220,37 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
       message: message,
       type: PopupType.error,
     );
+  }
+
+  Future<void> _showInputIssues(List<String> issues) {
+    return showCustomPopup(
+      context,
+      title: 'Missing brand details',
+      message: issues.map((issue) => '- $issue').join('\n'),
+      type: PopupType.error,
+    );
+  }
+
+  List<String> _collectInputIssues() {
+    final issues = <String>[];
+    final brandName = _brandNameController.text.trim();
+    final prefix = _prefixController.text.trim().toUpperCase();
+    final description = _descriptionController.text.trim();
+    final hasLogo =
+        _selectedLogo != null || (_existingLogoUrl?.trim().isNotEmpty ?? false);
+    if (brandName.isEmpty) {
+      issues.add('Brand name is required.');
+    }
+    if (!RegExp(r'^[A-Z]{3}$').hasMatch(prefix)) {
+      issues.add('Order ID prefix must be 3 capital letters A-Z.');
+    }
+    if (description.isEmpty) {
+      issues.add('Brand description is required.');
+    }
+    if (!hasLogo) {
+      issues.add('Brand logo image is required.');
+    }
+    return issues;
   }
 
   Widget _buildLogoPreview() {

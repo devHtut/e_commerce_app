@@ -6,6 +6,7 @@ import '../product/product_model.dart';
 import '../product/product_sales_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_loading_state.dart';
+import '../widgets/custom_pop_up.dart';
 import '../widgets/guest_auth_gate.dart';
 import '../widgets/product_card.dart';
 import '../widgets/search_box.dart';
@@ -195,12 +196,24 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
       return;
     }
     try {
-      await WishlistService.instance.toggle(product);
-      if (mounted) setState(() {});
+      final added = await WishlistService.instance.toggle(product);
+      if (!mounted) return;
+      setState(() {});
+      if (added) {
+        await showCustomPopup(
+          context,
+          title: 'Saved',
+          message: '${product.name} added to wishlist.',
+          type: PopupType.success,
+        );
+      }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to update wishlist.')),
+      await showCustomPopup(
+        context,
+        title: 'Wishlist failed',
+        message: 'Unable to update wishlist. Please try again.',
+        type: PopupType.error,
       );
     }
   }

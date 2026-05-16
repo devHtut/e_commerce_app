@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
+import '../widgets/custom_pop_up.dart';
 import '../widgets/discard_changes_dialog.dart';
 import 'myanmar_location_data.dart';
 
@@ -602,7 +603,7 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
     });
   }
 
-  void _saveAddress() {
+  Future<void> _saveAddress() async {
     final label = _labelController.text.trim();
     final phone = _phoneController.text.trim();
     final street = _addressController.text.trim();
@@ -615,6 +616,20 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
         region.isEmpty ||
         district.isEmpty ||
         township.isEmpty) {
+      final missing = <String>[
+        if (label.isEmpty) 'Address label',
+        if (phone.isEmpty) 'Phone number',
+        if (street.isEmpty) 'Street address',
+        if (region.isEmpty) 'Region',
+        if (district.isEmpty) 'District',
+        if (township.isEmpty) 'Township',
+      ];
+      await showCustomPopup(
+        context,
+        title: 'Missing address details',
+        message: missing.map((field) => '- $field').join('\n'),
+        type: PopupType.error,
+      );
       return;
     }
 

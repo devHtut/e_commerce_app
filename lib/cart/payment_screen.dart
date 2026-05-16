@@ -456,6 +456,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         widget.items,
         orderId: orderId,
         readableId: readableId,
+        customerId: customer.id,
         status: OrderStatus.pending,
         payment: OrderPaymentDetails(
           id: paymentRow['id']?.toString() ?? '',

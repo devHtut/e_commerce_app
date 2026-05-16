@@ -52,14 +52,14 @@ class ButtonLoadingDots extends StatelessWidget {
 
   const ButtonLoadingDots({
     super.key,
-    this.width = 70,
-    this.height = 34,
+    this.width = 72,
+    this.height = 36,
     this.color = Colors.white,
   });
 
   @override
   Widget build(BuildContext context) {
-    final renderWidth = width * 5;
+    final renderWidth = width * 3;
     final renderHeight = renderWidth * 9 / 16;
 
     return ClipRect(

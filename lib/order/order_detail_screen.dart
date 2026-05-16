@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../cart/cart_item.dart';
+import '../chat/chat_service.dart';
+import '../customer/chat_screen.dart';
 import '../product/product_review_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_loading_state.dart';
@@ -253,7 +256,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           title: 'Information Details',
           child: Column(
             children: [
-              _summaryRow('Order ID', _order.readableId),
+              _summaryRow(
+                'Order ID',
+                _order.readableId,
+                trailing: TextButton(
+                  onPressed: _copyReadableOrderId,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primaryGreen,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Copy',
+                    style: TextStyle(
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
               if (brandNames.isNotEmpty) _summaryRow('Brand', brandNames),
               if (_order.shippingAddressRecipient.isNotEmpty)
                 _summaryRow('Customer', _order.shippingAddressRecipient),
@@ -264,6 +286,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               _summaryRow('Purchase Time', _formatOrderTime(_order.createdAt)),
               if (_order.shippingAddressPhone.isNotEmpty)
                 _summaryRow('Contact', _order.shippingAddressPhone),
+              if (widget.isVendorView) ...[
+                const SizedBox(height: 10),
+                _buildCustomerMessageButton(),
+              ],
             ],
           ),
         ),
@@ -314,6 +340,68 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       context,
       MaterialPageRoute(builder: (_) => ReceiptScreen(order: _order)),
     );
+  }
+
+  Future<void> _copyReadableOrderId() async {
+    await Clipboard.setData(ClipboardData(text: _order.readableId));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        const SnackBar(content: Text('Order ID copied.')),
+      );
+  }
+
+  Widget _buildCustomerMessageButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _order.customerId.isEmpty ? null : _openCustomerChat,
+        icon: const Icon(Icons.chat_bubble_outline_rounded),
+        label: const Text(
+          'Send Message to Customer',
+          style: TextStyle(
+            fontFamily: AppFonts.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          foregroundColor: AppColors.primaryGreen,
+          side: const BorderSide(color: AppColors.primaryGreen),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCustomerChat() async {
+    if (_order.customerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Customer contact is unavailable.')),
+      );
+      return;
+    }
+
+    try {
+      final customerName = _order.shippingAddressRecipient.trim();
+      final chat = await ChatService.instance.createOrGetDirectChat(
+        ChatStartOption(
+          userId: _order.customerId,
+          title: customerName.isEmpty ? 'Customer' : customerName,
+          subtitle: 'Customer - Order ${_order.readableId}',
+        ),
+      );
+      if (!mounted || chat == null) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ChatScreen(initialChatId: chat.id)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to start customer chat.')),
+      );
+    }
   }
 
   Widget _buildDeliveryAddressDetails() {
@@ -1069,7 +1157,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool isTotal = false}) {
+  Widget _summaryRow(
+    String label,
+    String value, {
+    bool isTotal = false,
+    Widget? trailing,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -1096,6 +1189,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing,
+          ],
         ],
       ),
     );

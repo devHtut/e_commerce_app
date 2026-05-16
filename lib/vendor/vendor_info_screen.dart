@@ -91,7 +91,16 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
   }
 
   Future<void> _saveVendorInfo() async {
-    if (!_formKey.currentState!.validate()) return;
+    final inputIssues = _collectInputIssues();
+    if (inputIssues.isNotEmpty) {
+      await _showInputIssues(inputIssues);
+      _formKey.currentState!.validate();
+      return;
+    }
+    if (!_formKey.currentState!.validate()) {
+      await _showInputIssues(['Please check the highlighted fields.']);
+      return;
+    }
 
     final brandName = _brandNameController.text.trim();
     final description = _descriptionController.text.trim();
@@ -181,6 +190,35 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
       message: message,
       type: PopupType.error,
     );
+  }
+
+  Future<void> _showInputIssues(List<String> issues) {
+    return showCustomPopup(
+      context,
+      title: 'Missing brand details',
+      message: issues.map((issue) => '- $issue').join('\n'),
+      type: PopupType.error,
+    );
+  }
+
+  List<String> _collectInputIssues() {
+    final issues = <String>[];
+    final brandName = _brandNameController.text.trim();
+    final prefix = _prefixController.text.trim().toUpperCase();
+    final description = _descriptionController.text.trim();
+    if (brandName.isEmpty) {
+      issues.add('Brand name is required.');
+    }
+    if (!RegExp(r'^[A-Z]{3}$').hasMatch(prefix)) {
+      issues.add('Order ID prefix must be 3 capital letters A-Z.');
+    }
+    if (description.isEmpty) {
+      issues.add('Brand description is required.');
+    }
+    if (_selectedLogo == null) {
+      issues.add('Brand logo image is required.');
+    }
+    return issues;
   }
 
   @override

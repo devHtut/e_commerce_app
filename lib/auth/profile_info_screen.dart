@@ -108,7 +108,16 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+    final inputIssues = _collectInputIssues();
+    if (inputIssues.isNotEmpty) {
+      await _showInputIssues(inputIssues);
+      _formKey.currentState!.validate();
+      return;
+    }
+    if (!_formKey.currentState!.validate()) {
+      await _showInputIssues(['Please check the highlighted fields.']);
+      return;
+    }
 
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser == null) {
@@ -210,6 +219,30 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _showInputIssues(List<String> issues) {
+    return showCustomPopup(
+      context,
+      title: 'Missing profile details',
+      message: issues.map((issue) => '- $issue').join('\n'),
+      type: PopupType.error,
+    );
+  }
+
+  List<String> _collectInputIssues() {
+    final issues = <String>[];
+    final fullName = _fullNameController.text.trim();
+    final username = _usernameController.text.trim();
+    if (fullName.isEmpty) {
+      issues.add('Full name is required.');
+    }
+    if (username.isEmpty) {
+      issues.add('Username is required.');
+    } else if (!RegExp(r'^[a-z0-9_]{3,24}$').hasMatch(username)) {
+      issues.add('Username must use 3-24 letters, numbers, or underscores.');
+    }
+    return issues;
   }
 
   @override

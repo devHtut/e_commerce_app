@@ -100,7 +100,16 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
   }
 
   Future<void> _saveSocialLinks() async {
-    if (!_formKey.currentState!.validate()) return;
+    final inputIssues = _collectInputIssues();
+    if (inputIssues.isNotEmpty) {
+      await _showInputIssues(inputIssues);
+      _formKey.currentState!.validate();
+      return;
+    }
+    if (!_formKey.currentState!.validate()) {
+      await _showInputIssues(['Please check the highlighted fields.']);
+      return;
+    }
 
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser == null) return;
@@ -138,6 +147,39 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _showInputIssues(List<String> issues) {
+    return showCustomPopup(
+      context,
+      title: 'Invalid social links',
+      message: issues.map((issue) => '- $issue').join('\n'),
+      type: PopupType.error,
+    );
+  }
+
+  List<String> _collectInputIssues() {
+    final issues = <String>[];
+    final facebook = _facebookController.text.trim();
+    final instagram = _instagramController.text.trim();
+    final tiktok = _tiktokController.text.trim();
+    if (facebook.isNotEmpty && !_isValidUrl(facebook)) {
+      issues.add('Facebook URL must start with http or https.');
+    }
+    if (instagram.isNotEmpty && !_isValidUrl(instagram)) {
+      issues.add('Instagram URL must start with http or https.');
+    }
+    if (tiktok.isNotEmpty && !_isValidUrl(tiktok)) {
+      issues.add('TikTok URL must start with http or https.');
+    }
+    return issues;
+  }
+
+  bool _isValidUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
   }
 
   void _skipSocialLinks() {
