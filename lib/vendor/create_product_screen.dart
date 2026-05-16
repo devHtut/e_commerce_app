@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +13,7 @@ import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
+import '../widgets/progress_percentage_overlay.dart';
 
 class CreateProductScreen extends StatefulWidget {
   const CreateProductScreen({super.key});
@@ -587,6 +591,31 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     setState(() => group.colorValue = selected.toARGB32());
   }
 
+  Future<void> _pickVariantGroupColorFromImage(
+    _ColorGroupDraft group, [
+    _PickedImage? sourceImage,
+  ]) async {
+    if (group.images.isEmpty) {
+      await showCustomPopup(
+        context,
+        title: 'Add a photo first',
+        message: 'Upload a photo for this color, then pick the exact color.',
+        type: PopupType.error,
+      );
+      return;
+    }
+
+    final selected = await showDialog<Color>(
+      context: context,
+      builder: (_) => _ImageColorPickerDialog(
+        image: sourceImage ?? group.images.first,
+        initialColor: Color(group.colorValue),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => group.colorValue = selected.toARGB32());
+  }
+
   Future<Map<String, List<String>>> _uploadImagesByColor(
     String uploadFolderId,
     List<String> uploadedStoragePaths,
@@ -903,7 +932,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
             ),
           ),
           if (_isSaving)
-            _SaveProgressOverlay(
+            ProgressPercentageOverlay(
               progress: _saveProgress,
               label: _saveProgressLabel,
             ),
@@ -1067,6 +1096,15 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                       enabled: !_isSaving,
                       onTap: () => _pickVariantGroupColor(group),
                     ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: _isSaving
+                          ? null
+                          : () => _pickVariantGroupColorFromImage(group),
+                      tooltip: 'Pick color from photo',
+                      icon: const Icon(Icons.colorize_outlined),
+                      color: AppColors.primaryGreen,
+                    ),
                     if (_variantGroups.length > 1)
                       IconButton(
                         onPressed: _isSaving
@@ -1092,6 +1130,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                   onRemove: _isSaving
                       ? (_) {}
                       : (i) => setState(() => group.images.removeAt(i)),
+                  onPickColor: _isSaving
+                      ? null
+                      : (i) => _pickVariantGroupColorFromImage(
+                          group,
+                          group.images[i],
+                        ),
                 ),
                 const SizedBox(height: 8),
                 ...List.generate(group.variants.length, (variantIndex) {
@@ -1252,88 +1296,6 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
           );
         }),
       ],
-    );
-  }
-}
-
-class _SaveProgressOverlay extends StatelessWidget {
-  final double progress;
-  final String label;
-
-  const _SaveProgressOverlay({required this.progress, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final clampedProgress = progress.clamp(0, 1).toDouble();
-    final percent = (clampedProgress * 100).round().clamp(0, 100);
-
-    return Positioned.fill(
-      child: AbsorbPointer(
-        child: Container(
-          color: Colors.black.withValues(alpha: 0.28),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.all(24),
-          child: Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Saving product',
-                      style: TextStyle(
-                        color: AppColors.darkText,
-                        fontFamily: AppFonts.primary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.subtleText,
-                        fontFamily: AppFonts.primary,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: clampedProgress,
-                        minHeight: 10,
-                        backgroundColor: AppColors.lightGrey,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.primaryGreen,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        '$percent%',
-                        style: const TextStyle(
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1638,6 +1600,232 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
   }
 }
 
+class _ImageColorPickerDialog extends StatefulWidget {
+  final _PickedImage image;
+  final Color initialColor;
+
+  const _ImageColorPickerDialog({
+    required this.image,
+    required this.initialColor,
+  });
+
+  @override
+  State<_ImageColorPickerDialog> createState() =>
+      _ImageColorPickerDialogState();
+}
+
+class _ImageColorPickerDialogState extends State<_ImageColorPickerDialog> {
+  ui.Image? _decodedImage;
+  Uint8List? _rgbaBytes;
+  Color? _selectedColor;
+  Offset? _markerOffset;
+  String? _decodeError;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedColor = widget.initialColor;
+    _decodeImage();
+  }
+
+  @override
+  void dispose() {
+    _decodedImage?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _decodeImage() async {
+    try {
+      final codec = await ui.instantiateImageCodec(widget.image.bytes);
+      final frame = await codec.getNextFrame();
+      final byteData = await frame.image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+      if (!mounted) {
+        frame.image.dispose();
+        return;
+      }
+      if (byteData == null) {
+        frame.image.dispose();
+        setState(() => _decodeError = 'Unable to read image colors.');
+        return;
+      }
+      setState(() {
+        _decodedImage = frame.image;
+        _rgbaBytes = byteData.buffer.asUint8List();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _decodeError = 'Unable to read image colors.');
+    }
+  }
+
+  void _sampleColor(TapDownDetails details, BoxConstraints constraints) {
+    final image = _decodedImage;
+    final rgbaBytes = _rgbaBytes;
+    if (image == null || rgbaBytes == null) return;
+
+    final sourceSize = Size(
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final outputSize = constraints.biggest;
+    final fitted = applyBoxFit(BoxFit.contain, sourceSize, outputSize);
+    final destination = Alignment.center.inscribe(
+      fitted.destination,
+      Offset.zero & outputSize,
+    );
+
+    final localPosition = details.localPosition;
+    if (!destination.contains(localPosition)) return;
+
+    final dx = localPosition.dx - destination.left;
+    final dy = localPosition.dy - destination.top;
+    final pixelX = (dx / destination.width * image.width)
+        .floor()
+        .clamp(0, image.width - 1)
+        .toInt();
+    final pixelY = (dy / destination.height * image.height)
+        .floor()
+        .clamp(0, image.height - 1)
+        .toInt();
+    final byteIndex = ((pixelY * image.width) + pixelX) * 4;
+    if (byteIndex + 2 >= rgbaBytes.length) return;
+
+    setState(() {
+      _selectedColor = Color.fromARGB(
+        255,
+        rgbaBytes[byteIndex],
+        rgbaBytes[byteIndex + 1],
+        rgbaBytes[byteIndex + 2],
+      );
+      _markerOffset = localPosition;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedColor = _selectedColor ?? widget.initialColor;
+
+    return AlertDialog(
+      title: const Text('Pick color from photo'),
+      content: SizedBox(
+        width: 300,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 300,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.lightGrey,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: _decodeError != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          _decodeError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.subtleText,
+                            fontFamily: AppFonts.primary,
+                          ),
+                        ),
+                      ),
+                    )
+                  : _decodedImage == null
+                  ? const CustomLoadingCenter(size: 72)
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        return GestureDetector(
+                          onTapDown: (details) =>
+                              _sampleColor(details, constraints),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: Image.memory(
+                                  widget.image.bytes,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              if (_markerOffset != null)
+                                Positioned(
+                                  left: _markerOffset!.dx - 12,
+                                  top: _markerOffset!.dy - 12,
+                                  child: Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: selectedColor,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 3,
+                                      ),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Colors.black38,
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: selectedColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black26),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '#${_hexFromColor(selectedColor)}',
+                    style: const TextStyle(
+                      color: AppColors.darkText,
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _decodeError == null
+              ? () => Navigator.pop(context, selectedColor)
+              : null,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+}
+
 class _RgbSlider extends StatelessWidget {
   final String label;
   final int value;
@@ -1780,6 +1968,7 @@ class _ImagePickerGrid extends StatelessWidget {
   final List<_PickedImage> images;
   final VoidCallback onAdd;
   final ValueChanged<int> onRemove;
+  final ValueChanged<int>? onPickColor;
 
   const _ImagePickerGrid({
     required this.title,
@@ -1787,10 +1976,13 @@ class _ImagePickerGrid extends StatelessWidget {
     required this.images,
     required this.onAdd,
     required this.onRemove,
+    this.onPickColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final pickColor = onPickColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1840,6 +2032,30 @@ class _ImagePickerGrid extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (pickColor != null)
+                    Positioned(
+                      left: 2,
+                      bottom: 2,
+                      child: Tooltip(
+                        message: 'Pick color from this photo',
+                        child: InkWell(
+                          onTap: () => pickColor(index),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.colorize_outlined,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               );
             }),

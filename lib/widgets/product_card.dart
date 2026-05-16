@@ -7,6 +7,8 @@ import '../product/product_sales_service.dart';
 import '../theme_config.dart';
 import 'price_formatter.dart';
 
+const String _productThumbnailAsset = 'assets/thumbnail.jpg';
+
 class ProductCard extends StatefulWidget {
   static const gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
     crossAxisCount: 2,
@@ -104,10 +106,13 @@ class _ProductCardState extends State<ProductCard> {
                   Image.network(
                     imageUrl,
                     fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const _ProductThumbnailPlaceholder();
+                    },
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey.shade300,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.image_not_supported, size: 28),
+                      color: AppColors.lightGrey,
+                      child: const _ProductThumbnailPlaceholder(),
                     ),
                   ),
                   Positioned(
@@ -281,6 +286,23 @@ class _ProductCardState extends State<ProductCard> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProductThumbnailPlaceholder extends StatelessWidget {
+  const _ProductThumbnailPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      _productThumbnailAsset,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.grey.shade300,
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_not_supported, size: 28),
       ),
     );
   }

@@ -36,6 +36,8 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  static bool get _customerShopChatEnabled => true;
+
   bool _loading = true;
   String? _error;
   late ProductModel _product;
@@ -1437,19 +1439,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       },
                 child: const Text('View shop'),
               ),
-              const SizedBox(height: 6),
-              FilledButton.icon(
-                onPressed: _product.brandId == null || _product.brandId!.isEmpty
-                    ? null
-                    : _openBrandChat,
-                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
-                label: const Text('Message'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryGreen,
-                  foregroundColor: Colors.white,
-                  visualDensity: VisualDensity.compact,
+              if (_customerShopChatEnabled) ...[
+                const SizedBox(height: 6),
+                FilledButton.icon(
+                  onPressed:
+                      _product.brandId == null || _product.brandId!.isEmpty
+                      ? null
+                      : _openBrandChat,
+                  icon: const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    size: 16,
+                  ),
+                  label: const Text('Message'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    foregroundColor: Colors.white,
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ],

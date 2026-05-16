@@ -7,6 +7,7 @@ import '../customer/chat_screen.dart';
 import '../product/product_review_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_loading_state.dart';
+import '../widgets/copy_pill_button.dart';
 import '../widgets/price_formatter.dart';
 import 'order_service.dart';
 import 'receipt_screen.dart';
@@ -259,21 +260,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               _summaryRow(
                 'Order ID',
                 _order.readableId,
-                trailing: TextButton(
+                trailing: CopyPillButton(
                   onPressed: _copyReadableOrderId,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primaryGreen,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: const Size(0, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    'Copy',
-                    style: TextStyle(
-                      fontFamily: AppFonts.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
                 ),
               ),
               if (brandNames.isNotEmpty) _summaryRow('Brand', brandNames),
@@ -285,7 +273,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
               _summaryRow('Purchase Time', _formatOrderTime(_order.createdAt)),
               if (_order.shippingAddressPhone.isNotEmpty)
-                _summaryRow('Contact', _order.shippingAddressPhone),
+                _summaryRow(
+                  'Contact',
+                  _order.shippingAddressPhone,
+                  trailing: widget.isVendorView
+                      ? CopyPillButton(
+                          onPressed: () => _copyText(
+                            _order.shippingAddressPhone,
+                            'Phone number copied.',
+                          ),
+                        )
+                      : null,
+                ),
+              if (widget.isVendorView &&
+                  _order.shippingAddressStreet.isNotEmpty)
+                _summaryRow(
+                  'Delivery Address',
+                  _order.shippingAddressStreet,
+                  trailing: CopyPillButton(
+                    onPressed: () => _copyText(
+                      _order.shippingAddressStreet,
+                      'Delivery address copied.',
+                    ),
+                  ),
+                ),
               if (widget.isVendorView) ...[
                 const SizedBox(height: 10),
                 _buildCustomerMessageButton(),
@@ -343,12 +354,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _copyReadableOrderId() async {
-    await Clipboard.setData(ClipboardData(text: _order.readableId));
+    await _copyText(_order.readableId, 'Order ID copied.');
+  }
+
+  Future<void> _copyText(String text, String message) async {
+    await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(
-        const SnackBar(content: Text('Order ID copied.')),
+        SnackBar(content: Text(message)),
       );
   }
 
@@ -447,16 +462,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   height: 1.35,
                 ),
               ),
+              if (widget.isVendorView &&
+                  _order.shippingAddressStreet.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                CopyPillButton(
+                  onPressed: () => _copyText(
+                    _order.shippingAddressStreet,
+                    'Delivery address copied.',
+                  ),
+                ),
+              ],
               if (_order.shippingAddressPhone.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(
-                  _order.shippingAddressPhone,
-                  style: const TextStyle(
-                    color: AppColors.subtleText,
-                    fontFamily: AppFonts.primary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _order.shippingAddressPhone,
+                        style: const TextStyle(
+                          color: AppColors.subtleText,
+                          fontFamily: AppFonts.primary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (widget.isVendorView) ...[
+                      const SizedBox(width: 8),
+                      CopyPillButton(
+                        onPressed: () => _copyText(
+                          _order.shippingAddressPhone,
+                          'Phone number copied.',
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ],

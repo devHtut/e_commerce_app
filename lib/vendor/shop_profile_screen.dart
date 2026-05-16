@@ -35,6 +35,8 @@ class ShopProfileScreen extends StatefulWidget {
 }
 
 class _ShopProfileScreenState extends State<ShopProfileScreen> {
+  static bool get _customerShopChatEnabled => true;
+
   bool _loading = true;
   String? _error;
   _ShopInfo? _shop;
@@ -648,7 +650,8 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                   label: 'TikTok',
                   onTap: () => _launch(_externalUri(shop.tiktokUrl)),
                 ),
-              if (!widget.embedded &&
+              if (_customerShopChatEnabled &&
+                  !widget.embedded &&
                   shop.ownerId.isNotEmpty &&
                   shop.ownerId != Supabase.instance.client.auth.currentUser?.id)
                 _ShopActionChip(

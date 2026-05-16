@@ -16,6 +16,8 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  static bool get _customerChatCreationEnabled => false;
+
   static const List<String> _reactionEmojis = [
     '❤️',
     '👍',
@@ -669,13 +671,16 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
       ),
       floatingActionButton: activeChat == null
-          ? FloatingActionButton(
-              onPressed: _showStartChatSheet,
-              tooltip: 'Start new chat',
-              backgroundColor: AppColors.primaryGreen,
-              foregroundColor: Colors.white,
-              elevation: 2,
-              child: const Icon(Icons.add_comment_outlined),
+          ? Visibility(
+              visible: _customerChatCreationEnabled,
+              child: FloatingActionButton(
+                onPressed: _showStartChatSheet,
+                tooltip: 'Start new chat',
+                backgroundColor: AppColors.primaryGreen,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                child: const Icon(Icons.add_comment_outlined),
+              ),
             )
           : null,
       body: AnimatedSwitcher(
@@ -712,15 +717,17 @@ class _ChatScreenState extends State<ChatScreen> {
               onChanged: (_) => setState(() {}),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _ChatFilterTabs(
-              selectedIndex: _selectedFilterIndex,
-              onChanged: (index) =>
-                  setState(() => _selectedFilterIndex = index),
+          if (_customerChatCreationEnabled) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _ChatFilterTabs(
+                selectedIndex: _selectedFilterIndex,
+                onChanged: (index) =>
+                    setState(() => _selectedFilterIndex = index),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
+          ],
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadChats,

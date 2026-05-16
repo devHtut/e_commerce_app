@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'custom_buttom.dart';
 import 'custom_input.dart';
 import 'custom_loading_state.dart';
 import 'custom_pop_up.dart';
+import 'progress_percentage_overlay.dart';
 
 class EditProductScreen extends StatefulWidget {
   final String productId;
@@ -34,6 +36,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
   bool _saving = false;
   bool _allowPop = false;
   bool _hasVariants = true;
+  double _saveProgress = 0;
+  String _saveProgressLabel = 'Preparing product...';
   String? _selectedCategoryId;
   String? _selectedAudienceId;
   final List<_CategoryOption> _categories = [];
@@ -343,12 +347,18 @@ class _EditProductScreenState extends State<EditProductScreen> {
       return;
     }
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _saveProgress = 0.03;
+      _saveProgressLabel = 'Preparing product details...';
+    });
     try {
+      _updateSaveProgress(0.12, 'Checking product variants...');
       final variants = _buildResolvedVariants();
       final prices = variants.map((v) => v.price).toList()..sort();
       final basePrice = prices.first;
 
+      _updateSaveProgress(0.22, 'Updating product details...');
       await Supabase.instance.client
           .from('products')
           .update({
@@ -360,14 +370,18 @@ class _EditProductScreenState extends State<EditProductScreen> {
           })
           .eq('id', widget.productId);
 
+      _updateSaveProgress(0.36, 'Replacing product photos...');
       await _deleteAllStorageImages();
+      _updateSaveProgress(0.46, 'Refreshing variants...');
       await Supabase.instance.client
           .from('product_variants')
           .delete()
           .eq('product_id', widget.productId);
 
+      _updateSaveProgress(0.54, 'Uploading product photos...');
       final colorToUrls = await _uploadCurrentImages();
 
+      _updateSaveProgress(0.86, 'Saving variants...');
       await Supabase.instance.client
           .from('product_variants')
           .insert(
@@ -392,6 +406,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
             }).toList(),
           );
 
+      _updateSaveProgress(1, 'Product saved.');
       if (!mounted) return;
       await showCustomPopup(
         context,
@@ -410,8 +425,22 @@ class _EditProductScreenState extends State<EditProductScreen> {
         type: PopupType.error,
       );
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _saveProgress = 0;
+          _saveProgressLabel = 'Preparing product...';
+        });
+      }
     }
+  }
+
+  void _updateSaveProgress(double progress, String label) {
+    if (!mounted) return;
+    setState(() {
+      _saveProgress = progress.clamp(0, 1).toDouble();
+      _saveProgressLabel = label;
+    });
   }
 
   List<_ResolvedVariant> _buildResolvedVariants() {
@@ -530,6 +559,93 @@ class _EditProductScreenState extends State<EditProductScreen> {
     setState(() => group.colorValue = selected.toARGB32());
   }
 
+  Future<void> _pickVariantGroupColorFromImage(
+    _ColorGroupDraft group, [
+    _EditableImage? sourceImage,
+  ]) async {
+    if (group.images.isEmpty) {
+      await showCustomPopup(
+        context,
+        title: 'Add a photo first',
+        message: 'Upload a photo for this color, then pick the exact color.',
+        type: PopupType.error,
+      );
+      return;
+    }
+
+    final selected = await showDialog<Color>(
+      context: context,
+      builder: (_) => _ImageColorPickerDialog(
+        image: sourceImage ?? group.images.first,
+        initialColor: Color(group.colorValue),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => group.colorValue = selected.toARGB32());
+  }
+
+  Future<bool> _confirmRemoveImage() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            'Remove photo?',
+            style: TextStyle(
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: const Text(
+            'This photo will be removed from the product when you save changes.',
+            style: TextStyle(
+              color: AppColors.subtleText,
+              fontFamily: AppFonts.primary,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFCF5F5F),
+              ),
+              child: const Text(
+                'Remove',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _removeSimpleImage(int index) async {
+    if (!await _confirmRemoveImage() || !mounted) return;
+    if (index < 0 || index >= _simpleImages.length) return;
+    setState(() => _simpleImages.removeAt(index));
+  }
+
+  Future<void> _removeVariantGroupImage(
+    _ColorGroupDraft group,
+    int index,
+  ) async {
+    if (!await _confirmRemoveImage() || !mounted) return;
+    if (index < 0 || index >= group.images.length) return;
+    setState(() => group.images.removeAt(index));
+  }
+
   Future<void> _deleteAllStorageImages() async {
     final root = await Supabase.instance.client.storage
         .from('media')
@@ -552,6 +668,23 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   Future<Map<String, List<String>>> _uploadCurrentImages() async {
     final map = <String, List<String>>{};
+    final totalImages = _totalImagesToProcess();
+    var processedCount = 0;
+
+    void updateUploadProgress() {
+      if (totalImages <= 0) {
+        _updateSaveProgress(0.78, 'Photos uploaded.');
+        return;
+      }
+      final uploadProgress = processedCount / totalImages;
+      final progress = 0.54 + (uploadProgress * 0.24);
+      _updateSaveProgress(
+        progress,
+        'Uploading product photos ($processedCount of $totalImages)...',
+      );
+    }
+
+    updateUploadProgress();
     if (_hasVariants) {
       for (final group in _variantGroups) {
         final urls = <String>[];
@@ -559,6 +692,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
           final image = group.images[i];
           if (image.url != null) {
             urls.add(image.url!);
+            processedCount++;
+            updateUploadProgress();
             continue;
           }
           final path =
@@ -576,6 +711,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
           urls.add(
             Supabase.instance.client.storage.from('media').getPublicUrl(path),
           );
+          processedCount++;
+          updateUploadProgress();
         }
         map[group.color] = urls;
       }
@@ -587,6 +724,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
       final image = _simpleImages[i];
       if (image.url != null) {
         urls.add(image.url!);
+        processedCount++;
+        updateUploadProgress();
         continue;
       }
       final path =
@@ -604,9 +743,19 @@ class _EditProductScreenState extends State<EditProductScreen> {
       urls.add(
         Supabase.instance.client.storage.from('media').getPublicUrl(path),
       );
+      processedCount++;
+      updateUploadProgress();
     }
     map['Default'] = urls;
     return map;
+  }
+
+  int _totalImagesToProcess() {
+    if (!_hasVariants) return _simpleImages.length;
+    return _variantGroups.fold<int>(
+      0,
+      (sum, group) => sum + group.images.length,
+    );
   }
 
   String? _contentType(String ext) => switch (ext.toLowerCase()) {
@@ -662,9 +811,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _requestLeave();
       },
-      child: LoadingOverlay(
-        isLoading: _saving,
-        child: Scaffold(
+      child: Stack(
+        children: [
+          Scaffold(
           backgroundColor: AppColors.lightGrey,
           appBar: AppBar(
             elevation: 0,
@@ -778,6 +927,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
             ),
           ),
         ),
+          if (_saving)
+            ProgressPercentageOverlay(
+              progress: _saveProgress,
+              label: _saveProgressLabel,
+            ),
+        ],
       ),
     );
   }
@@ -796,7 +951,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
             helper: '${_simpleImages.length}/6 selected',
             images: _simpleImages,
             onAdd: () => _pickImages(_simpleImages, 6),
-            onRemove: (i) => setState(() => _simpleImages.removeAt(i)),
+            onRemove: _removeSimpleImage,
           ),
           const SizedBox(height: 8),
           Row(
@@ -927,6 +1082,15 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       enabled: !_saving,
                       onTap: () => _pickVariantGroupColor(group),
                     ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: _saving
+                          ? null
+                          : () => _pickVariantGroupColorFromImage(group),
+                      tooltip: 'Pick color from photo',
+                      icon: const Icon(Icons.colorize_outlined),
+                      color: AppColors.primaryGreen,
+                    ),
                     if (_variantGroups.length > 1)
                       IconButton(
                         onPressed: () => setState(() {
@@ -948,7 +1112,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   helper: '${group.images.length}/3 selected',
                   images: group.images,
                   onAdd: () => _pickImages(group.images, 3),
-                  onRemove: (i) => setState(() => group.images.removeAt(i)),
+                  onRemove: (i) => _removeVariantGroupImage(group, i),
+                  onPickColor: _saving
+                      ? null
+                      : (i) => _pickVariantGroupColorFromImage(
+                          group,
+                          group.images[i],
+                        ),
                 ),
                 const SizedBox(height: 8),
                 ...List.generate(group.variants.length, (variantIndex) {
@@ -1387,6 +1557,248 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
   }
 }
 
+class _ImageColorPickerDialog extends StatefulWidget {
+  final _EditableImage image;
+  final Color initialColor;
+
+  const _ImageColorPickerDialog({
+    required this.image,
+    required this.initialColor,
+  });
+
+  @override
+  State<_ImageColorPickerDialog> createState() =>
+      _ImageColorPickerDialogState();
+}
+
+class _ImageColorPickerDialogState extends State<_ImageColorPickerDialog> {
+  ui.Image? _decodedImage;
+  Uint8List? _rgbaBytes;
+  Uint8List? _displayBytes;
+  Color? _selectedColor;
+  Offset? _markerOffset;
+  String? _decodeError;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedColor = widget.initialColor;
+    _decodeImage();
+  }
+
+  @override
+  void dispose() {
+    _decodedImage?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _decodeImage() async {
+    try {
+      final bytes = await _loadImageBytes(widget.image);
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final byteData = await frame.image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+      if (!mounted) {
+        frame.image.dispose();
+        return;
+      }
+      if (byteData == null) {
+        frame.image.dispose();
+        setState(() => _decodeError = 'Unable to read image colors.');
+        return;
+      }
+      setState(() {
+        _displayBytes = bytes;
+        _decodedImage = frame.image;
+        _rgbaBytes = byteData.buffer.asUint8List();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _decodeError = 'Unable to read image colors.');
+    }
+  }
+
+  Future<Uint8List> _loadImageBytes(_EditableImage image) async {
+    final bytes = image.bytes;
+    if (bytes != null) return bytes;
+
+    final url = image.url;
+    if (url == null || url.isEmpty) {
+      throw StateError('Image has no bytes or URL.');
+    }
+    final data = await NetworkAssetBundle(Uri.parse(url)).load('');
+    return data.buffer.asUint8List();
+  }
+
+  void _sampleColor(TapDownDetails details, BoxConstraints constraints) {
+    final image = _decodedImage;
+    final rgbaBytes = _rgbaBytes;
+    if (image == null || rgbaBytes == null) return;
+
+    final sourceSize = Size(
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final outputSize = constraints.biggest;
+    final fitted = applyBoxFit(BoxFit.contain, sourceSize, outputSize);
+    final destination = Alignment.center.inscribe(
+      fitted.destination,
+      Offset.zero & outputSize,
+    );
+
+    final localPosition = details.localPosition;
+    if (!destination.contains(localPosition)) return;
+
+    final dx = localPosition.dx - destination.left;
+    final dy = localPosition.dy - destination.top;
+    final pixelX = (dx / destination.width * image.width)
+        .floor()
+        .clamp(0, image.width - 1)
+        .toInt();
+    final pixelY = (dy / destination.height * image.height)
+        .floor()
+        .clamp(0, image.height - 1)
+        .toInt();
+    final byteIndex = ((pixelY * image.width) + pixelX) * 4;
+    if (byteIndex + 2 >= rgbaBytes.length) return;
+
+    setState(() {
+      _selectedColor = Color.fromARGB(
+        255,
+        rgbaBytes[byteIndex],
+        rgbaBytes[byteIndex + 1],
+        rgbaBytes[byteIndex + 2],
+      );
+      _markerOffset = localPosition;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedColor = _selectedColor ?? widget.initialColor;
+    final displayBytes = _displayBytes;
+
+    return AlertDialog(
+      title: const Text('Pick color from photo'),
+      content: SizedBox(
+        width: 300,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 300,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.lightGrey,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: _decodeError != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          _decodeError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.subtleText,
+                            fontFamily: AppFonts.primary,
+                          ),
+                        ),
+                      ),
+                    )
+                  : _decodedImage == null || displayBytes == null
+                  ? const CustomLoadingCenter(size: 72)
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        return GestureDetector(
+                          onTapDown: (details) =>
+                              _sampleColor(details, constraints),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: Image.memory(
+                                  displayBytes,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              if (_markerOffset != null)
+                                Positioned(
+                                  left: _markerOffset!.dx - 12,
+                                  top: _markerOffset!.dy - 12,
+                                  child: Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: selectedColor,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 3,
+                                      ),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Colors.black38,
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: selectedColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black26),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '#${_hexFromColor(selectedColor)}',
+                    style: const TextStyle(
+                      color: AppColors.darkText,
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _decodeError == null
+              ? () => Navigator.pop(context, selectedColor)
+              : null,
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+}
+
 class _RgbSlider extends StatelessWidget {
   final String label;
   final int value;
@@ -1536,16 +1948,20 @@ class _ImagePickerGrid extends StatelessWidget {
   final List<_EditableImage> images;
   final VoidCallback onAdd;
   final ValueChanged<int> onRemove;
+  final ValueChanged<int>? onPickColor;
   const _ImagePickerGrid({
     required this.title,
     required this.helper,
     required this.images,
     required this.onAdd,
     required this.onRemove,
+    this.onPickColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final pickColor = onPickColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1599,6 +2015,30 @@ class _ImagePickerGrid extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (pickColor != null)
+                    Positioned(
+                      left: 2,
+                      bottom: 2,
+                      child: Tooltip(
+                        message: 'Pick color from this photo',
+                        child: InkWell(
+                          onTap: () => pickColor(index),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.colorize_outlined,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               );
             }),
