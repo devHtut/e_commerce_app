@@ -43,23 +43,29 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
   final List<_AudienceOption> _audiences = [];
 
   static const _sizeOptions = ['XS', 'S', 'M', 'L', 'XL'];
+  static const _defaultColorValue = Color(0xFF1C1C1C);
   static const _colorOptions = [
     'Black',
     'White',
     'Blue',
+    'Navy',
     'Red',
+    'Pink',
     'Green',
     'Brown',
+    'Beige',
+    'Cream',
     'Grey',
     'Purple',
     'Orange',
     'Yellow',
+    'Cyan',
   ];
 
   final List<_ColorGroupDraft> _variantGroups = [
     _ColorGroupDraft(
-      color: _colorOptions.first,
-      colorValue: _colorValueForName(_colorOptions.first).toARGB32(),
+      color: '',
+      colorValue: _defaultColorValue.toARGB32(),
       images: [],
       variants: [
         _VariantDraft(
@@ -99,7 +105,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         _simpleStockController.text.trim().isNotEmpty ||
         _simpleImages.isNotEmpty ||
         _variantGroups.any((group) {
-          return group.images.isNotEmpty ||
+          return group.colorController.text.trim().isNotEmpty ||
+              group.images.isNotEmpty ||
               group.variants.any((variant) {
                 return variant.stockController.text.trim().isNotEmpty ||
                     variant.priceController.text.trim().isNotEmpty ||
@@ -182,9 +189,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     _simpleStockController.dispose();
 
     for (final group in _variantGroups) {
-      for (final variant in group.variants) {
-        variant.dispose();
-      }
+      group.dispose();
     }
     super.dispose();
   }
@@ -508,9 +513,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
 
   void _removeVariantGroupAt(int index) {
     final removed = _variantGroups.removeAt(index);
-    for (final variant in removed.variants) {
-      variant.dispose();
-    }
+    removed.dispose();
   }
 
   Future<void> _showInputIssues(List<String> issues) {
@@ -538,6 +541,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     }
 
     if (_hasVariants) {
+      final colorNames = <String>{};
       for (
         var groupIndex = 0;
         groupIndex < _variantGroups.length;
@@ -547,6 +551,12 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         final colorLabel = group.color.trim().isEmpty
             ? 'Color ${groupIndex + 1}'
             : group.color;
+        final normalizedColor = _normalizedColorName(group.color);
+        if (normalizedColor.isEmpty) {
+          issues.add('Enter a color name for $colorLabel.');
+        } else if (!colorNames.add(normalizedColor)) {
+          issues.add('Use a unique color name for $colorLabel.');
+        }
         if (group.images.isEmpty) {
           issues.add('Add at least one photo for $colorLabel.');
         }
@@ -588,7 +598,10 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       builder: (_) => _ColorPickerDialog(initialColor: Color(group.colorValue)),
     );
     if (selected == null || !mounted) return;
-    setState(() => group.colorValue = selected.toARGB32());
+    setState(() {
+      group.colorValue = selected.toARGB32();
+      _applySuggestedColorName(group, selected);
+    });
   }
 
   Future<void> _pickVariantGroupColorFromImage(
@@ -613,7 +626,19 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       ),
     );
     if (selected == null || !mounted) return;
-    setState(() => group.colorValue = selected.toARGB32());
+    setState(() {
+      group.colorValue = selected.toARGB32();
+      _applySuggestedColorName(group, selected);
+    });
+  }
+
+  void _applySuggestedColorName(_ColorGroupDraft group, Color color) {
+    final currentName = group.color.trim();
+    final isGeneratedName = _colorOptions.any(
+      (option) => option.toLowerCase() == currentName.toLowerCase(),
+    );
+    if (currentName.isNotEmpty && !isGeneratedName) return;
+    group.color = _suggestColorName(color);
   }
 
   Future<Map<String, List<String>>> _uploadImagesByColor(
@@ -641,10 +666,11 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     if (_hasVariants) {
       for (final group in _variantGroups) {
         final urls = <String>[];
+        final colorPath = _storageSafePathSegment(group.color);
         for (var i = 0; i < group.images.length; i++) {
           final image = group.images[i];
           final path =
-              'product images/$uploadFolderId/${group.color}/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+              'product images/$uploadFolderId/$colorPath/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
           await Supabase.instance.client.storage
               .from('media')
               .uploadBinary(
@@ -1023,10 +1049,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                     setState(() {
                       _variantGroups.add(
                         _ColorGroupDraft(
-                          color: _colorOptions.first,
-                          colorValue: _colorValueForName(
-                            _colorOptions.first,
-                          ).toARGB32(),
+                          color: '',
+                          colorValue: _defaultColorValue.toARGB32(),
                           images: [],
                           variants: [
                             _VariantDraft(
@@ -1062,32 +1086,27 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: group.color,
+                      child: TextFormField(
+                        controller: group.colorController,
+                        enabled: !_isSaving,
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 32,
+                        validator: (_) => group.color.isEmpty
+                            ? 'Enter a color name'
+                            : null,
                         decoration: const InputDecoration(
-                          labelText: 'Color',
+                          labelText: 'Color name',
+                          hintText: 'e.g. Dusty Pink',
+                          counterText: '',
+                          filled: true,
+                          fillColor: AppColors.lightGrey,
                           labelStyle: TextStyle(
                             color: AppColors.darkText,
                             fontFamily: AppFonts.primary,
                             fontWeight: FontWeight.w600,
                           ),
-                          filled: true,
-                          fillColor: AppColors.lightGrey,
                         ),
-                        items: _colorOptions
-                            .map(
-                              (c) => DropdownMenuItem(value: c, child: Text(c)),
-                            )
-                            .toList(),
-                        onChanged: _isSaving
-                            ? null
-                            : (value) => setState(() {
-                                final color = value ?? group.color;
-                                group.color = color;
-                                group.colorValue = _colorValueForName(
-                                  color,
-                                ).toARGB32();
-                              }),
+                        onChanged: (_) => setState(() {}),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1105,6 +1124,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                       icon: const Icon(Icons.colorize_outlined),
                       color: AppColors.primaryGreen,
                     ),
+                    _HexColorChip(colorValue: group.colorValue),
                     if (_variantGroups.length > 1)
                       IconButton(
                         onPressed: _isSaving
@@ -1329,17 +1349,28 @@ class _AudienceOption {
 }
 
 class _ColorGroupDraft {
-  String color;
+  final TextEditingController colorController;
   int colorValue;
   final List<_PickedImage> images;
   final List<_VariantDraft> variants;
 
   _ColorGroupDraft({
-    required this.color,
+    required String color,
     required this.colorValue,
     required this.images,
     required this.variants,
-  });
+  }) : colorController = TextEditingController(text: color);
+
+  String get color => colorController.text.trim();
+
+  set color(String value) => colorController.text = value;
+
+  void dispose() {
+    colorController.dispose();
+    for (final variant in variants) {
+      variant.dispose();
+    }
+  }
 }
 
 class _VariantDraft {
@@ -1887,32 +1918,38 @@ Color? _colorFromHex(String value) {
   return Color(0xFF000000 | parsed);
 }
 
-Color _colorValueForName(String colorName) {
-  switch (colorName.trim().toLowerCase()) {
-    case 'black':
-      return const Color(0xFF1C1C1C);
-    case 'white':
-      return const Color(0xFFF5F5F5);
-    case 'red':
-      return const Color(0xFFD84343);
-    case 'blue':
-      return const Color(0xFF3D59C9);
-    case 'green':
-      return const Color(0xFF2E7D32);
-    case 'brown':
-      return const Color(0xFF8B5E4A);
-    case 'grey':
-    case 'gray':
-      return const Color(0xFF7A7A7A);
-    case 'purple':
-      return const Color(0xFF6F3FD1);
-    case 'yellow':
-      return const Color(0xFFF9A825);
-    case 'orange':
-      return const Color(0xFFF57C00);
-    default:
-      return const Color(0xFF4A4A4A);
+String _suggestColorName(Color color) {
+  final hsl = HSLColor.fromColor(color);
+  final hue = hsl.hue;
+  final saturation = hsl.saturation;
+  final lightness = hsl.lightness;
+
+  if (lightness <= 0.14) return 'Black';
+  if (saturation <= 0.10) {
+    if (lightness >= 0.90) return 'White';
+    return 'Grey';
   }
+  if (lightness >= 0.88 && hue >= 35 && hue <= 75) return 'Cream';
+  if (saturation <= 0.30 && hue >= 20 && hue <= 75) return 'Beige';
+  if (hue >= 15 && hue < 45 && lightness < 0.55) return 'Brown';
+  if (hue >= 345 || hue < 12) return 'Red';
+  if (hue >= 12 && hue < 45) return 'Orange';
+  if (hue >= 45 && hue < 75) return 'Yellow';
+  if (hue >= 75 && hue < 165) return 'Green';
+  if (hue >= 165 && hue < 200) return 'Cyan';
+  if (hue >= 200 && hue < 250) return lightness < 0.35 ? 'Navy' : 'Blue';
+  if (hue >= 250 && hue < 305) return 'Purple';
+  return 'Pink';
+}
+
+String _normalizedColorName(String value) {
+  return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+}
+
+String _storageSafePathSegment(String value) {
+  final normalized = _normalizedColorName(value);
+  final safe = normalized.replaceAll(RegExp(r'[^a-z0-9_-]+'), '_');
+  return safe.isEmpty ? 'color' : safe;
 }
 
 int? _databaseColorValue(int? colorValue) {
@@ -1956,6 +1993,35 @@ class _ColorSwatchButton extends StatelessWidget {
               border: Border.all(color: Colors.black26),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HexColorChip extends StatelessWidget {
+  final int colorValue;
+
+  const _HexColorChip({required this.colorValue});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.lightGrey,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Text(
+        '#${_hexFromColor(Color(colorValue))}',
+        style: const TextStyle(
+          color: AppColors.darkText,
+          fontFamily: AppFonts.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

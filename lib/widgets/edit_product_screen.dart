@@ -44,17 +44,23 @@ class _EditProductScreenState extends State<EditProductScreen> {
   final List<_AudienceOption> _audiences = [];
 
   static const _sizeOptions = ['XS', 'S', 'M', 'L', 'XL'];
+  static const _defaultColorValue = Color(0xFF1C1C1C);
   static const _colorOptions = [
     'Black',
     'White',
     'Blue',
+    'Navy',
     'Red',
+    'Pink',
     'Green',
     'Brown',
+    'Beige',
+    'Cream',
     'Grey',
     'Purple',
     'Orange',
     'Yellow',
+    'Cyan',
   ];
 
   final List<_ColorGroupDraft> _variantGroups = [];
@@ -146,9 +152,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     _simplePromoController.dispose();
     _simpleStockController.dispose();
     for (final group in _variantGroups) {
-      for (final variant in group.variants) {
-        variant.dispose();
-      }
+      group.dispose();
     }
     super.dispose();
   }
@@ -507,6 +511,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     }
 
     if (_hasVariants) {
+      final colorNames = <String>{};
       for (
         var groupIndex = 0;
         groupIndex < _variantGroups.length;
@@ -516,6 +521,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
         final colorLabel = group.color.trim().isEmpty
             ? 'Color ${groupIndex + 1}'
             : group.color;
+        final normalizedColor = _normalizedColorName(group.color);
+        if (normalizedColor.isEmpty) {
+          issues.add('Enter a color name for $colorLabel.');
+        } else if (!colorNames.add(normalizedColor)) {
+          issues.add('Use a unique color name for $colorLabel.');
+        }
         if (group.images.isEmpty) {
           issues.add('Add at least one photo for $colorLabel.');
         }
@@ -556,7 +567,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
       builder: (_) => _ColorPickerDialog(initialColor: Color(group.colorValue)),
     );
     if (selected == null || !mounted) return;
-    setState(() => group.colorValue = selected.toARGB32());
+    setState(() {
+      group.colorValue = selected.toARGB32();
+      _applySuggestedColorName(group, selected);
+    });
   }
 
   Future<void> _pickVariantGroupColorFromImage(
@@ -581,7 +595,19 @@ class _EditProductScreenState extends State<EditProductScreen> {
       ),
     );
     if (selected == null || !mounted) return;
-    setState(() => group.colorValue = selected.toARGB32());
+    setState(() {
+      group.colorValue = selected.toARGB32();
+      _applySuggestedColorName(group, selected);
+    });
+  }
+
+  void _applySuggestedColorName(_ColorGroupDraft group, Color color) {
+    final currentName = group.color.trim();
+    final isGeneratedName = _colorOptions.any(
+      (option) => option.toLowerCase() == currentName.toLowerCase(),
+    );
+    if (currentName.isNotEmpty && !isGeneratedName) return;
+    group.color = _suggestColorName(color);
   }
 
   Future<bool> _confirmRemoveImage() async {
@@ -602,7 +628,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
             ),
           ),
           content: const Text(
-            'This photo will be removed from the product when you save changes.',
+            'This photo will be removed from the product immediately.',
             style: TextStyle(
               color: AppColors.subtleText,
               fontFamily: AppFonts.primary,
@@ -634,6 +660,26 @@ class _EditProductScreenState extends State<EditProductScreen> {
   Future<void> _removeSimpleImage(int index) async {
     if (!await _confirmRemoveImage() || !mounted) return;
     if (index < 0 || index >= _simpleImages.length) return;
+    final removedImage = _simpleImages[index];
+    final remainingImages = [..._simpleImages]..removeAt(index);
+    try {
+      await _deleteStoredImage(removedImage);
+      await _updateVariantImageUrl(
+        color: 'Default',
+        removedImageUrl: removedImage.url,
+        remainingImages: remainingImages,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Photo not removed',
+        message: 'Unable to delete this photo. Please try again.',
+        type: PopupType.error,
+      );
+      return;
+    }
+    if (!mounted) return;
     setState(() => _simpleImages.removeAt(index));
   }
 
@@ -643,7 +689,79 @@ class _EditProductScreenState extends State<EditProductScreen> {
   ) async {
     if (!await _confirmRemoveImage() || !mounted) return;
     if (index < 0 || index >= group.images.length) return;
+    final removedImage = group.images[index];
+    final remainingImages = [...group.images]..removeAt(index);
+    try {
+      await _deleteStoredImage(removedImage);
+      await _updateVariantImageUrl(
+        color: group.color,
+        removedImageUrl: removedImage.url,
+        remainingImages: remainingImages,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Photo not removed',
+        message: 'Unable to delete this photo. Please try again.',
+        type: PopupType.error,
+      );
+      return;
+    }
+    if (!mounted) return;
     setState(() => group.images.removeAt(index));
+  }
+
+  Future<void> _deleteStoredImage(_EditableImage image) async {
+    final url = image.url;
+    if (url == null || url.isEmpty) return;
+
+    final path = _storagePathFromPublicUrl(url);
+    if (path == null) {
+      throw StateError('Unable to resolve storage path.');
+    }
+
+    await Supabase.instance.client.storage.from('media').remove([path]);
+  }
+
+  Future<void> _updateVariantImageUrl({
+    required String color,
+    required String? removedImageUrl,
+    required List<_EditableImage> remainingImages,
+  }) async {
+    final nextUrl = _firstStoredImageUrl(remainingImages);
+    await Supabase.instance.client
+        .from('product_variants')
+        .update({'image_url': nextUrl})
+        .eq('product_id', widget.productId)
+        .eq('color', color);
+    if (removedImageUrl == null || removedImageUrl.isEmpty) return;
+    await Supabase.instance.client
+        .from('product_variants')
+        .update({'image_url': nextUrl})
+        .eq('product_id', widget.productId)
+        .eq('image_url', removedImageUrl);
+  }
+
+  String? _firstStoredImageUrl(List<_EditableImage> images) {
+    for (final image in images) {
+      final url = image.url;
+      if (url != null && url.isNotEmpty) return url;
+    }
+    return null;
+  }
+
+  String? _storagePathFromPublicUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+
+    final segments = uri.pathSegments;
+    final bucketIndex = segments.lastIndexOf('media');
+    if (bucketIndex == -1 || bucketIndex >= segments.length - 1) return null;
+
+    final path = segments.skip(bucketIndex + 1).join('/');
+    final productRoot = 'product images/${widget.productId}/';
+    return path.startsWith(productRoot) ? path : null;
   }
 
   Future<void> _deleteAllStorageImages() async {
@@ -688,6 +806,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     if (_hasVariants) {
       for (final group in _variantGroups) {
         final urls = <String>[];
+        final colorPath = _storageSafePathSegment(group.color);
         for (var i = 0; i < group.images.length; i++) {
           final image = group.images[i];
           if (image.url != null) {
@@ -697,7 +816,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
             continue;
           }
           final path =
-              'product images/${widget.productId}/${group.color}/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+              'product images/${widget.productId}/$colorPath/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
           await Supabase.instance.client.storage
               .from('media')
               .uploadBinary(
@@ -1013,10 +1132,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
               setState(() {
                 _variantGroups.add(
                   _ColorGroupDraft(
-                    color: _colorOptions.first,
-                    colorValue: _colorValueForName(
-                      _colorOptions.first,
-                    ).toARGB32(),
+                    color: '',
+                    colorValue: _defaultColorValue.toARGB32(),
                     images: [],
                     variants: [
                       _VariantDraft(
@@ -1050,30 +1167,27 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: group.color,
+                      child: TextFormField(
+                        controller: group.colorController,
+                        enabled: !_saving,
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 32,
+                        validator: (_) => group.color.isEmpty
+                            ? 'Enter a color name'
+                            : null,
                         decoration: const InputDecoration(
-                          labelText: 'Color',
+                          labelText: 'Color name',
+                          hintText: 'e.g. Dusty Pink',
+                          counterText: '',
+                          filled: true,
+                          fillColor: AppColors.lightGrey,
                           labelStyle: TextStyle(
                             color: AppColors.darkText,
                             fontFamily: AppFonts.primary,
                             fontWeight: FontWeight.w600,
                           ),
-                          filled: true,
-                          fillColor: AppColors.lightGrey,
                         ),
-                        items: _colorOptions
-                            .map(
-                              (e) => DropdownMenuItem(value: e, child: Text(e)),
-                            )
-                            .toList(),
-                        onChanged: (v) => setState(() {
-                          final color = v ?? group.color;
-                          group.color = color;
-                          group.colorValue = _colorValueForName(
-                            color,
-                          ).toARGB32();
-                        }),
+                        onChanged: (_) => setState(() {}),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1091,13 +1205,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       icon: const Icon(Icons.colorize_outlined),
                       color: AppColors.primaryGreen,
                     ),
+                    _HexColorChip(colorValue: group.colorValue),
                     if (_variantGroups.length > 1)
                       IconButton(
                         onPressed: () => setState(() {
                           final removed = _variantGroups.removeAt(groupIndex);
-                          for (final variant in removed.variants) {
-                            variant.dispose();
-                          }
+                          removed.dispose();
                         }),
                         icon: const Icon(
                           Icons.delete_outline,
@@ -1286,16 +1399,28 @@ class _AudienceOption {
 }
 
 class _ColorGroupDraft {
-  String color;
+  final TextEditingController colorController;
   int colorValue;
   final List<_EditableImage> images;
   final List<_VariantDraft> variants;
+
   _ColorGroupDraft({
-    required this.color,
+    required String color,
     required this.colorValue,
     required this.images,
     required this.variants,
-  });
+  }) : colorController = TextEditingController(text: color);
+
+  String get color => colorController.text.trim();
+
+  set color(String value) => colorController.text = value;
+
+  void dispose() {
+    colorController.dispose();
+    for (final variant in variants) {
+      variant.dispose();
+    }
+  }
 }
 
 class _VariantDraft {
@@ -1900,6 +2025,40 @@ Color _colorValueForName(String colorName) {
   }
 }
 
+String _suggestColorName(Color color) {
+  final hsl = HSLColor.fromColor(color);
+  final hue = hsl.hue;
+  final saturation = hsl.saturation;
+  final lightness = hsl.lightness;
+
+  if (lightness <= 0.14) return 'Black';
+  if (saturation <= 0.10) {
+    if (lightness >= 0.90) return 'White';
+    return 'Grey';
+  }
+  if (lightness >= 0.88 && hue >= 35 && hue <= 75) return 'Cream';
+  if (saturation <= 0.30 && hue >= 20 && hue <= 75) return 'Beige';
+  if (hue >= 15 && hue < 45 && lightness < 0.55) return 'Brown';
+  if (hue >= 345 || hue < 12) return 'Red';
+  if (hue >= 12 && hue < 45) return 'Orange';
+  if (hue >= 45 && hue < 75) return 'Yellow';
+  if (hue >= 75 && hue < 165) return 'Green';
+  if (hue >= 165 && hue < 200) return 'Cyan';
+  if (hue >= 200 && hue < 250) return lightness < 0.35 ? 'Navy' : 'Blue';
+  if (hue >= 250 && hue < 305) return 'Purple';
+  return 'Pink';
+}
+
+String _normalizedColorName(String value) {
+  return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+}
+
+String _storageSafePathSegment(String value) {
+  final normalized = _normalizedColorName(value);
+  final safe = normalized.replaceAll(RegExp(r'[^a-z0-9_-]+'), '_');
+  return safe.isEmpty ? 'color' : safe;
+}
+
 class _ColorSwatchButton extends StatelessWidget {
   final Color color;
   final bool enabled;
@@ -1936,6 +2095,35 @@ class _ColorSwatchButton extends StatelessWidget {
               border: Border.all(color: Colors.black26),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HexColorChip extends StatelessWidget {
+  final int colorValue;
+
+  const _HexColorChip({required this.colorValue});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.lightGrey,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Text(
+        '#${_hexFromColor(Color(colorValue))}',
+        style: const TextStyle(
+          color: AppColors.darkText,
+          fontFamily: AppFonts.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
