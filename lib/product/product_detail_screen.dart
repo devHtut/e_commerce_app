@@ -8,6 +8,8 @@ import '../cart/cart_service.dart';
 import '../cart/checkout_screen.dart';
 import '../chat/chat_service.dart';
 import '../customer/chat_screen.dart';
+import '../report/report_service.dart';
+import '../report/report_sheet.dart';
 import '../vendor/brand_analytics_service.dart';
 import '../vendor/shop_profile_screen.dart';
 import '../theme_config.dart';
@@ -73,6 +75,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void dispose() {
     _imageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _reportProduct() async {
+    if (Supabase.instance.client.auth.currentUser == null) {
+      await GuestAuthGatePanel.show(context);
+      return;
+    }
+
+    final draft = await ReportSheet.show(
+      context,
+      title: 'Report product',
+      subtitle:
+          'Send this product to our team for review if it contains violent or unsafe content.',
+    );
+    if (draft == null || !mounted) return;
+
+    try {
+      await ReportService.instance.reportProduct(
+        productId: _product.id,
+        reason: draft.reason,
+        details: draft.details,
+      );
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Report submitted',
+        message: 'Thanks. Our team will review this product.',
+        type: PopupType.success,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Report failed',
+        message: 'Unable to submit your report. Please try again.',
+        type: PopupType.error,
+      );
+    }
   }
 
   bool get _hasRealVariants => _variants.any(
@@ -980,6 +1020,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text('Product'),
+        actions: [
+          IconButton(
+            onPressed: _reportProduct,
+            tooltip: 'Report product',
+            icon: const Icon(Icons.flag_outlined, color: AppColors.darkText),
+          ),
+        ],
         // actions: const [
         //   Icon(Icons.share_outlined, color: AppColors.darkText),
         //   SizedBox(width: 12),
@@ -1446,10 +1493,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       _product.brandId == null || _product.brandId!.isEmpty
                       ? null
                       : _openBrandChat,
-                  icon: const Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    size: 16,
-                  ),
+                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
                   label: const Text('Message'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,

@@ -572,7 +572,7 @@ class _BottomSheetPanel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.all(Radius.circular(30)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

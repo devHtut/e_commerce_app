@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../cart/checkout_screen.dart';
@@ -54,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _brandsError;
   List<_BrandInfo> _brands = [];
   final List<String> _recentSearches = [];
+  DateTime? _lastBackPressedAt;
   bool get _isLoggedIn => Supabase.instance.client.auth.currentUser != null;
 
   final TextEditingController _searchController = TextEditingController();
@@ -95,9 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _viewedCustomerOrderCounts[status] = count;
   }
 
-  Widget _orderTabLabel({
-    required String label,
-  }) {
+  Widget _orderTabLabel({required String label}) {
     return Text(label);
   }
 
@@ -806,10 +806,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 10),
         if (_isLoadingBrands)
-          const SizedBox(
-            height: 100,
-            child: const CustomLoadingCenter(),
-          )
+          const SizedBox(height: 100, child: const CustomLoadingCenter())
         else if (_brandsError != null)
           Text(
             _brandsError!,
@@ -2087,12 +2084,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   final tab = tabs[index];
                   final selected = displayedIndex == index;
-                  final hasUnviewed =
-                      _unviewedOrderCount(tab.$3, tab.$2) > 0;
+                  final hasUnviewed = _unviewedOrderCount(tab.$3, tab.$2) > 0;
                   return ChoiceChip(
-                    label: _orderTabLabel(
-                      label: tab.$1,
-                    ),
+                    label: _orderTabLabel(label: tab.$1),
                     selected: selected,
                     onSelected: (_) => setState(() {
                       _orderTabIndex = index;
@@ -2812,10 +2806,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _handleBackPressed() {
+    if (_currentIndex != 0) {
+      setState(() => _currentIndex = 0);
+      return;
+    }
+
+    final now = DateTime.now();
+    final shouldExit =
+        _lastBackPressedAt != null &&
+        now.difference(_lastBackPressedAt!) < const Duration(seconds: 2);
+
+    if (shouldExit) {
+      SystemNavigator.pop();
+      return;
+    }
+
+    _lastBackPressedAt = now;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackPressed();
+      },
       child: Scaffold(
         backgroundColor: AppColors.lightGrey,
         appBar: AppBar(

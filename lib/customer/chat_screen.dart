@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../chat/chat_service.dart';
+import '../report/report_service.dart';
+import '../report/report_sheet.dart';
 import '../theme_config.dart';
 import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
@@ -642,6 +644,39 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _reportChat(ChatSummary chat) async {
+    final draft = await ReportSheet.show(
+      context,
+      title: 'Report chat',
+      subtitle:
+          'Send this chat to our team for review if it contains violent or unsafe content.',
+    );
+    if (draft == null || !mounted) return;
+
+    try {
+      await ReportService.instance.reportChat(
+        chatId: chat.id,
+        reason: draft.reason,
+        details: draft.details,
+      );
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Report submitted',
+        message: 'Thanks. Our team will review this chat.',
+        type: PopupType.success,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Report failed',
+        message: 'Unable to submit your report. Please try again.',
+        type: PopupType.error,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeChat = _activeChat;
@@ -661,10 +696,10 @@ class _ChatScreenState extends State<ChatScreen> {
             ? null
             : [
                 IconButton(
-                  onPressed: () {},
-                  tooltip: 'Chat info',
+                  onPressed: () => _reportChat(activeChat),
+                  tooltip: 'Report chat',
                   icon: const Icon(
-                    Icons.info_outline_rounded,
+                    Icons.flag_outlined,
                     color: AppColors.darkText,
                   ),
                 ),
@@ -1063,6 +1098,12 @@ class _ChatPreviewTile extends StatelessWidget {
                     const SizedBox(width: 2),
                     PopupMenuButton<String>(
                       tooltip: 'Chat options',
+                      color: Colors.white,
+                      elevation: 8,
+                      offset: const Offset(0, 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                       icon: const Icon(
                         Icons.more_vert_rounded,
                         color: AppColors.subtleText,
@@ -1077,14 +1118,22 @@ class _ChatPreviewTile extends StatelessWidget {
                         PopupMenuItem<String>(
                           value: 'delete',
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.delete_outline_rounded,
-                                color: AppColors.errorRed,
-                                size: 18,
+                                color: Color(0xFFCF5F5F),
+                                size: 20,
                               ),
-                              SizedBox(width: 8),
-                              Text('Delete'),
+                              SizedBox(width: 10),
+                              Text(
+                                'Delete',
+                                style: TextStyle(
+                                  color: Color(0xFFCF5F5F),
+                                  fontFamily: AppFonts.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ],
                           ),
                         ),

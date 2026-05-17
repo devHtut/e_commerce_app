@@ -13,6 +13,7 @@ import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/discard_changes_dialog.dart';
+import '../utils/image_upload_optimizer.dart';
 import 'vendor_business_info_screen.dart';
 
 class VendorInfoScreen extends StatefulWidget {
@@ -120,31 +121,30 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final filename =
-          '${DateTime.now().millisecondsSinceEpoch}_${_selectedLogo!.name}';
-      final uploadPath = 'brand logos/${currentUser.id}/$filename';
       final logoData = _selectedLogo!.bytes;
       if (logoData == null) {
         await _showErrorPopup('Unable to read the selected logo file.');
         return;
       }
-
-      final ext = (_selectedLogo!.extension ?? '').toLowerCase();
-      final String? contentType = switch (ext) {
-        'png' => 'image/png',
-        'jpg' || 'jpeg' => 'image/jpeg',
-        'webp' => 'image/webp',
-        'gif' => 'image/gif',
-        'bmp' => 'image/bmp',
-        _ => null,
-      };
+      final optimizedLogo = await optimizeImageForUpload(
+        bytes: logoData,
+        originalName: _selectedLogo!.name,
+        maxDimension: 900,
+        jpegQuality: 82,
+      );
+      final filename =
+          '${DateTime.now().millisecondsSinceEpoch}_${optimizedLogo.name}';
+      final uploadPath = 'brand logos/${currentUser.id}/$filename';
 
       await Supabase.instance.client.storage
           .from('media')
           .uploadBinary(
             uploadPath,
-            logoData,
-            fileOptions: FileOptions(upsert: true, contentType: contentType),
+            optimizedLogo.bytes,
+            fileOptions: FileOptions(
+              upsert: true,
+              contentType: optimizedLogo.contentType,
+            ),
           );
       final logoUrl = Supabase.instance.client.storage
           .from('media')

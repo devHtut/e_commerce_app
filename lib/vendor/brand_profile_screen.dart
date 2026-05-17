@@ -13,6 +13,7 @@ import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/discard_changes_dialog.dart';
+import '../utils/image_upload_optimizer.dart';
 
 class BrandProfileScreen extends StatefulWidget {
   const BrandProfileScreen({super.key});
@@ -151,19 +152,25 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
           await _showErrorPopup('Unable to read the selected logo file.');
           return;
         }
+        final optimizedLogo = await optimizeImageForUpload(
+          bytes: logoData,
+          originalName: _selectedLogo!.name,
+          maxDimension: 900,
+          jpegQuality: 82,
+        );
 
         final filename =
-            '${DateTime.now().millisecondsSinceEpoch}_${_selectedLogo!.name}';
+            '${DateTime.now().millisecondsSinceEpoch}_${optimizedLogo.name}';
         final uploadPath = 'brand logos/${currentUser.id}/$filename';
 
         await Supabase.instance.client.storage
             .from('media')
             .uploadBinary(
               uploadPath,
-              logoData,
+              optimizedLogo.bytes,
               fileOptions: FileOptions(
                 upsert: true,
-                contentType: _contentType(_selectedLogo!.extension ?? ''),
+                contentType: optimizedLogo.contentType,
               ),
             );
         logoUrl = Supabase.instance.client.storage
@@ -200,17 +207,6 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
-  }
-
-  String? _contentType(String ext) {
-    return switch (ext.toLowerCase()) {
-      'png' => 'image/png',
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'webp' => 'image/webp',
-      'gif' => 'image/gif',
-      'bmp' => 'image/bmp',
-      _ => null,
-    };
   }
 
   Future<void> _showErrorPopup(String message) {
