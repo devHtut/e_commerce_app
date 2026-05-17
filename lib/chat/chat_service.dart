@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -577,6 +578,66 @@ class ChatService {
     return ChatMessage.fromRow(inserted);
   }
 
+  Future<ChatMessage?> sendImageMessage({
+    required String chatId,
+    required Uint8List bytes,
+    required String fileName,
+    String? contentType,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null || chatId.isEmpty || bytes.isEmpty) return null;
+
+    final extension = _safeFileExtension(fileName, contentType);
+    final path =
+        'chat images/$chatId/${DateTime.now().millisecondsSinceEpoch}_${user.id}.$extension';
+    await _client.storage
+        .from('media')
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(upsert: false, contentType: contentType),
+        );
+
+    late final Map<String, dynamic> inserted;
+    try {
+      inserted = await _client
+          .from('messages')
+          .insert({
+            'chat_id': chatId,
+            'sender_id': user.id,
+            'type': 'image',
+            'text': '',
+            'image_path': path,
+          })
+          .select(
+            'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at',
+          )
+          .single();
+    } catch (_) {
+      await _client.storage.from('media').remove([path]);
+      rethrow;
+    }
+
+    await _client
+        .from('chats')
+        .update({
+          'last_message_text': 'Sent a photo',
+          'last_message_type': 'image',
+          'last_message_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', chatId);
+
+    return ChatMessage.fromRow(inserted);
+  }
+
+  String? messageImageUrl(String? imagePath) {
+    final cleanPath = imagePath?.trim();
+    if (cleanPath == null || cleanPath.isEmpty) return null;
+    final uri = Uri.tryParse(cleanPath);
+    if (uri != null && uri.hasScheme) return cleanPath;
+    return _client.storage.from('media').getPublicUrl(cleanPath);
+  }
+
   Future<void> markAsRead(String chatId) async {
     final user = _client.auth.currentUser;
     if (user == null || chatId.isEmpty) return;
@@ -621,11 +682,30 @@ class ChatService {
     final user = _client.auth.currentUser;
     if (user == null || messageId.isEmpty || chatId.isEmpty) return;
 
+    final messageRow = await _client
+        .from('messages')
+        .select('type,image_path')
+        .eq('id', messageId)
+        .eq('sender_id', user.id)
+        .maybeSingle();
+
     await _client
         .from('messages')
         .update({'is_deleted': true})
         .eq('id', messageId)
         .eq('sender_id', user.id);
+
+    final imagePath = messageRow?['image_path']?.toString().trim();
+    if (messageRow?['type']?.toString() == 'image' &&
+        imagePath != null &&
+        imagePath.isNotEmpty &&
+        Uri.tryParse(imagePath)?.hasScheme != true) {
+      try {
+        await _client.storage.from('media').remove([imagePath]);
+      } catch (e) {
+        debugPrint('Unable to delete chat image: $e');
+      }
+    }
 
     await _refreshChatLastMessage(chatId);
   }
@@ -893,6 +973,29 @@ class ChatService {
     final text = value?.toString();
     if (text == null || text.isEmpty) return null;
     return DateTime.tryParse(text)?.toLocal();
+  }
+
+  String _safeFileExtension(String fileName, String? contentType) {
+    final rawExtension = fileName.split('.').last.toLowerCase();
+    switch (rawExtension) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'webp':
+      case 'gif':
+        return rawExtension == 'jpeg' ? 'jpg' : rawExtension;
+    }
+
+    switch (contentType) {
+      case 'image/png':
+        return 'png';
+      case 'image/webp':
+        return 'webp';
+      case 'image/gif':
+        return 'gif';
+      default:
+        return 'jpg';
+    }
   }
 }
 

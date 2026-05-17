@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -231,13 +232,56 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _showImageComingSoon() async {
-    await showCustomPopup(
-      context,
-      title: 'Images',
-      message: 'Image messages will be connected in the next step.',
-      type: PopupType.success,
+  Future<void> _sendImageMessage() async {
+    final chat = _activeChat;
+    if (chat == null || _isSending) return;
+
+    final picked = await FilePicker.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
     );
+    if (picked == null || picked.files.isEmpty) return;
+
+    final file = picked.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Image not sent',
+        message: 'Unable to read the selected image.',
+        type: PopupType.error,
+      );
+      return;
+    }
+
+    setState(() => _isSending = true);
+    try {
+      final sent = await ChatService.instance.sendImageMessage(
+        chatId: chat.id,
+        bytes: bytes,
+        fileName: file.name,
+        contentType: _imageContentType(file.extension),
+      );
+      if (!mounted) return;
+      if (sent != null) {
+        setState(() => _messages = [..._messages, sent]);
+      }
+      await ChatService.instance.markAsRead(chat.id);
+      await _refreshChatsFromRealtime();
+    } catch (e) {
+      debugPrint('Image message failed: $e');
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Image not sent',
+        message: 'Please try again in a moment.',
+        type: PopupType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   Future<void> _toggleReaction(ChatMessage message, String emoji) async {
@@ -319,6 +363,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     tooltip: 'Edit',
                     onTap: () => Navigator.pop(context, '__edit__'),
                   ),
+                ],
+                if (isMine) ...[
+                  if (message.type != 'text') const SizedBox(width: 6),
                   _MessageActionIcon(
                     icon: Icons.delete_outline_rounded,
                     tooltip: 'Delete',
@@ -836,7 +883,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _MessageComposer(
             controller: _messageController,
             isSending: _isSending,
-            onAttachImage: _showImageComingSoon,
+            onAttachImage: _sendImageMessage,
             onSend: _sendMessage,
           ),
         ],
@@ -1285,6 +1332,50 @@ class _MessageBubble extends StatelessWidget {
         : message.text.trim().isEmpty && message.type == 'image'
         ? 'Photo'
         : message.text;
+    final imageUrl = !message.isDeleted && message.type == 'image'
+        ? ChatService.instance.messageImageUrl(message.imagePath)
+        : null;
+    final bubbleChild = imageUrl == null
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            child: Text(
+              text,
+              style: TextStyle(
+                color: textColor,
+                fontFamily: AppFonts.primary,
+                fontSize: 14,
+                height: 1.25,
+                fontStyle: message.isDeleted
+                    ? FontStyle.italic
+                    : FontStyle.normal,
+              ),
+            ),
+          )
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: Image.network(
+              imageUrl,
+              width: MediaQuery.sizeOf(context).width * 0.62,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  child: Text(
+                    'Unable to load photo',
+                    style: TextStyle(
+                      color: textColor,
+                      fontFamily: AppFonts.primary,
+                      fontSize: 14,
+                      height: 1.25,
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -1308,22 +1399,10 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
-                  child: Text(
-                    text,
-                    style: TextStyle(
-                      color: textColor,
-                      fontFamily: AppFonts.primary,
-                      fontSize: 14,
-                      height: 1.25,
-                      fontStyle: message.isDeleted
-                          ? FontStyle.italic
-                          : FontStyle.normal,
-                    ),
-                  ),
+                  padding: imageUrl == null
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.all(4),
+                  child: bubbleChild,
                 ),
               ),
             ),
@@ -1446,7 +1525,7 @@ class _MessageComposer extends StatelessWidget {
         12,
         8,
         12,
-        8 + MediaQuery.viewPaddingOf(context).bottom,
+        20 + MediaQuery.viewPaddingOf(context).bottom,
       ),
       decoration: const BoxDecoration(color: AppColors.lightGrey),
       child: Row(
@@ -1819,6 +1898,22 @@ String _timeLabel(DateTime? value) {
   if (difference.inDays == 1) return 'Yesterday';
   return '${local.day.toString().padLeft(2, '0')}/'
       '${local.month.toString().padLeft(2, '0')}/${local.year}';
+}
+
+String? _imageContentType(String? extension) {
+  switch (extension?.toLowerCase()) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    default:
+      return null;
+  }
 }
 
 String _messageTimeLabel(DateTime value) {
