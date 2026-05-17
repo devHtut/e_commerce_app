@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
+import '../utils/image_upload_optimizer.dart';
 import 'custom_buttom.dart';
 import 'custom_input.dart';
 import 'custom_loading_state.dart';
@@ -65,6 +66,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   final List<_ColorGroupDraft> _variantGroups = [];
   final List<_EditableImage> _simpleImages = [];
+  final List<String> _removedStoredImageUrls = [];
 
   @override
   void initState() {
@@ -230,8 +232,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
             ((first?['stock_quantity'] as num?)?.toInt().toString() ?? '0');
 
         final simpleStorage = await _listStorageImages('default');
+        final simpleVariantImages = _variantImageUrls(variants);
         _simpleImages.addAll(
-          simpleStorage.map((u) => _EditableImage.fromUrl(u)),
+          _mergeImageUrls([
+            ...simpleStorage,
+            ...simpleVariantImages,
+          ]).map((u) => _EditableImage.fromUrl(u)),
         );
       } else {
         _hasVariants = true;
@@ -250,8 +256,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
             variants: [],
           );
           final storageImages = await _listStorageImages(entry.key);
+          final variantImages = _variantImageUrls(entry.value);
           group.images.addAll(
-            storageImages.map((u) => _EditableImage.fromUrl(u)),
+            _mergeImageUrls([
+              ...storageImages,
+              ...variantImages,
+            ]).map((u) => _EditableImage.fromUrl(u)),
           );
           for (final v in entry.value) {
             final price =
@@ -317,6 +327,24 @@ class _EditProductScreenState extends State<EditProductScreen> {
     }
   }
 
+  List<String> _variantImageUrls(List<Map<String, dynamic>> variants) {
+    return variants
+        .map((v) => v['image_url']?.toString().trim() ?? '')
+        .where((url) => url.isNotEmpty)
+        .toList();
+  }
+
+  List<String> _mergeImageUrls(List<String> urls) {
+    final seen = <String>{};
+    final merged = <String>[];
+    for (final url in urls) {
+      final normalized = url.trim();
+      if (normalized.isEmpty || !seen.add(normalized)) continue;
+      merged.add(normalized);
+    }
+    return merged;
+  }
+
   Future<void> _pickImages(List<_EditableImage> target, int maxCount) async {
     final result = await FilePicker.pickFiles(
       type: FileType.image,
@@ -374,8 +402,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
           })
           .eq('id', widget.productId);
 
-      _updateSaveProgress(0.36, 'Replacing product photos...');
-      await _deleteAllStorageImages();
+      _updateSaveProgress(0.36, 'Preparing product photos...');
       _updateSaveProgress(0.46, 'Refreshing variants...');
       await Supabase.instance.client
           .from('product_variants')
@@ -409,6 +436,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               };
             }).toList(),
           );
+      await _deleteRemovedStoredImages();
 
       _updateSaveProgress(1, 'Product saved.');
       if (!mounted) return;
@@ -661,25 +689,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     if (!await _confirmRemoveImage() || !mounted) return;
     if (index < 0 || index >= _simpleImages.length) return;
     final removedImage = _simpleImages[index];
-    final remainingImages = [..._simpleImages]..removeAt(index);
-    try {
-      await _deleteStoredImage(removedImage);
-      await _updateVariantImageUrl(
-        color: 'Default',
-        removedImageUrl: removedImage.url,
-        remainingImages: remainingImages,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      await showCustomPopup(
-        context,
-        title: 'Photo not removed',
-        message: 'Unable to delete this photo. Please try again.',
-        type: PopupType.error,
-      );
-      return;
-    }
-    if (!mounted) return;
+    _trackRemovedStoredImage(removedImage);
     setState(() => _simpleImages.removeAt(index));
   }
 
@@ -690,65 +700,31 @@ class _EditProductScreenState extends State<EditProductScreen> {
     if (!await _confirmRemoveImage() || !mounted) return;
     if (index < 0 || index >= group.images.length) return;
     final removedImage = group.images[index];
-    final remainingImages = [...group.images]..removeAt(index);
-    try {
-      await _deleteStoredImage(removedImage);
-      await _updateVariantImageUrl(
-        color: group.color,
-        removedImageUrl: removedImage.url,
-        remainingImages: remainingImages,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      await showCustomPopup(
-        context,
-        title: 'Photo not removed',
-        message: 'Unable to delete this photo. Please try again.',
-        type: PopupType.error,
-      );
-      return;
-    }
-    if (!mounted) return;
+    _trackRemovedStoredImage(removedImage);
     setState(() => group.images.removeAt(index));
   }
 
-  Future<void> _deleteStoredImage(_EditableImage image) async {
+  void _trackRemovedStoredImage(_EditableImage image) {
     final url = image.url;
     if (url == null || url.isEmpty) return;
-
-    final path = _storagePathFromPublicUrl(url);
-    if (path == null) {
-      throw StateError('Unable to resolve storage path.');
+    if (!_removedStoredImageUrls.contains(url)) {
+      _removedStoredImageUrls.add(url);
     }
-
-    await Supabase.instance.client.storage.from('media').remove([path]);
   }
 
-  Future<void> _updateVariantImageUrl({
-    required String color,
-    required String? removedImageUrl,
-    required List<_EditableImage> remainingImages,
-  }) async {
-    final nextUrl = _firstStoredImageUrl(remainingImages);
-    await Supabase.instance.client
-        .from('product_variants')
-        .update({'image_url': nextUrl})
-        .eq('product_id', widget.productId)
-        .eq('color', color);
-    if (removedImageUrl == null || removedImageUrl.isEmpty) return;
-    await Supabase.instance.client
-        .from('product_variants')
-        .update({'image_url': nextUrl})
-        .eq('product_id', widget.productId)
-        .eq('image_url', removedImageUrl);
-  }
-
-  String? _firstStoredImageUrl(List<_EditableImage> images) {
-    for (final image in images) {
-      final url = image.url;
-      if (url != null && url.isNotEmpty) return url;
+  Future<void> _deleteRemovedStoredImages() async {
+    final paths = _removedStoredImageUrls
+        .map(_storagePathFromPublicUrl)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (paths.isEmpty) {
+      _removedStoredImageUrls.clear();
+      return;
     }
-    return null;
+
+    await Supabase.instance.client.storage.from('media').remove(paths);
+    _removedStoredImageUrls.clear();
   }
 
   String? _storagePathFromPublicUrl(String url) {
@@ -762,26 +738,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
     final path = segments.skip(bucketIndex + 1).join('/');
     final productRoot = 'product images/${widget.productId}/';
     return path.startsWith(productRoot) ? path : null;
-  }
-
-  Future<void> _deleteAllStorageImages() async {
-    final root = await Supabase.instance.client.storage
-        .from('media')
-        .list(path: 'product images/${widget.productId}');
-    for (final entry in root) {
-      if (entry.id == null) continue;
-      final folder = entry.name;
-      final files = await Supabase.instance.client.storage
-          .from('media')
-          .list(path: 'product images/${widget.productId}/$folder');
-      final paths = files
-          .where((f) => f.name.isNotEmpty)
-          .map((f) => 'product images/${widget.productId}/$folder/${f.name}')
-          .toList();
-      if (paths.isNotEmpty) {
-        await Supabase.instance.client.storage.from('media').remove(paths);
-      }
-    }
   }
 
   Future<Map<String, List<String>>> _uploadCurrentImages() async {
@@ -815,16 +771,20 @@ class _EditProductScreenState extends State<EditProductScreen> {
             updateUploadProgress();
             continue;
           }
+          final optimizedImage = await optimizeImageForUpload(
+            bytes: image.bytes!,
+            originalName: image.name ?? 'product_image.jpg',
+          );
           final path =
-              'product images/${widget.productId}/$colorPath/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+              'product images/${widget.productId}/$colorPath/${i}_${DateTime.now().millisecondsSinceEpoch}_${optimizedImage.name}';
           await Supabase.instance.client.storage
               .from('media')
               .uploadBinary(
                 path,
-                image.bytes!,
+                optimizedImage.bytes,
                 fileOptions: FileOptions(
                   upsert: true,
-                  contentType: _contentType(image.extension ?? ''),
+                  contentType: optimizedImage.contentType,
                 ),
               );
           urls.add(
@@ -847,16 +807,20 @@ class _EditProductScreenState extends State<EditProductScreen> {
         updateUploadProgress();
         continue;
       }
+      final optimizedImage = await optimizeImageForUpload(
+        bytes: image.bytes!,
+        originalName: image.name ?? 'product_image.jpg',
+      );
       final path =
-          'product images/${widget.productId}/default/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+          'product images/${widget.productId}/default/${i}_${DateTime.now().millisecondsSinceEpoch}_${optimizedImage.name}';
       await Supabase.instance.client.storage
           .from('media')
           .uploadBinary(
             path,
-            image.bytes!,
+            optimizedImage.bytes,
             fileOptions: FileOptions(
               upsert: true,
-              contentType: _contentType(image.extension ?? ''),
+              contentType: optimizedImage.contentType,
             ),
           );
       urls.add(
@@ -876,14 +840,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
       (sum, group) => sum + group.images.length,
     );
   }
-
-  String? _contentType(String ext) => switch (ext.toLowerCase()) {
-    'png' => 'image/png',
-    'jpg' || 'jpeg' => 'image/jpeg',
-    'webp' => 'image/webp',
-    'gif' => 'image/gif',
-    _ => null,
-  };
 
   String? _validatePrice(String? value) {
     final raw = (value ?? '').trim();
@@ -933,119 +889,123 @@ class _EditProductScreenState extends State<EditProductScreen> {
       child: Stack(
         children: [
           Scaffold(
-          backgroundColor: AppColors.lightGrey,
-          appBar: AppBar(
-            elevation: 0,
-            centerTitle: true,
-            backgroundColor: Colors.transparent,
-            leading: IconButton(
-              onPressed: _requestLeave,
-              icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+            backgroundColor: AppColors.lightGrey,
+            appBar: AppBar(
+              elevation: 0,
+              centerTitle: true,
+              backgroundColor: Colors.transparent,
+              leading: IconButton(
+                onPressed: _requestLeave,
+                icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+              ),
+              title: const Text('Edit Product'),
             ),
-            title: const Text('Edit Product'),
-          ),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    CustomTextField(
-                      controller: _nameController,
-                      labelText: 'Product name',
-                      hintText: 'Product name',
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 10),
-                    CustomTextField(
-                      controller: _descriptionController,
-                      labelText: 'Product description',
-                      hintText: 'Product description',
-                      maxLength: 500,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: _selectedCategoryId,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        labelStyle: TextStyle(
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                          fontWeight: FontWeight.w600,
+            body: SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      CustomTextField(
+                        controller: _nameController,
+                        labelText: 'Product name',
+                        hintText: 'Product name',
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 10),
+                      CustomTextField(
+                        controller: _descriptionController,
+                        labelText: 'Product description',
+                        hintText: 'Product description',
+                        maxLength: 500,
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: _selectedCategoryId,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          labelStyle: TextStyle(
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Choose category',
                         ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        hintText: 'Choose category',
+                        items: _categories
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.id,
+                                child: Text(e.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) =>
+                            setState(() => _selectedCategoryId = v),
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? 'Category is required.'
+                            : null,
                       ),
-                      items: _categories
-                          .map(
-                            (e) => DropdownMenuItem(
-                              value: e.id,
-                              child: Text(e.name),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedCategoryId = v),
-                      validator: (v) => (v == null || v.isEmpty)
-                          ? 'Category is required.'
-                          : null,
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: _selectedAudienceId,
-                      decoration: const InputDecoration(
-                        labelText: 'Audience',
-                        labelStyle: TextStyle(
-                          color: AppColors.darkText,
-                          fontFamily: AppFonts.primary,
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: _selectedAudienceId,
+                        decoration: const InputDecoration(
+                          labelText: 'Audience',
+                          labelStyle: TextStyle(
+                            color: AppColors.darkText,
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Choose audience',
                         ),
-                        filled: true,
-                        fillColor: Colors.white,
-                        hintText: 'Choose audience',
+                        items: _audiences
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.id,
+                                child: Text(e.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) =>
+                            setState(() => _selectedAudienceId = v),
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? 'Audience is required.'
+                            : null,
                       ),
-                      items: _audiences
-                          .map(
-                            (e) => DropdownMenuItem(
-                              value: e.id,
-                              child: Text(e.name),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedAudienceId = v),
-                      validator: (v) => (v == null || v.isEmpty)
-                          ? 'Audience is required.'
-                          : null,
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _hasVariants,
-                      title: const Text('Has variants'),
-                      onChanged: (v) => setState(() => _hasVariants = v),
-                    ),
-                    const SizedBox(height: 8),
-                    _hasVariants ? _buildVariantEditor() : _buildSimpleEditor(),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: CustomButton(
-                        text: 'Save',
-                        onPressed: _save,
-                        isLoading: _saving,
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _hasVariants,
+                        title: const Text('Has variants'),
+                        onChanged: (v) => setState(() => _hasVariants = v),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      _hasVariants
+                          ? _buildVariantEditor()
+                          : _buildSimpleEditor(),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: CustomButton(
+                          text: 'Save',
+                          onPressed: _save,
+                          isLoading: _saving,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
           if (_saving)
             ProgressPercentageOverlay(
               progress: _saveProgress,
@@ -1069,6 +1029,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
             title: 'Product photos (max 6)',
             helper: '${_simpleImages.length}/6 selected',
             images: _simpleImages,
+            maxCount: 6,
             onAdd: () => _pickImages(_simpleImages, 6),
             onRemove: _removeSimpleImage,
           ),
@@ -1172,9 +1133,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         enabled: !_saving,
                         textCapitalization: TextCapitalization.words,
                         maxLength: 32,
-                        validator: (_) => group.color.isEmpty
-                            ? 'Enter a color name'
-                            : null,
+                        validator: (_) =>
+                            group.color.isEmpty ? 'Enter a color name' : null,
                         decoration: const InputDecoration(
                           labelText: 'Color name',
                           hintText: 'e.g. Dusty Pink',
@@ -1224,6 +1184,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   title: 'Photos (max 3)',
                   helper: '${group.images.length}/3 selected',
                   images: group.images,
+                  maxCount: 3,
                   onAdd: () => _pickImages(group.images, 3),
                   onRemove: (i) => _removeVariantGroupImage(group, i),
                   onPickColor: _saving
@@ -1762,10 +1723,7 @@ class _ImageColorPickerDialogState extends State<_ImageColorPickerDialog> {
     final rgbaBytes = _rgbaBytes;
     if (image == null || rgbaBytes == null) return;
 
-    final sourceSize = Size(
-      image.width.toDouble(),
-      image.height.toDouble(),
-    );
+    final sourceSize = Size(image.width.toDouble(), image.height.toDouble());
     final outputSize = constraints.biggest;
     final fitted = applyBoxFit(BoxFit.contain, sourceSize, outputSize);
     final destination = Alignment.center.inscribe(
@@ -2134,6 +2092,7 @@ class _ImagePickerGrid extends StatelessWidget {
   final String title;
   final String helper;
   final List<_EditableImage> images;
+  final int maxCount;
   final VoidCallback onAdd;
   final ValueChanged<int> onRemove;
   final ValueChanged<int>? onPickColor;
@@ -2141,6 +2100,7 @@ class _ImagePickerGrid extends StatelessWidget {
     required this.title,
     required this.helper,
     required this.images,
+    required this.maxCount,
     required this.onAdd,
     required this.onRemove,
     this.onPickColor,
@@ -2175,6 +2135,16 @@ class _ImagePickerGrid extends StatelessWidget {
                   width: 78,
                   height: 78,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 78,
+                    height: 78,
+                    color: AppColors.lightGrey,
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.broken_image_outlined,
+                      color: AppColors.subtleText,
+                    ),
+                  ),
                 );
               }
               return Stack(
@@ -2230,18 +2200,19 @@ class _ImagePickerGrid extends StatelessWidget {
                 ],
               );
             }),
-            InkWell(
-              onTap: onAdd,
-              child: Container(
-                width: 78,
-                height: 78,
-                decoration: BoxDecoration(
-                  color: AppColors.lightGrey,
-                  borderRadius: BorderRadius.circular(10),
+            if (images.length < maxCount)
+              InkWell(
+                onTap: onAdd,
+                child: Container(
+                  width: 78,
+                  height: 78,
+                  decoration: BoxDecoration(
+                    color: AppColors.lightGrey,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.add_photo_alternate_outlined),
                 ),
-                child: const Icon(Icons.add_photo_alternate_outlined),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 6),
