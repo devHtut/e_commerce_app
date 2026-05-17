@@ -190,6 +190,32 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
 
   Future<void> _deleteProduct() async {
     try {
+      final variantRows = await Supabase.instance.client
+          .from('product_variants')
+          .select('id')
+          .eq('product_id', widget.productId);
+      final variantIds = (variantRows as List<dynamic>)
+          .map((row) => (row as Map<String, dynamic>)['id']?.toString())
+          .whereType<String>()
+          .toList();
+      if (variantIds.isNotEmpty) {
+        final orderItemRows = await Supabase.instance.client
+            .from('order_items')
+            .select('id')
+            .filter('product_variant_id', 'in', variantIds);
+        if ((orderItemRows as List<dynamic>).isNotEmpty) {
+          if (!mounted) return;
+          await showCustomPopup(
+            context,
+            title: 'Delete failed',
+            message:
+                'This product has existing orders and cannot be deleted. Set its variant stock to 0 instead.',
+            type: PopupType.error,
+          );
+          return;
+        }
+      }
+
       final root = await Supabase.instance.client.storage
           .from('media')
           .list(path: 'product images/${widget.productId}');

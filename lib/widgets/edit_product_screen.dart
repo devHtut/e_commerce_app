@@ -41,6 +41,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   String _saveProgressLabel = 'Preparing product...';
   String? _selectedCategoryId;
   String? _selectedAudienceId;
+  String? _simpleVariantId;
   final List<_CategoryOption> _categories = [];
   final List<_AudienceOption> _audiences = [];
 
@@ -195,7 +196,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
           .from('products')
           .select(
             'id, title, description, category_id, audience_id, base_price, product_variants('
-            'size,color,color_value,stock_quantity,promo_price,price_adjustment,sku,size_description,image_url'
+            'id,size,color,color_value,stock_quantity,promo_price,price_adjustment,sku,size_description,image_url'
             ')',
           )
           .eq('id', widget.productId)
@@ -222,6 +223,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       if (realVariants.isEmpty) {
         _hasVariants = false;
         final first = variants.isEmpty ? null : variants.first;
+        _simpleVariantId = first?['id']?.toString();
         final price =
             basePrice +
             (((first?['price_adjustment'] as num?)?.toDouble() ?? 0));
@@ -241,6 +243,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
         );
       } else {
         _hasVariants = true;
+        _simpleVariantId = null;
         final colorMap = <String, List<Map<String, dynamic>>>{};
         for (final v in realVariants) {
           final color = v['color']?.toString() ?? 'Black';
@@ -269,6 +272,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 (((v['price_adjustment'] as num?)?.toDouble() ?? 0));
             group.variants.add(
               _VariantDraft(
+                id: v['id']?.toString(),
                 size: v['size']?.toString() ?? _sizeOptions.first,
                 stockController: TextEditingController(
                   text: ((v['stock_quantity'] as num?)?.toInt() ?? 0)
@@ -390,6 +394,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
       final prices = variants.map((v) => v.price).toList()..sort();
       final basePrice = prices.first;
 
+      await _ensureRemovedVariantsCanBeDeleted(variants);
+
       _updateSaveProgress(0.22, 'Updating product details...');
       await Supabase.instance.client
           .from('products')
@@ -403,39 +409,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
           .eq('id', widget.productId);
 
       _updateSaveProgress(0.36, 'Preparing product photos...');
-      _updateSaveProgress(0.46, 'Refreshing variants...');
-      await Supabase.instance.client
-          .from('product_variants')
-          .delete()
-          .eq('product_id', widget.productId);
-
       _updateSaveProgress(0.54, 'Uploading product photos...');
       final colorToUrls = await _uploadCurrentImages();
 
       _updateSaveProgress(0.86, 'Saving variants...');
-      await Supabase.instance.client
-          .from('product_variants')
-          .insert(
-            variants.map((v) {
-              final image = (colorToUrls[v.color] ?? const []).isEmpty
-                  ? null
-                  : colorToUrls[v.color]!.first;
-              return {
-                'product_id': widget.productId,
-                'size': v.size,
-                'color': v.color,
-                'color_value': _databaseColorValue(v.colorValue),
-                'stock_quantity': v.stock,
-                'price_adjustment': v.price - basePrice,
-                'promo_price': v.promoPrice,
-                'sku': v.sku?.isEmpty == true ? null : v.sku,
-                'size_description': v.sizeDescription?.isEmpty == true
-                    ? null
-                    : v.sizeDescription,
-                'image_url': image,
-              };
-            }).toList(),
-          );
+      await _saveVariants(variants, basePrice, colorToUrls);
       await _deleteRemovedStoredImages();
 
       _updateSaveProgress(1, 'Product saved.');
@@ -449,6 +427,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
       if (!mounted) return;
       _popAfterAllow(true);
     } on PostgrestException catch (e) {
+      if (!mounted) return;
+      await showCustomPopup(
+        context,
+        title: 'Unable to save',
+        message: e.message,
+        type: PopupType.error,
+      );
+    } on _BlockedVariantRemovalException catch (e) {
       if (!mounted) return;
       await showCustomPopup(
         context,
@@ -479,6 +465,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     if (!_hasVariants) {
       return [
         _ResolvedVariant(
+          id: _simpleVariantId,
           color: 'Default',
           colorValue: null,
           size: 'Default',
@@ -497,6 +484,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       for (final variant in group.variants) {
         variants.add(
           _ResolvedVariant(
+            id: variant.id,
             color: group.color,
             colorValue: group.colorValue,
             size: variant.size,
@@ -512,6 +500,96 @@ class _EditProductScreenState extends State<EditProductScreen> {
       }
     }
     return variants;
+  }
+
+  Future<void> _ensureRemovedVariantsCanBeDeleted(
+    List<_ResolvedVariant> variants,
+  ) async {
+    _updateSaveProgress(0.18, 'Checking order history...');
+    final existingRows = await Supabase.instance.client
+        .from('product_variants')
+        .select('id')
+        .eq('product_id', widget.productId);
+    final existingIds = (existingRows as List<dynamic>)
+        .map((row) => (row as Map<String, dynamic>)['id']?.toString())
+        .whereType<String>()
+        .toSet();
+    final keptIds = variants
+        .map((variant) => variant.id)
+        .whereType<String>()
+        .toSet();
+    final removedIds = existingIds.difference(keptIds).toList();
+    if (removedIds.isEmpty) return;
+
+    final referencedRows = await Supabase.instance.client
+        .from('order_items')
+        .select('product_variant_id')
+        .filter('product_variant_id', 'in', removedIds);
+    if ((referencedRows as List<dynamic>).isNotEmpty) {
+      throw const _BlockedVariantRemovalException(
+        'This product has variants used in existing orders. Keep those variants and set stock to 0 instead of removing them.',
+      );
+    }
+  }
+
+  Future<void> _saveVariants(
+    List<_ResolvedVariant> variants,
+    double basePrice,
+    Map<String, List<String>> colorToUrls,
+  ) async {
+    final existingRows = await Supabase.instance.client
+        .from('product_variants')
+        .select('id')
+        .eq('product_id', widget.productId);
+    final existingIds = (existingRows as List<dynamic>)
+        .map((row) => (row as Map<String, dynamic>)['id']?.toString())
+        .whereType<String>()
+        .toSet();
+    final keptIds = <String>{};
+    for (final variant in variants) {
+      final payload = _variantPayload(variant, basePrice, colorToUrls);
+      final id = variant.id;
+      if (id == null || id.isEmpty) {
+        await Supabase.instance.client.from('product_variants').insert(payload);
+        continue;
+      }
+
+      keptIds.add(id);
+      await Supabase.instance.client
+          .from('product_variants')
+          .update(payload)
+          .eq('id', id);
+    }
+
+    final removedIds = existingIds.difference(keptIds).toList();
+    if (removedIds.isNotEmpty) {
+      await Supabase.instance.client
+          .from('product_variants')
+          .delete()
+          .filter('id', 'in', removedIds);
+    }
+  }
+
+  Map<String, dynamic> _variantPayload(
+    _ResolvedVariant variant,
+    double basePrice,
+    Map<String, List<String>> colorToUrls,
+  ) {
+    final imageUrls = colorToUrls[variant.color] ?? const <String>[];
+    return {
+      'product_id': widget.productId,
+      'size': variant.size,
+      'color': variant.color,
+      'color_value': _databaseColorValue(variant.colorValue),
+      'stock_quantity': variant.stock,
+      'price_adjustment': variant.price - basePrice,
+      'promo_price': variant.promoPrice,
+      'sku': variant.sku?.isEmpty == true ? null : variant.sku,
+      'size_description': variant.sizeDescription?.isEmpty == true
+          ? null
+          : variant.sizeDescription,
+      'image_url': imageUrls.isEmpty ? null : imageUrls.first,
+    };
   }
 
   Future<void> _showInputIssues(List<String> issues) {
@@ -1385,6 +1463,7 @@ class _ColorGroupDraft {
 }
 
 class _VariantDraft {
+  final String? id;
   String size;
   final TextEditingController stockController;
   final TextEditingController priceController;
@@ -1392,6 +1471,7 @@ class _VariantDraft {
   final TextEditingController skuController;
   final TextEditingController sizeDescriptionController;
   _VariantDraft({
+    this.id,
     required this.size,
     required this.stockController,
     required this.priceController,
@@ -1410,6 +1490,7 @@ class _VariantDraft {
 }
 
 class _ResolvedVariant {
+  final String? id;
   final String color;
   final int? colorValue;
   final String size;
@@ -1419,6 +1500,7 @@ class _ResolvedVariant {
   final String? sku;
   final String? sizeDescription;
   const _ResolvedVariant({
+    required this.id,
     required this.color,
     required this.colorValue,
     required this.size,
@@ -1428,6 +1510,11 @@ class _ResolvedVariant {
     required this.sku,
     required this.sizeDescription,
   });
+}
+
+class _BlockedVariantRemovalException implements Exception {
+  final String message;
+  const _BlockedVariantRemovalException(this.message);
 }
 
 class _EditableImage {
