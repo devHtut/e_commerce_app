@@ -56,12 +56,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.more_vert, color: AppColors.darkText),
-          ),
-        ],
+        // actions: const [
+        //   Padding(
+        //     padding: EdgeInsets.only(right: 12),
+        //     child: Icon(Icons.more_vert, color: AppColors.darkText),
+        //   ),
+        // ],
       ),
       body: Column(
         children: [
@@ -272,31 +272,31 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 '${_order.createdAt.day}/${_order.createdAt.month}/${_order.createdAt.year}',
               ),
               _summaryRow('Purchase Time', _formatOrderTime(_order.createdAt)),
-              if (_order.shippingAddressPhone.isNotEmpty)
-                _summaryRow(
-                  'Contact',
-                  _order.shippingAddressPhone,
-                  trailing: widget.isVendorView
-                      ? CopyPillButton(
-                          onPressed: () => _copyText(
-                            _order.shippingAddressPhone,
-                            'Phone number copied.',
-                          ),
-                        )
-                      : null,
-                ),
-              if (widget.isVendorView &&
-                  _order.shippingAddressStreet.isNotEmpty)
-                _summaryRow(
-                  'Delivery Address',
-                  _order.shippingAddressStreet,
-                  trailing: CopyPillButton(
-                    onPressed: () => _copyText(
-                      _order.shippingAddressStreet,
-                      'Delivery address copied.',
-                    ),
-                  ),
-                ),
+              // if (_order.shippingAddressPhone.isNotEmpty)
+              //   _summaryRow(
+              //     'Contact',
+              //     _order.shippingAddressPhone,
+              //     trailing: widget.isVendorView
+              //         ? CopyPillButton(
+              //             onPressed: () => _copyText(
+              //               _order.shippingAddressPhone,
+              //               'Phone number copied.',
+              //             ),
+              //           )
+              //         : null,
+              //   ),
+              // if (widget.isVendorView &&
+              //     _order.shippingAddressStreet.isNotEmpty)
+              //   _summaryRow(
+              //     'Delivery Address',
+              //     _order.shippingAddressStreet,
+              //     trailing: CopyPillButton(
+              //       onPressed: () => _copyText(
+              //         _order.shippingAddressStreet,
+              //         'Delivery address copied.',
+              //       ),
+              //     ),
+              //   ),
               if (widget.isVendorView) ...[
                 const SizedBox(height: 10),
                 _buildCustomerMessageButton(),
