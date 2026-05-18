@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'theme_config.dart';
 
@@ -46,7 +47,8 @@ class ContactAboutScreen extends StatelessWidget {
       icon: Icons.contact_support_outlined,
       title: 'Contact Us',
       body:
-          'For help, questions, reports, or partnership inquiries, please contact the Burma Brands Team through the official support channels shared by the app team. We will do our best to respond as soon as possible.',
+          'For help, questions, reports, or partnership inquiries, please contact the Burma Brands Team. Developed independently by Htut Khaung with a focus on modern UI and smooth user experience.',
+      showContactActions: true,
     ),
   ];
 
@@ -80,6 +82,7 @@ class ContactAboutScreen extends StatelessWidget {
                 child: _SectionCard(section: section),
               ),
             ),
+            const _Footer(),
           ],
         ),
       ),
@@ -107,40 +110,34 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Image.asset(
-              'assets/icon_button.png',
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                Image.asset(
+                  'assets/icon_button.png',
+                  width: 200,
+                  height: 100,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 18),
+                const Text(
                   'Burma Brands',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.darkText,
                     fontFamily: AppFonts.primary,
-                    fontSize: 20,
+                    fontSize: 24,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 6),
-                Text(
+                const SizedBox(height: 8),
+                const Text(
                   'Connecting customers with trusted local brands across Myanmar.',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.subtleText,
                     fontFamily: AppFonts.primary,
-                    fontSize: 14,
+                    fontSize: 15,
                     height: 1.35,
                   ),
                 ),
@@ -157,6 +154,15 @@ class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.section});
 
   final _AboutSection section;
+
+  Future<void> _openUri(BuildContext context, Uri uri) async {
+    final opened = await launchUrl(uri);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open contact option.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -206,8 +212,143 @@ class _SectionCard extends StatelessWidget {
                     height: 1.45,
                   ),
                 ),
+                if (section.showContactActions) ...[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _openUri(
+                          context,
+                          Uri.parse('mailto:burmabrands@gmail.com'),
+                        ),
+                        icon: const Icon(Icons.email_outlined, size: 18),
+                        label: const Text('burmabrands@gmail.com'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primaryGreen,
+                          side: const BorderSide(
+                            color: AppColors.primaryGreen,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          textStyle: const TextStyle(
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _openUri(
+                          context,
+                          Uri.parse('tel:+959772364896'),
+                        ),
+                        icon: const Icon(Icons.phone_outlined, size: 18),
+                        label: const Text('+959772364896'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primaryGreen,
+                          side: const BorderSide(
+                            color: AppColors.primaryGreen,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          textStyle: const TextStyle(
+                            fontFamily: AppFonts.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Footer extends StatelessWidget {
+  const _Footer();
+
+  void _showPolicy(BuildContext context, String title) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontFamily: AppFonts.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Text(
+            '$title details will be available soon.',
+            style: const TextStyle(
+              fontFamily: AppFonts.primary,
+              color: AppColors.subtleText,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        children: [
+          const Text(
+            'Copyright (c) 2026 Burma Brands. All rights reserved.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.subtleText,
+              fontFamily: AppFonts.primary,
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 4,
+            children: [
+              TextButton(
+                onPressed: () => _showPolicy(context, 'Privacy Policy'),
+                child: const Text(
+                  'Privacy Policy',
+                  style: TextStyle(
+                    color: AppColors.primaryGreen,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _showPolicy(context, 'Terms & Conditions'),
+                child: const Text(
+                  'Terms & Conditions',
+                  style: TextStyle(
+                    color: AppColors.primaryGreen,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -220,9 +361,11 @@ class _AboutSection {
     required this.icon,
     required this.title,
     required this.body,
+    this.showContactActions = false,
   });
 
   final IconData icon;
   final String title;
   final String body;
+  final bool showContactActions;
 }
