@@ -5,6 +5,7 @@ import '../cart/cart_item.dart';
 import '../cart/checkout_screen.dart';
 import '../cart/cart_service.dart';
 import '../chat/chat_service.dart';
+import '../contact_about_screen.dart';
 import '../order/order_service.dart';
 import '../order/order_detail_screen.dart';
 import '../address/delivery_address_screen.dart';
@@ -400,6 +401,13 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+    );
+  }
+
+  void _openContactAbout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ContactAboutScreen()),
     );
   }
 
@@ -2596,6 +2604,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _openHelpSupport,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.info_outline,
+                        color: AppColors.primaryGreen,
+                      ),
+                      title: const Text(
+                        'Contact & About',
+                        style: TextStyle(
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openContactAbout,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(

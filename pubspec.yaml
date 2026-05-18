@@ -77,6 +77,7 @@ flutter:
      - assets/thumbnail.jpg
      - assets/logo.png
      - assets/icon_logo.png
+     - assets/icon_button.png
      - assets/icon/app_icon.png
      - assets/myanmar-townships.json
      - assets/animations/sandy_loading.json

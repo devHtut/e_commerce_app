@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/signin_screen.dart';
 import '../auth/vendor_access.dart';
+import '../contact_about_screen.dart';
 import '../notification/notification_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_loading_state.dart';
@@ -360,6 +361,29 @@ class _BrandAccountSettingsScreenState
                         context,
                         MaterialPageRoute(
                           builder: (_) => const VendorSocialLinksScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.info_outline,
+                      color: AppColors.primaryGreen,
+                    ),
+                    title: const Text(
+                      'Contact & About',
+                      style: TextStyle(
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ContactAboutScreen(),
                         ),
                       );
                     },
