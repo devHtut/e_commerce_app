@@ -10,7 +10,6 @@ import '../order/order_service.dart';
 import '../order/order_detail_screen.dart';
 import '../address/delivery_address_screen.dart';
 import '../auth/auth_user_service.dart';
-import '../auth/delete_account_screen.dart';
 import '../auth/profile_info_screen.dart';
 import '../notification/notification_screen.dart';
 import '../notification/notification_service.dart';
@@ -409,16 +408,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ContactAboutScreen()),
-    );
-  }
-
-  void _openDeleteAccount() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            const DeleteAccountScreen(role: DeleteAccountRole.customer),
-      ),
     );
   }
 
@@ -2631,26 +2620,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _openContactAbout,
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.delete_forever_outlined,
-                        color: Colors.redAccent,
-                      ),
-                      title: const Text(
-                        'Delete Account',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontFamily: AppFonts.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: Colors.redAccent,
-                      ),
-                      onTap: _openDeleteAccount,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(

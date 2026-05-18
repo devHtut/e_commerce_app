@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../auth/delete_account_screen.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
@@ -463,6 +464,34 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
                       isLoading: _isSaving,
                       text: 'Save Changes',
                       onPressed: _saveBrandProfile,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: _isSaving
+                          ? null
+                          : () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const DeleteAccountScreen(
+                                    role: DeleteAccountRole.vendor,
+                                  ),
+                                ),
+                              );
+                            },
+                      icon: const Icon(Icons.delete_forever_outlined),
+                      label: const Text('Delete Brand Account'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(color: Colors.redAccent),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
                     ),
                   ),
                 ],

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
-import '../auth/delete_account_screen.dart';
 import '../auth/signin_screen.dart';
 import '../auth/vendor_access.dart';
 import '../contact_about_screen.dart';
@@ -409,35 +408,6 @@ class _BrandAccountSettingsScreenState
                         context,
                         MaterialPageRoute(
                           builder: (_) => const ContactAboutScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.delete_forever_outlined,
-                      color: Colors.redAccent,
-                    ),
-                    title: const Text(
-                      'Delete Brand Account',
-                      style: TextStyle(
-                        color: Colors.redAccent,
-                        fontFamily: AppFonts.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                      color: Colors.redAccent,
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const DeleteAccountScreen(
-                            role: DeleteAccountRole.vendor,
-                          ),
                         ),
                       );
                     },

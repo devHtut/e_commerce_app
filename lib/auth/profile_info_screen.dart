@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_user_service.dart';
+import 'delete_account_screen.dart';
 import '../customer/home_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
@@ -464,6 +465,37 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                       onPressed: _saveProfile,
                     ),
                   ),
+                  if (widget.initialFullName != null) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: _isSaving
+                            ? null
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const DeleteAccountScreen(
+                                          role: DeleteAccountRole.customer,
+                                        ),
+                                  ),
+                                );
+                              },
+                        icon: const Icon(Icons.delete_forever_outlined),
+                        label: const Text('Delete Account'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
