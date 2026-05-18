@@ -253,7 +253,6 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         _PickedImage(
           name: file.name,
           bytes: file.bytes!,
-          extension: (file.extension ?? '').toLowerCase(),
         ),
       );
     }
@@ -669,16 +668,20 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
         final colorPath = _storageSafePathSegment(group.color);
         for (var i = 0; i < group.images.length; i++) {
           final image = group.images[i];
+          final optimizedImage = await optimizeImageForUpload(
+            bytes: image.bytes,
+            originalName: image.name,
+          );
           final path =
-              'product images/$uploadFolderId/$colorPath/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+              'product images/$uploadFolderId/$colorPath/${i}_${DateTime.now().millisecondsSinceEpoch}_${optimizedImage.name}';
           await Supabase.instance.client.storage
               .from('media')
               .uploadBinary(
                 path,
-                image.bytes,
+                optimizedImage.bytes,
                 fileOptions: FileOptions(
                   upsert: true,
-                  contentType: _contentType(image.extension),
+                  contentType: optimizedImage.contentType,
                 ),
               );
           uploadedStoragePaths.add(path);
@@ -696,16 +699,20 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     final urls = <String>[];
     for (var i = 0; i < _simpleImages.length; i++) {
       final image = _simpleImages[i];
+      final optimizedImage = await optimizeImageForUpload(
+        bytes: image.bytes,
+        originalName: image.name,
+      );
       final path =
-          'product images/$uploadFolderId/default/${i}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+          'product images/$uploadFolderId/default/${i}_${DateTime.now().millisecondsSinceEpoch}_${optimizedImage.name}';
       await Supabase.instance.client.storage
           .from('media')
           .uploadBinary(
             path,
-            image.bytes,
+            optimizedImage.bytes,
             fileOptions: FileOptions(
               upsert: true,
-              contentType: _contentType(image.extension),
+              contentType: optimizedImage.contentType,
             ),
           );
       uploadedStoragePaths.add(path);
@@ -761,14 +768,6 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       // Best-effort cleanup. The user-facing error is shown by _save().
     }
   }
-
-  String? _contentType(String ext) => switch (ext) {
-    'png' => 'image/png',
-    'jpg' || 'jpeg' => 'image/jpeg',
-    'webp' => 'image/webp',
-    'gif' => 'image/gif',
-    _ => null,
-  };
 
   String? _validatePrice(String? value) {
     final raw = (value ?? '').trim();
@@ -1402,12 +1401,10 @@ class _VariantDraft {
 class _PickedImage {
   final String name;
   final Uint8List bytes;
-  final String extension;
 
   const _PickedImage({
     required this.name,
     required this.bytes,
-    required this.extension,
   });
 }
 
