@@ -2588,7 +2588,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: AppColors.primaryGreen,
                       ),
                       title: const Text(
-                        'Help & Support',
+                        'FAQs',
                         style: TextStyle(
                           fontFamily: AppFonts.primary,
                           fontWeight: FontWeight.w600,
