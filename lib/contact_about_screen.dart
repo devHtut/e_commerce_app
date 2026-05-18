@@ -6,6 +6,9 @@ import 'theme_config.dart';
 class ContactAboutScreen extends StatelessWidget {
   const ContactAboutScreen({super.key});
 
+  static const String legalDocumentsBaseUrl =
+      'https://burmabrands.github.io/e_commerce_app';
+
   static const List<_AboutSection> _sections = [
     _AboutSection(
       icon: Icons.info_outline,
@@ -275,34 +278,17 @@ class _SectionCard extends StatelessWidget {
 class _Footer extends StatelessWidget {
   const _Footer();
 
-  void _showPolicy(BuildContext context, String title) {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(
-            title,
-            style: const TextStyle(
-              fontFamily: AppFonts.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          content: Text(
-            '$title details will be available soon.',
-            style: const TextStyle(
-              fontFamily: AppFonts.primary,
-              color: AppColors.subtleText,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+  Future<void> _openDocument(BuildContext context, String path) async {
+    final uri = Uri.parse('${ContactAboutScreen.legalDocumentsBaseUrl}/$path');
+    final opened = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
     );
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open document link.')),
+      );
+    }
   }
 
   @override
@@ -327,7 +313,8 @@ class _Footer extends StatelessWidget {
             spacing: 4,
             children: [
               TextButton(
-                onPressed: () => _showPolicy(context, 'Privacy Policy'),
+                onPressed: () =>
+                    _openDocument(context, 'privacy-policy.html'),
                 child: const Text(
                   'Privacy Policy',
                   style: TextStyle(
@@ -338,7 +325,8 @@ class _Footer extends StatelessWidget {
                 ),
               ),
               TextButton(
-                onPressed: () => _showPolicy(context, 'Terms & Conditions'),
+                onPressed: () =>
+                    _openDocument(context, 'terms-and-conditions.html'),
                 child: const Text(
                   'Terms & Conditions',
                   style: TextStyle(
