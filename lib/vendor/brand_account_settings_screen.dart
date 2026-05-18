@@ -11,6 +11,7 @@ import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 import 'brand_business_info_screen.dart';
 import 'brand_profile_screen.dart';
+import 'vendor_faqs_screen.dart';
 import 'vendor_social_links_screen.dart';
 
 class BrandAccountSettingsScreen extends StatefulWidget {
@@ -361,6 +362,29 @@ class _BrandAccountSettingsScreenState
                         context,
                         MaterialPageRoute(
                           builder: (_) => const VendorSocialLinksScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.help_outline,
+                      color: AppColors.primaryGreen,
+                    ),
+                    title: const Text(
+                      'FAQs',
+                      style: TextStyle(
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const VendorFaqsScreen(),
                         ),
                       );
                     },

@@ -2,51 +2,46 @@ import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
 
-class HelpSupportScreen extends StatelessWidget {
-  const HelpSupportScreen({super.key});
+class VendorFaqsScreen extends StatelessWidget {
+  const VendorFaqsScreen({super.key});
 
-  static const List<_FaqItem> _faqs = [
-    _FaqItem(
-      question: 'Can I cancel the order?',
+  static const List<_VendorFaqItem> _faqs = [
+    _VendorFaqItem(
+      question: 'Why can I not delete a product?',
       answer:
-          'Yes. You can cancel your order while it is still pending. If the order has already been confirmed and you still need to cancel it, please contact the brand directly so they can help you with the cancellation and refund process.',
+          'A product cannot be deleted after it has already been ordered by a customer. Instead of deleting it, leave the product active until the stock reaches 0, or update the stock to 0 when the item is no longer available.',
     ),
-    _FaqItem(
-      question: 'How do I contact a brand?',
+    _VendorFaqItem(
+      question: 'Where can I contact a customer?',
       answer:
-          'You can contact a brand by sending them a message from the app or by using the phone number shown on their brand information or shop profile, when available.',
+          'You can contact a customer from the order detail screen. Open the related order and use the send message button to start a conversation with that customer.',
     ),
-    _FaqItem(
-      question: 'How can I give ratings to the product?',
+    _VendorFaqItem(
+      question: 'What if the payment is a scam?',
       answer:
-          'You can rate a product after the order has arrived to you. Once you receive the item, open your order or the product detail page and share your rating based on your experience.',
+          'If you believe the payment is fake, suspicious, or a scam, cancel the order and avoid processing the delivery. You can also contact the Burma Brands Team if you need support reviewing the issue.',
     ),
-    _FaqItem(
-      question: 'Where can I see brand info?',
+    _VendorFaqItem(
+      question: 'What if a customer contacts me and requests to cancel?',
       answer:
-          'You can see brand information in the shop profile. The shop profile includes details that help you understand more about the brand before you order.',
+          'If a customer contacts you and asks to cancel an order, you can cancel the order from your side. If payment has already been made, please arrange the refund clearly and fairly with the customer.',
     ),
-    _FaqItem(
-      question: 'Why are the product images not displaying?',
+    _VendorFaqItem(
+      question: 'Where can I view revenues by timestamp filter?',
       answer:
-          'Product images may not display correctly when the network connection is slow or unstable. Please check your internet connection and try refreshing the screen.',
+          'You can view revenue information in the dashboard. The dashboard includes week, month, and year filters so you can review your revenue by different time periods.',
     ),
-    _FaqItem(
-      question: 'How can I report violent contents?',
+    _VendorFaqItem(
+      question: 'How many products can I upload?',
       answer:
-          'You can report violent or inappropriate content by using the report buttons available in the chat screen and on the product detail screen. Our team will review reports to help keep Burma Brands safe.',
+          'For now, each brand can upload up to 50 products. This limit helps keep product management stable while Burma Brands continues improving the vendor experience.',
     ),
-    _FaqItem(
-      question: 'Why can I not add products from multiple brands to cart?',
+    _VendorFaqItem(
+      question: 'How can I quit from being a vendor at Burma Brands?',
       answer:
-          'Products from multiple brands cannot be added to the same cart because payment is currently managed directly by each brand, not by the app yet. Please place separate orders for different brands.',
+          'If you want to stop being a vendor, stop uploading new products and let your remaining stock reach 0. You can also edit your product stock to 0 and contact the Burma Brands Team for further support.',
     ),
-    _FaqItem(
-      question: 'What if the brand does not contact me after confirming my order?',
-      answer:
-          'That should not happen because brands on Burma Brands are verified by the Burma Brands Team. If you still have trouble reaching a brand after your order is confirmed, please contact our team for help.',
-    ),
-    _FaqItem(
+    _VendorFaqItem(
       question: 'How can I contact Burma Brands Team?',
       answer:
           'You can contact the Burma Brands Team through the contact information listed in the Contact & About screen.',
@@ -79,7 +74,7 @@ class HelpSupportScreen extends StatelessWidget {
             final faq = _faqs[index];
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _FaqTile(faq: faq),
+              child: _VendorFaqTile(faq: faq),
             );
           },
         ),
@@ -88,10 +83,10 @@ class HelpSupportScreen extends StatelessWidget {
   }
 }
 
-class _FaqTile extends StatelessWidget {
-  const _FaqTile({required this.faq});
+class _VendorFaqTile extends StatelessWidget {
+  const _VendorFaqTile({required this.faq});
 
-  final _FaqItem faq;
+  final _VendorFaqItem faq;
 
   @override
   Widget build(BuildContext context) {
@@ -136,8 +131,8 @@ class _FaqTile extends StatelessWidget {
   }
 }
 
-class _FaqItem {
-  const _FaqItem({
+class _VendorFaqItem {
+  const _VendorFaqItem({
     required this.question,
     required this.answer,
   });
