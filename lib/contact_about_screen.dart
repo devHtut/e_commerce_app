@@ -7,7 +7,7 @@ class ContactAboutScreen extends StatelessWidget {
   const ContactAboutScreen({super.key});
 
   static const String legalDocumentsBaseUrl =
-      'https://burmabrands.github.io/e_commerce_app';
+      'https://burmabrands.github.io/burmabrands';
 
   static const List<_AboutSection> _sections = [
     _AboutSection(

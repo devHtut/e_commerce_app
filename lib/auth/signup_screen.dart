@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../contact_about_screen.dart';
 import '../customer/home_screen.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
@@ -102,6 +104,19 @@ class _SignupScreenState extends State<SignupScreen> {
       await _showErrorPopup('An unexpected error occurred. Please try again.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _openTermsAndConditions() async {
+    final uri = Uri.parse(
+      '${ContactAboutScreen.legalDocumentsBaseUrl}/terms-and-conditions.html',
+    );
+    final opened = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) {
+      await _showErrorPopup('Could not open Terms & Conditions.');
     }
   }
 
@@ -334,7 +349,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                       style: AppTextStyles.body,
                                     ),
                                     GestureDetector(
-                                      onTap: () {},
+                                      onTap: _openTermsAndConditions,
                                       child: const Text(
                                         'Terms & Conditions.',
                                         style: TextStyle(
