@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
@@ -42,7 +43,7 @@ class SearchBox extends StatelessWidget {
         ),
         filled: true,
         fillColor: Colors.grey.shade200,
-        prefixIcon: const Icon(Icons.search, color: Colors.black38),
+        prefixIcon: const Icon(CupertinoIcons.search, color: Colors.black38),
         suffixIcon: suffixIcon,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),

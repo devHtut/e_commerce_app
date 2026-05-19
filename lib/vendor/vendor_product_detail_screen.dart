@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -438,7 +439,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                                   ),
                                   child: selected
                                       ? Icon(
-                                          Icons.check,
+                                          CupertinoIcons.check_mark,
                                           size: 18,
                                           color:
                                               swatchColor.computeLuminance() >

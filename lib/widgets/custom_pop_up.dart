@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../theme_config.dart';
 
@@ -19,7 +20,7 @@ Future<void> showCustomPopup(
         title: Row(
           children: [
             Icon(
-              isSuccess ? Icons.check_circle : Icons.error,
+              isSuccess ? CupertinoIcons.check_mark_circled : CupertinoIcons.exclamationmark_circle,
               color: isSuccess ? AppColors.primaryGreen : Colors.redAccent,
             ),
             const SizedBox(width: 8),

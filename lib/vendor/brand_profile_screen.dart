@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -272,7 +273,7 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
       color: Colors.grey.shade100,
       alignment: Alignment.center,
       child: const Icon(
-        Icons.storefront_outlined,
+        CupertinoIcons.bag,
         size: 40,
         color: AppColors.subtleText,
       ),
@@ -295,7 +296,7 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
         appBar: AppBar(
           leading: IconButton(
             onPressed: _requestLeave,
-            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
           ),
           title: const Text(
             'Manage Brand Profile',
@@ -365,7 +366,7 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
                                   ),
                                 ),
                                 child: const Icon(
-                                  Icons.camera_alt_outlined,
+                                  CupertinoIcons.camera,
                                   color: Colors.white,
                                   size: 18,
                                 ),
@@ -483,7 +484,7 @@ class _BrandProfileScreenState extends State<BrandProfileScreen> {
                                 ),
                               );
                             },
-                      icon: const Icon(Icons.delete_forever_outlined),
+                      icon: const Icon(CupertinoIcons.delete),
                       label: const Text('Delete Brand Account'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.redAccent,

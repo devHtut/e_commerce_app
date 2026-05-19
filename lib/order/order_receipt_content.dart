@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
@@ -321,7 +322,7 @@ class OrderReceiptContent extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: const Icon(
-        Icons.storefront_outlined,
+        CupertinoIcons.bag,
         color: AppColors.primaryGreen,
         size: 28,
       ),

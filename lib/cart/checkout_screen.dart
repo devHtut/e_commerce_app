@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -250,19 +251,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
                     Icon(
-                      Icons.auto_awesome,
+                      CupertinoIcons.sparkles,
                       color: Color(0xFFFFD54F),
                       size: 16,
                     ),
                     SizedBox(width: 8),
                     Icon(
-                      Icons.auto_awesome,
+                      CupertinoIcons.sparkles,
                       color: Color(0xFF29B6F6),
                       size: 14,
                     ),
                     SizedBox(width: 8),
                     Icon(
-                      Icons.auto_awesome,
+                      CupertinoIcons.sparkles,
                       color: Color(0xFFF06292),
                       size: 16,
                     ),
@@ -276,7 +277,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     color: AppColors.primaryGreen,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 54),
+                  child: const Icon(CupertinoIcons.check_mark, color: Colors.white, size: 54),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -396,7 +397,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           // actions: const [
           //   Padding(
           //     padding: EdgeInsets.only(right: 8),
-          //     child: Icon(Icons.more_vert, color: AppColors.darkText),
+          //     child: Icon(CupertinoIcons.ellipsis_vertical, color: AppColors.darkText),
           //   ),
           // ],
         ),
@@ -557,7 +558,7 @@ class _SelectedDeliveryAddressTile extends StatelessWidget {
             child: const Row(
               children: [
                 Icon(
-                  Icons.location_on_outlined,
+                  CupertinoIcons.location,
                   color: AppColors.primaryGreen,
                   size: 20,
                 ),
@@ -573,7 +574,7 @@ class _SelectedDeliveryAddressTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.black45),
+                Icon(CupertinoIcons.chevron_right, color: Colors.black45),
               ],
             ),
           ),
@@ -591,7 +592,7 @@ class _SelectedDeliveryAddressTile extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.location_on,
+                  CupertinoIcons.location_fill,
                   color: Colors.white,
                   size: 22,
                 ),
@@ -656,7 +657,7 @@ class _EmptyDeliveryAddressCard extends StatelessWidget {
             Row(
               children: const [
                 Icon(
-                  Icons.location_on_outlined,
+                  CupertinoIcons.location,
                   color: AppColors.primaryGreen,
                   size: 20,
                 ),
@@ -672,7 +673,7 @@ class _EmptyDeliveryAddressCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.black45),
+                Icon(CupertinoIcons.chevron_right, color: Colors.black45),
               ],
             ),
             const SizedBox(height: 14),
@@ -792,7 +793,7 @@ class _ChooseDeliveryAddressScreenState
         actions: [
           IconButton(
             onPressed: _openManageAddresses,
-            icon: const Icon(Icons.add, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.plus, color: AppColors.darkText),
           ),
         ],
       ),
@@ -919,7 +920,7 @@ class _ChooseAddressCard extends StatelessWidget {
                     ),
                   const Spacer(),
                   // const Icon(
-                  //   Icons.share_outlined,
+                  //   CupertinoIcons.share,
                   //   color: AppColors.darkText,
                   //   size: 20,
                   // ),
@@ -944,7 +945,7 @@ class _ChooseAddressCard extends StatelessWidget {
                     ),
                   ),
                   if (isSelected)
-                    const Icon(Icons.check, color: AppColors.primaryGreen),
+                    const Icon(CupertinoIcons.check_mark, color: AppColors.primaryGreen),
                 ],
               ),
               const SizedBox(height: 6),
@@ -1079,7 +1080,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                 if (!address.isPrimary)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.location_on_outlined),
+                    leading: const Icon(CupertinoIcons.location),
                     title: const Text(
                       'Set As Primary Address',
                       style: TextStyle(
@@ -1095,7 +1096,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
-                    Icons.delete_outline,
+                    CupertinoIcons.delete,
                     color: _addresses.length <= 1 ? Colors.grey : Colors.red,
                   ),
                   title: Text(
@@ -1130,7 +1131,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context, _addresses),
-          icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+          icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
         ),
         title: const Text(
           'Manage Addresses',
@@ -1144,7 +1145,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
         actions: [
           IconButton(
             onPressed: _openAddAddress,
-            icon: const Icon(Icons.add, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.plus, color: AppColors.darkText),
           ),
         ],
       ),
@@ -1198,7 +1199,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                       ),
                     const Spacer(),
                     // const Icon(
-                    //   Icons.share_outlined,
+                    //   CupertinoIcons.share,
                     //   color: AppColors.darkText,
                     //   size: 20,
                     // ),
@@ -1258,7 +1259,7 @@ class _ManageAddressesScreenState extends State<_ManageAddressesScreen> {
                         padding: const EdgeInsets.all(12),
                       ),
                       child: const Icon(
-                        Icons.more_vert,
+                        CupertinoIcons.ellipsis_vertical,
                         color: AppColors.primaryGreen,
                         size: 20,
                       ),
@@ -1479,7 +1480,7 @@ class _AddressDetailsScreenState extends State<_AddressDetailsScreen> {
           leading: IconButton(
             onPressed: _requestLeave,
             icon: Icon(
-              _isEditMode ? Icons.close : Icons.close,
+              _isEditMode ? CupertinoIcons.xmark : CupertinoIcons.xmark,
               color: AppColors.darkText,
             ),
           ),
@@ -1775,7 +1776,7 @@ class _OrderSection extends StatelessWidget {
           Row(
             children: [
               const Icon(
-                Icons.shopping_bag_outlined,
+                CupertinoIcons.bag,
                 color: AppColors.primaryGreen,
                 size: 20,
               ),
@@ -1791,7 +1792,7 @@ class _OrderSection extends StatelessWidget {
                   ),
                 ),
               ),
-              // const Icon(Icons.add, color: AppColors.darkText),
+              // const Icon(CupertinoIcons.plus, color: AppColors.darkText),
             ],
           ),
           const SizedBox(height: 8),
@@ -1827,7 +1828,7 @@ class _OrderItemTile extends StatelessWidget {
                 height: 86,
                 color: Colors.grey.shade300,
                 alignment: Alignment.center,
-                child: const Icon(Icons.image_not_supported, size: 18),
+                child: const Icon(CupertinoIcons.photo, size: 18),
               ),
             ),
           ),
@@ -1925,7 +1926,7 @@ class _ReviewSummaryCard extends StatelessWidget {
           const Row(
             children: [
               Icon(
-                Icons.receipt_long_outlined,
+                CupertinoIcons.doc_text,
                 color: AppColors.primaryGreen,
                 size: 20,
               ),

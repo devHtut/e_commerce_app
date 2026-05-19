@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
@@ -170,7 +171,7 @@ class _DeliveryAddressScreenState extends State<DeliveryAddressScreen> {
         actions: [
           IconButton(
             onPressed: _openManageAddresses,
-            icon: const Icon(Icons.add, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.plus, color: AppColors.darkText),
           ),
         ],
       ),
@@ -330,7 +331,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                 if (!address.isPrimary)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.location_on_outlined),
+                    leading: const Icon(CupertinoIcons.location),
                     title: const Text(
                       'Set As Primary Address',
                       style: TextStyle(
@@ -346,7 +347,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
-                    Icons.delete_outline,
+                    CupertinoIcons.delete,
                     color: _addresses.length <= 1 ? Colors.grey : Colors.red,
                   ),
                   title: Text(
@@ -381,7 +382,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context, _addresses),
-          icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+          icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
         ),
         title: const Text(
           'Manage Addresses',
@@ -395,7 +396,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
         actions: [
           IconButton(
             onPressed: _openAddAddress,
-            icon: const Icon(Icons.add, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.plus, color: AppColors.darkText),
           ),
         ],
       ),
@@ -449,7 +450,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                       ),
                     const Spacer(),
                     // const Icon(
-                    //   Icons.share_outlined,
+                    //   CupertinoIcons.share,
                     //   color: AppColors.darkText,
                     //   size: 20,
                     // ),
@@ -507,7 +508,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                         padding: const EdgeInsets.all(12),
                       ),
                       child: const Icon(
-                        Icons.more_vert,
+                        CupertinoIcons.ellipsis_vertical,
                         color: AppColors.primaryGreen,
                         size: 20,
                       ),
@@ -666,7 +667,7 @@ class _AddressDetailsScreenState extends State<AddressDetailsScreen> {
           elevation: 0,
           leading: IconButton(
             onPressed: _requestLeave,
-            icon: const Icon(Icons.close, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.xmark, color: AppColors.darkText),
           ),
           title: Text(
             isEditMode ? 'Address Details' : 'Add New Address',
@@ -882,7 +883,7 @@ class _ChooseAddressCard extends StatelessWidget {
                     ),
                   const Spacer(),
                   // const Icon(
-                  //   Icons.share_outlined,
+                  //   CupertinoIcons.share,
                   //   color: AppColors.darkText,
                   //   size: 20,
                   // ),
@@ -905,7 +906,7 @@ class _ChooseAddressCard extends StatelessWidget {
                     ),
                   ),
                   if (isSelected)
-                    const Icon(Icons.check, color: AppColors.primaryGreen),
+                    const Icon(CupertinoIcons.check_mark, color: AppColors.primaryGreen),
                 ],
               ),
               const SizedBox(height: 6),

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -313,7 +314,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           hintText: 'example@gmail.com',
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          prefixIcon: const Icon(Icons.email_outlined, color: Colors.black45),
+          prefixIcon: const Icon(CupertinoIcons.mail, color: Colors.black45),
           validator: _validateEmail,
         ),
       ],
@@ -339,7 +340,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           keyboardType: TextInputType.number,
           maxLength: 6,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          prefixIcon: const Icon(Icons.pin_outlined, color: Colors.black45),
+          prefixIcon: const Icon(CupertinoIcons.number, color: Colors.black45),
           validator: _validateOtp,
         ),
         Align(
@@ -376,10 +377,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           hintText: 'New password',
           controller: _passwordController,
           isPassword: _obscurePassword,
-          prefixIcon: const Icon(Icons.lock_outline, color: Colors.black45),
+          prefixIcon: const Icon(CupertinoIcons.lock, color: Colors.black45),
           suffixIcon: IconButton(
             icon: Icon(
-              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+              _obscurePassword ? CupertinoIcons.eye_slash : CupertinoIcons.eye,
               color: Colors.black45,
             ),
             onPressed: () {
@@ -402,12 +403,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           hintText: 'Confirm new password',
           controller: _confirmPasswordController,
           isPassword: _obscureConfirmPassword,
-          prefixIcon: const Icon(Icons.lock_outline, color: Colors.black45),
+          prefixIcon: const Icon(CupertinoIcons.lock, color: Colors.black45),
           suffixIcon: IconButton(
             icon: Icon(
               _obscureConfirmPassword
-                  ? Icons.visibility_off
-                  : Icons.visibility,
+                  ? CupertinoIcons.eye_slash
+                  : CupertinoIcons.eye,
               color: Colors.black45,
             ),
             onPressed: () {

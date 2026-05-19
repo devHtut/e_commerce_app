@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -236,7 +237,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
         appBar: AppBar(
           leading: IconButton(
             onPressed: _requestLeave,
-            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
           ),
           title: const Text(
             'Complete Vendor Info',
@@ -298,7 +299,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                                           color: Colors.grey.shade100,
                                           alignment: Alignment.center,
                                           child: const Icon(
-                                            Icons.storefront_outlined,
+                                            CupertinoIcons.bag,
                                             size: 40,
                                             color: AppColors.subtleText,
                                           ),
@@ -321,7 +322,7 @@ class _VendorInfoScreenState extends State<VendorInfoScreen> {
                                   ),
                                 ),
                                 child: const Icon(
-                                  Icons.camera_alt_outlined,
+                                  CupertinoIcons.camera,
                                   color: Colors.white,
                                   size: 18,
                                 ),

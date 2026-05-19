@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -318,63 +319,64 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildVariantPrice(_VariantOption? variant, double fallbackPrice) {
     if (variant != null && _hasVariantPromotion(variant)) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              formatKyat(variant.promoPrice!),
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 28,
+                color: AppColors.errorRed,
+                fontWeight: FontWeight.w800,
+                fontFamily: AppFonts.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
           Text(
-            formatKyat(variant.promoPrice!),
+            formatKyat(variant.price),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 28,
+              fontSize: 15,
+              color: AppColors.subtleText,
+              fontWeight: FontWeight.w700,
+              fontFamily: AppFonts.primary,
+              decoration: TextDecoration.lineThrough,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${_variantPromotionPercent(variant)}% OFF',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
               color: AppColors.errorRed,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
               fontFamily: AppFonts.primary,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Text(
-              formatKyat(variant.price),
-              style: const TextStyle(
-                fontSize: 17,
-                color: AppColors.subtleText,
-                fontWeight: FontWeight.w700,
-                fontFamily: AppFonts.primary,
-                decoration: TextDecoration.lineThrough,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.errorRed,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '-${_variantPromotionPercent(variant)}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  fontFamily: AppFonts.primary,
-                ),
-              ),
             ),
           ),
         ],
       );
     }
 
-    return Text(
-      formatKyat(fallbackPrice),
-      style: const TextStyle(
-        fontSize: 28,
-        color: AppColors.primaryGreen,
-        fontWeight: FontWeight.w700,
-        fontFamily: AppFonts.primary,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text(
+        formatKyat(fallbackPrice),
+        maxLines: 1,
+        style: const TextStyle(
+          fontSize: 28,
+          color: AppColors.primaryGreen,
+          fontWeight: FontWeight.w700,
+          fontFamily: AppFonts.primary,
+        ),
       ),
     );
   }
@@ -413,7 +415,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         }
         return Row(
           children: [
-            const Icon(Icons.star, color: Color(0xFFFFB300), size: 18),
+            const Icon(CupertinoIcons.star_fill, color: Color(0xFFFFB300), size: 18),
             const SizedBox(width: 4),
             Text(
               '${summary.averageRating.toStringAsFixed(1)} (${summary.reviewCount} reviews)',
@@ -488,7 +490,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 children: List.generate(
                   5,
                   (index) => Icon(
-                    index < review.rating ? Icons.star : Icons.star_border,
+                    index < review.rating ? CupertinoIcons.star_fill : CupertinoIcons.star,
                     size: 16,
                     color: const Color(0xFFFFB300),
                   ),
@@ -676,7 +678,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               height: 118,
                               color: Colors.grey.shade300,
                               alignment: Alignment.center,
-                              child: const Icon(Icons.image_not_supported),
+                              child: const Icon(CupertinoIcons.photo),
                             ),
                           ),
                         ),
@@ -719,7 +721,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                           ? () =>
                                                 setModalState(() => quantity--)
                                           : null,
-                                      icon: const Icon(Icons.remove, size: 20),
+                                      icon: const Icon(CupertinoIcons.minus, size: 20),
                                     ),
                                     SizedBox(
                                       width: 26,
@@ -735,7 +737,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                           ? () =>
                                                 setModalState(() => quantity++)
                                           : null,
-                                      icon: const Icon(Icons.add, size: 20),
+                                      icon: const Icon(CupertinoIcons.plus, size: 20),
                                     ),
                                   ],
                                 ),
@@ -855,7 +857,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         ),
                                         child: selected
                                             ? Icon(
-                                                Icons.check,
+                                                CupertinoIcons.check_mark,
                                                 size: 18,
                                                 color:
                                                     swatchColor
@@ -1024,13 +1026,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           IconButton(
             onPressed: _reportProduct,
             tooltip: 'Report product',
-            icon: const Icon(Icons.flag_outlined, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.flag, color: AppColors.darkText),
           ),
         ],
         // actions: const [
-        //   Icon(Icons.share_outlined, color: AppColors.darkText),
+        //   Icon(CupertinoIcons.share, color: AppColors.darkText),
         //   SizedBox(width: 12),
-        //   Icon(Icons.more_vert, color: AppColors.darkText),
+        //   Icon(CupertinoIcons.ellipsis_vertical, color: AppColors.darkText),
         //   SizedBox(width: 12),
         // ],
       ),
@@ -1284,7 +1286,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   ),
                                   child: selected
                                       ? Icon(
-                                          Icons.check,
+                                          CupertinoIcons.check_mark,
                                           size: 18,
                                           color:
                                               swatchColor.computeLuminance() >
@@ -1449,7 +1451,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     height: 46,
                     color: Colors.grey.shade200,
                     alignment: Alignment.center,
-                    child: const Icon(Icons.storefront_outlined),
+                    child: const Icon(CupertinoIcons.bag),
                   )
                 : Image.network(
                     _product.brandLogoUrl!,
@@ -1493,7 +1495,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       _product.brandId == null || _product.brandId!.isEmpty
                       ? null
                       : _openBrandChat,
-                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                  icon: const Icon(CupertinoIcons.chat_bubble, size: 16),
                   label: const Text('Message'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
@@ -1563,7 +1565,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             width: double.infinity,
                             errorBuilder: (_, __, ___) => Container(
                               color: Colors.grey.shade300,
-                              child: const Icon(Icons.image_not_supported),
+                              child: const Icon(CupertinoIcons.photo),
                             ),
                           ),
                         ),

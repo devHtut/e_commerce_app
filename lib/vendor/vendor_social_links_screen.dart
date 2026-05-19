@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -242,7 +243,7 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
               ? null
               : IconButton(
                   onPressed: _requestLeave,
-                  icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+                  icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
                 ),
           title: const Text(
             'Social Media Links',
@@ -375,7 +376,7 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
             ),
             child: logoUrl == null || logoUrl.isEmpty
                 ? const Icon(
-                    Icons.storefront_outlined,
+                    CupertinoIcons.bag,
                     size: 36,
                     color: AppColors.subtleText,
                   )
@@ -385,7 +386,7 @@ class _VendorSocialLinksScreenState extends State<VendorSocialLinksScreen> {
                       logoUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => const Icon(
-                        Icons.storefront_outlined,
+                        CupertinoIcons.bag,
                         size: 36,
                         color: AppColors.subtleText,
                       ),

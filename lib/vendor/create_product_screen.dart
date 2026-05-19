@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -823,7 +824,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
               backgroundColor: Colors.transparent,
               leading: IconButton(
                 onPressed: _requestLeave,
-                icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+                icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
               ),
               title: const Text(
                 'Create Product',
@@ -1067,7 +1068,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                       );
                     });
                   },
-            icon: const Icon(Icons.add),
+            icon: const Icon(CupertinoIcons.plus),
             label: const Text('Add color group'),
           ),
         ),
@@ -1121,7 +1122,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                           ? null
                           : () => _pickVariantGroupColorFromImage(group),
                       tooltip: 'Pick color from photo',
-                      icon: const Icon(Icons.colorize_outlined),
+                      icon: const Icon(CupertinoIcons.eyedropper),
                       color: AppColors.primaryGreen,
                     ),
                     _HexColorChip(colorValue: group.colorValue),
@@ -1133,7 +1134,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                                 () => _removeVariantGroupAt(groupIndex),
                               ),
                         icon: const Icon(
-                          Icons.delete_outline,
+                          CupertinoIcons.delete,
                           color: Colors.red,
                         ),
                       ),
@@ -1290,7 +1291,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                                         );
                                       });
                                     },
-                              icon: const Icon(Icons.add, size: 18),
+                              icon: const Icon(CupertinoIcons.plus, size: 18),
                               label: const Text('Add size'),
                             ),
                             if (group.variants.length > 1)
@@ -1600,7 +1601,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                       ),
                       child: isSelected
                           ? Icon(
-                              Icons.check,
+                              CupertinoIcons.check_mark,
                               color: color.computeLuminance() > 0.8
                                   ? AppColors.darkText
                                   : Colors.white,
@@ -2089,7 +2090,7 @@ class _ImagePickerGrid extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Icons.close,
+                          CupertinoIcons.xmark,
                           color: Colors.white,
                           size: 14,
                         ),
@@ -2112,7 +2113,7 @@ class _ImagePickerGrid extends StatelessWidget {
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
-                              Icons.colorize_outlined,
+                              CupertinoIcons.eyedropper,
                               color: Colors.white,
                               size: 14,
                             ),
@@ -2133,7 +2134,7 @@ class _ImagePickerGrid extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
-                child: const Icon(Icons.add_photo_alternate_outlined),
+                child: const Icon(CupertinoIcons.photo_on_rectangle),
               ),
             ),
           ],

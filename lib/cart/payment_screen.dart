@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -135,7 +136,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           Row(
             children: const [
               Icon(
-                Icons.shopping_bag_outlined,
+                CupertinoIcons.bag,
                 color: AppColors.primaryGreen,
                 size: 20,
               ),
@@ -178,7 +179,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const Row(
             children: [
               Icon(
-                Icons.receipt_long_outlined,
+                CupertinoIcons.doc_text,
                 color: AppColors.primaryGreen,
                 size: 20,
               ),
@@ -241,7 +242,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           shape: BoxShape.circle,
         ),
         child: const Icon(
-          Icons.account_balance_wallet_outlined,
+          CupertinoIcons.creditcard,
           color: AppColors.primaryGreen,
           size: 26,
         ),
@@ -262,7 +263,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             shape: BoxShape.circle,
           ),
           child: const Icon(
-            Icons.account_balance_wallet_outlined,
+            CupertinoIcons.creditcard,
             color: AppColors.primaryGreen,
             size: 26,
           ),
@@ -574,7 +575,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               elevation: 0,
               leading: IconButton(
                 onPressed: _requestLeave,
-                icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+                icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
               ),
               title: const Text(
                 'Payment',
@@ -646,7 +647,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(
-                                  Icons.warning_amber_rounded,
+                                  CupertinoIcons.exclamationmark_triangle,
                                   color: Color(0xFF8A5A00),
                                   size: 20,
                                 ),
@@ -729,7 +730,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           MainAxisAlignment.center,
                                       children: [
                                         Icon(
-                                          Icons.camera_alt_outlined,
+                                          CupertinoIcons.camera,
                                           size: 40,
                                           color: AppColors.subtleText,
                                         ),
@@ -999,7 +1000,7 @@ class _OrderItemTile extends StatelessWidget {
                 height: 86,
                 color: Colors.grey.shade300,
                 alignment: Alignment.center,
-                child: const Icon(Icons.image_not_supported, size: 18),
+                child: const Icon(CupertinoIcons.photo, size: 18),
               ),
             ),
           ),

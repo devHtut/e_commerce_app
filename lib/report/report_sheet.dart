@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
@@ -151,7 +152,7 @@ class ReportSheet {
                                   details: detailsController.text,
                                 ),
                               ),
-                              icon: const Icon(Icons.flag_outlined, size: 18),
+                              icon: const Icon(CupertinoIcons.flag, size: 18),
                               label: const Text('Report'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFCF5F5F),

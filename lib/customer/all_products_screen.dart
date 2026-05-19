@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -350,7 +351,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(CupertinoIcons.back),
                     color: AppColors.darkText,
                     tooltip: 'Back',
                   ),
@@ -524,7 +525,7 @@ class _BottomControls extends StatelessWidget {
           children: [
             TextButton.icon(
               onPressed: onSort,
-              icon: const Icon(Icons.swap_vert_rounded),
+              icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
               label: Text(sortLabel),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.darkText,
@@ -538,7 +539,7 @@ class _BottomControls extends StatelessWidget {
             TextButton.icon(
               onPressed: onFilter,
               icon: Icon(
-                filterActive ? Icons.tune : Icons.tune_outlined,
+                filterActive ? CupertinoIcons.slider_horizontal_3 : CupertinoIcons.slider_horizontal_3,
                 color: filterActive ? AppColors.primaryGreen : null,
               ),
               label: Text(filterActive ? 'Filter On' : 'Filter'),
@@ -628,7 +629,7 @@ class _SheetOptionTile extends StatelessWidget {
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
       leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_off,
+        selected ? CupertinoIcons.largecircle_fill_circle : CupertinoIcons.circle,
         color: AppColors.primaryGreen,
       ),
       title: Text(

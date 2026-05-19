@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -59,7 +60,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         // actions: const [
         //   Padding(
         //     padding: EdgeInsets.only(right: 12),
-        //     child: Icon(Icons.more_vert, color: AppColors.darkText),
+        //     child: Icon(CupertinoIcons.ellipsis_vertical, color: AppColors.darkText),
         //   ),
         // ],
       ),
@@ -328,7 +329,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       child: OutlinedButton.icon(
         onPressed: _openReceiptScreen,
         icon: const Icon(
-          Icons.receipt_long_outlined,
+          CupertinoIcons.doc_text,
           color: AppColors.darkText,
         ),
         label: const Text(
@@ -374,7 +375,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: _order.customerId.isEmpty ? null : _openCustomerChat,
-        icon: const Icon(Icons.chat_bubble_outline_rounded),
+        icon: const Icon(CupertinoIcons.chat_bubble),
         label: const Text(
           'Send Message to Customer',
           style: TextStyle(
@@ -439,7 +440,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             color: AppColors.primaryGreen,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.location_on, color: Colors.white),
+          child: const Icon(CupertinoIcons.location_fill, color: Colors.white),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -527,7 +528,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.event_available_outlined,
+                  CupertinoIcons.calendar_badge_plus,
                   color: _orderStatusColor(_order.status),
                   size: 18,
                 ),
@@ -554,7 +555,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildStatusChip(OrderStatus status) {
     return Row(
       children: [
-        Icon(Icons.info_outline, color: _orderStatusColor(status), size: 18),
+        Icon(CupertinoIcons.info_circle, color: _orderStatusColor(status), size: 18),
         const SizedBox(width: 8),
         Text(
           _orderStatusLabel(status),
@@ -835,7 +836,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               top: 4,
               child: IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(CupertinoIcons.xmark, color: Colors.white),
               ),
             ),
           ],
@@ -1074,17 +1075,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   IconData _trackStatusIcon(OrderStatus status) {
     switch (status) {
       case OrderStatus.pending:
-        return Icons.inventory_2;
+        return CupertinoIcons.cube_box_fill;
       case OrderStatus.confirmed:
-        return Icons.verified_outlined;
+        return CupertinoIcons.checkmark_seal;
       case OrderStatus.inDelivery:
         return Icons.local_shipping;
       case OrderStatus.completed:
-        return Icons.handshake;
+        return CupertinoIcons.hand_raised;
       case OrderStatus.canceled:
-        return Icons.cancel_outlined;
+        return CupertinoIcons.xmark_circle;
       case OrderStatus.refund:
-        return Icons.payments_outlined;
+        return CupertinoIcons.creditcard;
     }
   }
 
@@ -1294,7 +1295,7 @@ class _ReviewActionButton extends StatelessWidget {
             );
             if (submitted == true) onSubmitted();
           },
-          icon: const Icon(Icons.star_border_rounded, size: 18),
+          icon: const Icon(CupertinoIcons.star, size: 18),
           label: Text(review == null ? 'Rate Product' : 'Edit Review'),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primaryGreen,
@@ -1425,8 +1426,8 @@ class _ReviewSheetState extends State<_ReviewSheet> {
                       : () => setState(() => _rating = value),
                   icon: Icon(
                     value <= _rating
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
+                        ? CupertinoIcons.star_fill
+                        : CupertinoIcons.star,
                     color: const Color(0xFFFFB300),
                     size: 34,
                   ),
@@ -1499,7 +1500,7 @@ class _TrackDot extends StatelessWidget {
         CircleAvatar(
           radius: 12,
           backgroundColor: active ? color : Colors.grey.shade300,
-          child: const Icon(Icons.check, size: 14, color: Colors.white),
+          child: const Icon(CupertinoIcons.check_mark, size: 14, color: Colors.white),
         ),
         if (showTail) ...[
           const SizedBox(width: 6),
@@ -1645,17 +1646,17 @@ class _TrackTimelineRow extends StatelessWidget {
   IconData _timelineIcon(OrderStatus status) {
     switch (status) {
       case OrderStatus.pending:
-        return Icons.inventory_2_outlined;
+        return CupertinoIcons.cube_box;
       case OrderStatus.confirmed:
-        return Icons.verified_outlined;
+        return CupertinoIcons.checkmark_seal;
       case OrderStatus.inDelivery:
         return Icons.local_shipping_outlined;
       case OrderStatus.completed:
-        return Icons.check_circle_outline;
+        return CupertinoIcons.check_mark_circled;
       case OrderStatus.canceled:
-        return Icons.cancel_outlined;
+        return CupertinoIcons.xmark_circle;
       case OrderStatus.refund:
-        return Icons.payments_outlined;
+        return CupertinoIcons.creditcard;
     }
   }
 }

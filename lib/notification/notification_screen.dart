@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
@@ -120,7 +121,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
           if (snapshot.hasError) {
             return _EmptyState(
-              icon: Icons.notifications_off_outlined,
+              icon: CupertinoIcons.bell_slash,
               title: 'Unable to load notifications',
               message: 'Please try again in a moment.',
               action: TextButton(
@@ -133,7 +134,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           final notifications = snapshot.data ?? <AppNotification>[];
           if (notifications.isEmpty) {
             return const _EmptyState(
-              icon: Icons.notifications_none_rounded,
+              icon: CupertinoIcons.bell,
               title: 'No notifications yet',
               message: 'Order and account updates will appear here.',
             );
@@ -249,7 +250,7 @@ class _NotificationTile extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.schedule,
+                        CupertinoIcons.clock,
                         size: 14,
                         color: Colors.grey.shade500,
                       ),
@@ -291,15 +292,15 @@ class _NotificationTile extends StatelessWidget {
   }
 
   IconData _notificationIcon(String type) {
-    if (type.contains('welcome')) return Icons.waving_hand_outlined;
-    if (type.contains('payment')) return Icons.payments_outlined;
-    if (type.contains('low_stock')) return Icons.inventory_2_outlined;
+    if (type.contains('welcome')) return CupertinoIcons.hand_raised;
+    if (type.contains('payment')) return CupertinoIcons.creditcard;
+    if (type.contains('low_stock')) return CupertinoIcons.cube_box;
     if (type.contains('delivery')) return Icons.local_shipping_outlined;
-    if (type.contains('cancel')) return Icons.cancel_outlined;
-    if (type.contains('refund')) return Icons.request_quote_outlined;
-    if (type.contains('completed')) return Icons.check_circle_outline;
-    if (type.contains('confirmed')) return Icons.verified_outlined;
-    return Icons.notifications_none_rounded;
+    if (type.contains('cancel')) return CupertinoIcons.xmark_circle;
+    if (type.contains('refund')) return CupertinoIcons.doc_text_search;
+    if (type.contains('completed')) return CupertinoIcons.check_mark_circled;
+    if (type.contains('confirmed')) return CupertinoIcons.checkmark_seal;
+    return CupertinoIcons.bell;
   }
 
   Color _notificationColor(String type) {

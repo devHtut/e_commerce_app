@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -223,8 +224,8 @@ class _SignInScreenState extends State<SignInScreen> {
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
+                                  ? CupertinoIcons.eye_slash
+                                  : CupertinoIcons.eye,
                               color: Colors.black45,
                             ),
                             onPressed: () {

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -116,7 +117,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(
-                    Icons.warning_amber_rounded,
+                    CupertinoIcons.exclamationmark_triangle,
                     color: AppColors.errorRed,
                     size: 36,
                   ),

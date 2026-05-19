@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -238,14 +239,14 @@ class _VendorDashboardState extends State<VendorDashboard> {
                 Row(
                   children: [
                     _buildOverviewCard(
-                      icon: Icons.payments_outlined,
+                      icon: CupertinoIcons.creditcard,
                       title: 'Revenue',
                       value: formatKyat(analytics.totalRevenue),
                       subtitle: '${analytics.salesOrderCount} sales orders',
                     ),
                     const SizedBox(width: 12),
                     _buildOverviewCard(
-                      icon: Icons.shopping_bag_outlined,
+                      icon: CupertinoIcons.collections,
                       title: 'Orders',
                       value: '${analytics.totalOrders}',
                       subtitle: '${analytics.pendingOrderCount} pending',
@@ -256,14 +257,14 @@ class _VendorDashboardState extends State<VendorDashboard> {
                 Row(
                   children: [
                     _buildOverviewCard(
-                      icon: Icons.inventory_2_outlined,
+                      icon: CupertinoIcons.cube_box,
                       title: 'Products Sold',
                       value: '${analytics.productsSold}',
                       subtitle: '${analytics.lowStockItems.length} low stock',
                     ),
                     const SizedBox(width: 12),
                     _buildOverviewCard(
-                      icon: Icons.remove_red_eye_outlined,
+                      icon: CupertinoIcons.eye,
                       title: 'Product Views',
                       value: '${analytics.productViews}',
                       subtitle:
@@ -275,14 +276,14 @@ class _VendorDashboardState extends State<VendorDashboard> {
                 Row(
                   children: [
                     _buildOverviewCard(
-                      icon: Icons.storefront_outlined,
+                      icon: CupertinoIcons.bag,
                       title: 'Profile Visits',
                       value: '${analytics.brandProfileVisits}',
                       subtitle: '${analytics.uniqueProfileVisits} unique',
                     ),
                     const SizedBox(width: 12),
                     _buildOverviewCard(
-                      icon: Icons.cancel_outlined,
+                      icon: CupertinoIcons.xmark_circle,
                       title: 'Canceled',
                       value: '${analytics.canceledOrderCount}',
                       subtitle: 'Excluded from revenue',
@@ -629,7 +630,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
           onPressed: _openChat,
           tooltip: 'Chat',
           icon: _appBarIconWithBadge(
-            icon: Icons.chat_bubble_outline,
+            icon: CupertinoIcons.chat_bubble_text,
             count: unreadCount,
           ),
         );
@@ -734,7 +735,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
             clipBehavior: Clip.none,
             children: [
               const Icon(
-                Icons.notifications_none_rounded,
+                CupertinoIcons.bell,
                 color: AppColors.darkText,
               ),
               if (unreadCount > 0)
@@ -1033,7 +1034,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                                 Row(
                                   children: [
                                     const Icon(
-                                      Icons.calendar_today_outlined,
+                                      CupertinoIcons.calendar,
                                       size: 16,
                                       color: AppColors.primaryGreen,
                                     ),
@@ -1234,40 +1235,40 @@ class _VendorDashboardState extends State<VendorDashboard> {
             onTap: (index) => setState(() => _currentIndex = index),
             items: [
               BottomNavigationBarItem(
-                icon: const Icon(Icons.dashboard_outlined),
-                activeIcon: const Icon(Icons.dashboard),
+                icon: const Icon(CupertinoIcons.graph_square),
+                activeIcon: const Icon(CupertinoIcons.graph_square_fill),
                 label: 'Dashboard',
               ),
               BottomNavigationBarItem(
                 icon: _bottomNavIconWithBadge(
-                  icon: Icons.inventory_2_outlined,
+                  icon: CupertinoIcons.collections,
                   count: lowStockCount,
                 ),
                 activeIcon: _bottomNavIconWithBadge(
-                  icon: Icons.inventory_2,
+                  icon: CupertinoIcons.collections_solid,
                   count: lowStockCount,
                 ),
                 label: 'Products',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.storefront_outlined),
+                icon: const Icon(Icons.storefront),
                 activeIcon: const Icon(Icons.storefront),
                 label: 'Shop',
               ),
               BottomNavigationBarItem(
                 icon: _bottomNavIconWithBadge(
-                  icon: Icons.receipt_long_outlined,
+                  icon: CupertinoIcons.cube_box,
                   count: _activeVendorOrderCount,
                 ),
                 activeIcon: _bottomNavIconWithBadge(
-                  icon: Icons.receipt_long,
+                  icon: CupertinoIcons.cube_box_fill,
                   count: _activeVendorOrderCount,
                 ),
                 label: 'Orders',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.person_outline),
-                activeIcon: const Icon(Icons.person),
+                icon: const Icon(CupertinoIcons.person_circle),
+                activeIcon: const Icon(CupertinoIcons.person_circle_fill),
                 label: 'Account',
               ),
             ],

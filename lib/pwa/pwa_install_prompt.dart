@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme_config.dart';
@@ -84,7 +85,7 @@ class _PwaInstallPromptGateState extends State<PwaInstallPromptGate> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
-                        Icons.install_mobile,
+                        CupertinoIcons.square_arrow_down,
                         color: AppColors.primaryGreen,
                       ),
                     ),

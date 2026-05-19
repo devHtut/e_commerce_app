@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,43 +12,43 @@ class ContactAboutScreen extends StatelessWidget {
 
   static const List<_AboutSection> _sections = [
     _AboutSection(
-      icon: Icons.info_outline,
+      icon: CupertinoIcons.info_circle,
       title: 'About Us',
       body:
           'Burma Brands is a local shopping platform created to bring Myanmar brands and customers closer together. We help verified brands present their products clearly, manage customer conversations, and receive orders in one trusted place.',
     ),
     _AboutSection(
-      icon: Icons.flag_outlined,
+      icon: CupertinoIcons.flag,
       title: 'Mission',
       body:
           'Our mission is to support local businesses by making online selling simpler, safer, and more accessible while helping customers discover quality products from brands they can trust.',
     ),
     _AboutSection(
-      icon: Icons.visibility_outlined,
+      icon: CupertinoIcons.eye,
       title: 'Vision',
       body:
           'We aim to become a reliable digital marketplace for Myanmar brands, where every customer can shop with confidence and every brand can grow with better tools and stronger visibility.',
     ),
     _AboutSection(
-      icon: Icons.shopping_bag_outlined,
+      icon: CupertinoIcons.bag,
       title: 'What We Offer',
       body:
           'Burma Brands offers product browsing, brand profiles, direct brand contact, carts and orders, product ratings, wishlist features, delivery address management, and reporting tools for safer shopping.',
     ),
     _AboutSection(
-      icon: Icons.verified_user_outlined,
+      icon: CupertinoIcons.checkmark_shield,
       title: 'Why Choose Us',
       body:
           'Brands on the platform are verified by the Burma Brands Team, and customers can view shop information, contact brands directly, and report inappropriate content when needed.',
     ),
     _AboutSection(
-      icon: Icons.favorite_border,
+      icon: CupertinoIcons.heart,
       title: 'Our Values',
       body:
           'We value trust, local growth, clear communication, customer safety, and fair opportunities for Myanmar businesses. Every feature is designed to make shopping and selling feel more dependable.',
     ),
     _AboutSection(
-      icon: Icons.contact_support_outlined,
+      icon: CupertinoIcons.question_circle,
       title: 'Contact Us',
       body:
           'For help, questions, reports, or partnership inquiries, please contact the Burma Brands Team. Developed independently by Htut Khaung with a focus on modern UI and smooth user experience.',
@@ -226,7 +227,7 @@ class _SectionCard extends StatelessWidget {
                           context,
                           Uri.parse('mailto:burmabrands@gmail.com'),
                         ),
-                        icon: const Icon(Icons.email_outlined, size: 18),
+                        icon: const Icon(CupertinoIcons.mail, size: 18),
                         label: const Text('burmabrands@gmail.com'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primaryGreen,
@@ -247,7 +248,7 @@ class _SectionCard extends StatelessWidget {
                           context,
                           Uri.parse('tel:+959772364896'),
                         ),
-                        icon: const Icon(Icons.phone_outlined, size: 18),
+                        icon: const Icon(CupertinoIcons.phone, size: 18),
                         label: const Text('+959772364896'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primaryGreen,

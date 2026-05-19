@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -120,7 +121,7 @@ class CustomerOrderReadableIdSearchField extends StatelessWidget {
         ),
         filled: true,
         fillColor: Colors.grey.shade200,
-        prefixIcon: const Icon(Icons.search, color: Colors.black38),
+        prefixIcon: const Icon(CupertinoIcons.search, color: Colors.black38),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -160,7 +161,7 @@ class VendorOrderReadableIdSearchField extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         child: Row(
           children: [
-            const Icon(Icons.search, color: Colors.black38, size: 22),
+            const Icon(CupertinoIcons.search, color: Colors.black38, size: 22),
             const SizedBox(width: 6),
             Text(
               fadedPrefix,

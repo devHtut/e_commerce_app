@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -137,7 +138,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                         height: 24,
                         child: ButtonLoadingDots(width: 42, height: 24),
                       )
-                    : const Icon(Icons.save_alt),
+                    : const Icon(CupertinoIcons.square_arrow_down),
                 label: Text(_saving ? 'Saving...' : 'Save Image'),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),

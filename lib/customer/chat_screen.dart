@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -359,7 +360,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 if (isMine && message.type == 'text') ...[
                   const SizedBox(width: 6),
                   _MessageActionIcon(
-                    icon: Icons.edit_outlined,
+                    icon: CupertinoIcons.pencil,
                     tooltip: 'Edit',
                     onTap: () => Navigator.pop(context, '__edit__'),
                   ),
@@ -367,7 +368,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 if (isMine) ...[
                   if (message.type != 'text') const SizedBox(width: 6),
                   _MessageActionIcon(
-                    icon: Icons.delete_outline_rounded,
+                    icon: CupertinoIcons.delete,
                     tooltip: 'Delete',
                     onTap: () => Navigator.pop(context, '__delete__'),
                     color: AppColors.errorRed,
@@ -746,7 +747,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   onPressed: () => _reportChat(activeChat),
                   tooltip: 'Report chat',
                   icon: const Icon(
-                    Icons.flag_outlined,
+                    CupertinoIcons.flag,
                     color: AppColors.darkText,
                   ),
                 ),
@@ -761,7 +762,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 backgroundColor: AppColors.primaryGreen,
                 foregroundColor: Colors.white,
                 elevation: 2,
-                child: const Icon(Icons.add_comment_outlined),
+                child: const Icon(CupertinoIcons.plus_bubble),
               ),
             )
           : null,
@@ -781,7 +782,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (_errorMessage != null) {
       return _ChatEmptyState(
-        icon: Icons.chat_bubble_outline_rounded,
+        icon: CupertinoIcons.chat_bubble,
         message: _errorMessage!,
         action: TextButton(onPressed: _loadChats, child: const Text('Retry')),
       );
@@ -818,7 +819,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       padding: const EdgeInsets.only(top: 120),
                       children: const [
                         _ChatEmptyState(
-                          icon: Icons.forum_outlined,
+                          icon: CupertinoIcons.bubble_left_bubble_right,
                           message: 'No chats found.',
                         ),
                       ],
@@ -856,7 +857,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ? const CustomLoadingCenter()
                 : _messages.isEmpty
                 ? const _ChatEmptyState(
-                    icon: Icons.chat_outlined,
+                    icon: CupertinoIcons.chat_bubble_text,
                     message: 'No messages yet.',
                   )
                 : ListView.builder(
@@ -1008,7 +1009,7 @@ class _SearchField extends StatelessWidget {
           fontSize: 14,
         ),
         prefixIcon: const Icon(
-          Icons.search_rounded,
+          CupertinoIcons.search,
           color: AppColors.subtleText,
           size: 22,
         ),
@@ -1152,7 +1153,7 @@ class _ChatPreviewTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       icon: const Icon(
-                        Icons.more_vert_rounded,
+                        CupertinoIcons.ellipsis_vertical,
                         color: AppColors.subtleText,
                         size: 20,
                       ),
@@ -1168,7 +1169,7 @@ class _ChatPreviewTile extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.delete_outline_rounded,
+                                CupertinoIcons.delete,
                                 color: Color(0xFFCF5F5F),
                                 size: 20,
                               ),
@@ -1211,7 +1212,7 @@ class _ChatPreviewTile extends StatelessWidget {
                           ),
                         )
                       : const Icon(
-                          Icons.done_all_rounded,
+                          CupertinoIcons.check_mark_circled,
                           color: AppColors.primaryGreen,
                           size: 18,
                         ),
@@ -1551,7 +1552,7 @@ class _MessageComposer extends StatelessWidget {
                   width: 42,
                   height: 42,
                   child: Icon(
-                    Icons.image_outlined,
+                    CupertinoIcons.photo,
                     color: Colors.white,
                     size: 22,
                   ),
@@ -1606,7 +1607,7 @@ class _MessageComposer extends StatelessWidget {
                   child: isSending
                       ? const ButtonLoadingDots(width: 40, height: 24)
                       : const Icon(
-                          Icons.send_rounded,
+                          CupertinoIcons.paperplane,
                           color: Colors.white,
                           size: 22,
                         ),
@@ -1731,7 +1732,7 @@ class _StartChatSheetState extends State<_StartChatSheet> {
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       tooltip: 'Close',
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const Icon(CupertinoIcons.xmark),
                     ),
                   ],
                 ),
@@ -1753,7 +1754,7 @@ class _StartChatSheetState extends State<_StartChatSheet> {
 
                     if (snapshot.hasError) {
                       return _ChatEmptyState(
-                        icon: Icons.error_outline_rounded,
+                        icon: CupertinoIcons.exclamationmark_circle,
                         message: 'Unable to load customers right now.',
                         action: TextButton(
                           onPressed: () {
@@ -1772,7 +1773,7 @@ class _StartChatSheetState extends State<_StartChatSheet> {
                     );
                     if (options.isEmpty) {
                       return const _ChatEmptyState(
-                        icon: Icons.alternate_email_rounded,
+                        icon: CupertinoIcons.at,
                         message: 'No customers found.',
                       );
                     }
@@ -1861,7 +1862,7 @@ class _StartChatTile extends StatelessWidget {
               ),
             ),
             const Icon(
-              Icons.chevron_right_rounded,
+              CupertinoIcons.chevron_right,
               color: AppColors.subtleText,
             ),
           ],

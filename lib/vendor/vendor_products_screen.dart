@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -313,7 +314,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                                             color: Colors.grey.shade300,
                                             alignment: Alignment.center,
                                             child: const Icon(
-                                              Icons.image_not_supported,
+                                              CupertinoIcons.photo,
                                             ),
                                           ),
                                         ),
@@ -360,7 +361,7 @@ class _VendorProductsScreenState extends State<VendorProductsScreen> {
                                         ),
                                       ),
                                       trailing: const Icon(
-                                        Icons.chevron_right,
+                                        CupertinoIcons.chevron_right,
                                         color: AppColors.darkText,
                                       ),
                                     ),

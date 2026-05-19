@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -222,7 +223,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             controller: _emailController,
                             hintText: 'example@gmail.com',
                             prefixIcon: const Icon(
-                              Icons.email_outlined,
+                              CupertinoIcons.mail,
                               color: Colors.black45,
                             ),
                             validator: (value) {
@@ -256,14 +257,14 @@ class _SignupScreenState extends State<SignupScreen> {
                             hintText: 'Enter your password',
                             isPassword: _obscurePassword,
                             prefixIcon: const Icon(
-                              Icons.lock_outline,
+                              CupertinoIcons.lock,
                               color: Colors.black45,
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
+                                    ? CupertinoIcons.eye_slash
+                                    : CupertinoIcons.eye,
                                 color: Colors.black45,
                               ),
                               onPressed: () {
@@ -300,14 +301,14 @@ class _SignupScreenState extends State<SignupScreen> {
                             hintText: 'Re-enter your password',
                             isPassword: _obscureConfirmPassword,
                             prefixIcon: const Icon(
-                              Icons.lock_outline,
+                              CupertinoIcons.lock,
                               color: Colors.black45,
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscureConfirmPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
+                                    ? CupertinoIcons.eye_slash
+                                    : CupertinoIcons.eye,
                                 color: Colors.black45,
                               ),
                               onPressed: () {

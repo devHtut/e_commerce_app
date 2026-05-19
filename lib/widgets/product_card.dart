@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 
@@ -144,7 +145,7 @@ class _ProductCardState extends State<ProductCard> {
                   //     ),
                   //     child: Row(
                   //       children: [
-                  //         const Icon(Icons.star, color: Colors.amber, size: 16),
+                  //         const Icon(CupertinoIcons.star_fill, color: Colors.amber, size: 16),
                   //         const SizedBox(width: 4),
                   //         Text(
                   //           widget.product.rating.toStringAsFixed(1),
@@ -168,8 +169,8 @@ class _ProductCardState extends State<ProductCard> {
                           onPressed: widget.onWishlistTap,
                           icon: Icon(
                             widget.isWishlisted
-                                ? Icons.favorite
-                                : Icons.favorite_border,
+                                ? CupertinoIcons.heart_fill
+                                : CupertinoIcons.heart,
                             color: widget.isWishlisted
                                 ? Colors.red
                                 : Colors.white,
@@ -250,7 +251,11 @@ class _ProductCardState extends State<ProductCard> {
                 padding: const EdgeInsets.only(top: 2),
                 child: Row(
                   children: [
-                    const Icon(Icons.star, size: 14, color: Color(0xFFFFB300)),
+                    const Icon(
+                      CupertinoIcons.star_fill,
+                      size: 14,
+                      color: Color(0xFFFFB300),
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       '${summary.averageRating.toStringAsFixed(1)} (${summary.reviewCount})',
@@ -302,7 +307,7 @@ class _ProductThumbnailPlaceholder extends StatelessWidget {
       errorBuilder: (context, error, stackTrace) => Container(
         color: Colors.grey.shade300,
         alignment: Alignment.center,
-        child: const Icon(Icons.image_not_supported, size: 28),
+        child: const Icon(CupertinoIcons.photo, size: 28),
       ),
     );
   }

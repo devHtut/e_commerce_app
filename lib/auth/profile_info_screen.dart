@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -258,7 +259,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
         appBar: AppBar(
           leading: IconButton(
             onPressed: _requestLeave,
-            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
           ),
           title: Text(
             widget.initialFullName == null
@@ -376,7 +377,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                                   ),
                                 ),
                                 child: const Icon(
-                                  Icons.camera_alt_outlined,
+                                  CupertinoIcons.camera,
                                   color: Colors.white,
                                   size: 18,
                                 ),
@@ -432,7 +433,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                     controller: _usernameController,
                     hintText: 'username',
                     maxLength: 24,
-                    prefixIcon: const Icon(Icons.alternate_email_rounded),
+                    prefixIcon: const Icon(CupertinoIcons.at),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp('[a-zA-Z0-9_]')),
                       TextInputFormatter.withFunction((oldValue, newValue) {
@@ -484,7 +485,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                                   ),
                                 );
                               },
-                        icon: const Icon(Icons.delete_forever_outlined),
+                        icon: const Icon(CupertinoIcons.delete),
                         label: const Text('Delete Account'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.redAccent,

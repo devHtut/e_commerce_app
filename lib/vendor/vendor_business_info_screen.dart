@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -169,7 +170,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
       return Image.asset(asset, fit: BoxFit.contain);
     }
     return const Icon(
-      Icons.payment,
+      CupertinoIcons.creditcard,
       color: AppColors.primaryGreen,
       size: 24,
     );
@@ -206,7 +207,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
                       _paymentEntries.removeAt(index).dispose();
                     });
                   },
-                  icon: const Icon(Icons.close, color: AppColors.errorRed),
+                  icon: const Icon(CupertinoIcons.xmark, color: AppColors.errorRed),
                 ),
             ],
           ),
@@ -310,12 +311,12 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
           segments: const [
             ButtonSegment<bool>(
               value: true,
-              icon: Icon(Icons.storefront_outlined),
+              icon: Icon(CupertinoIcons.bag),
               label: Text('In person'),
             ),
             ButtonSegment<bool>(
               value: false,
-              icon: Icon(Icons.language_outlined),
+              icon: Icon(CupertinoIcons.globe),
               label: Text('Online'),
             ),
           ],
@@ -374,7 +375,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
           controller: _addressUrlController,
           hintText: 'https://maps.google.com/...',
           keyboardType: TextInputType.url,
-          prefixIcon: const Icon(Icons.link_outlined, color: Colors.black45),
+          prefixIcon: const Icon(CupertinoIcons.link, color: Colors.black45),
           validator: (value) {
             final trimmed = value?.trim() ?? '';
             if (trimmed.isEmpty) return null;
@@ -558,7 +559,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
         appBar: AppBar(
           leading: IconButton(
             onPressed: _requestLeave,
-            icon: const Icon(Icons.arrow_back, color: AppColors.darkText),
+            icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
           ),
           title: const Text(
             'Business Details',
@@ -645,7 +646,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
                                     _paymentEntries.add(_VendorPaymentEntry());
                                   });
                                 },
-                                icon: const Icon(Icons.add),
+                                icon: const Icon(CupertinoIcons.plus),
                                 label: const Text('Add payment method'),
                               ),
                             ),
@@ -700,7 +701,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
             ),
             child: logoUrl == null || logoUrl.isEmpty
                 ? const Icon(
-                    Icons.storefront_outlined,
+                    CupertinoIcons.bag,
                     size: 36,
                     color: AppColors.subtleText,
                   )
@@ -710,7 +711,7 @@ class _VendorBusinessInfoScreenState extends State<VendorBusinessInfoScreen> {
                       logoUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => const Icon(
-                        Icons.storefront_outlined,
+                        CupertinoIcons.bag,
                         size: 36,
                         color: AppColors.subtleText,
                       ),

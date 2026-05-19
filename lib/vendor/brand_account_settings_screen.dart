@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -302,7 +303,7 @@ class _BrandAccountSettingsScreenState
                 children: [
                   ListTile(
                     leading: const Icon(
-                      Icons.store_outlined,
+                      Icons.storefront,
                       color: AppColors.primaryGreen,
                     ),
                     title: const Text(
@@ -312,7 +313,7 @@ class _BrandAccountSettingsScreenState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const Icon(CupertinoIcons.chevron_right),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -325,7 +326,7 @@ class _BrandAccountSettingsScreenState
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
                     leading: const Icon(
-                      Icons.business_outlined,
+                      CupertinoIcons.building_2_fill,
                       color: AppColors.primaryGreen,
                     ),
                     title: const Text(
@@ -335,7 +336,7 @@ class _BrandAccountSettingsScreenState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const Icon(CupertinoIcons.chevron_right),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -348,7 +349,7 @@ class _BrandAccountSettingsScreenState
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
                     leading: const Icon(
-                      Icons.link_outlined,
+                      CupertinoIcons.link,
                       color: AppColors.primaryGreen,
                     ),
                     title: const Text(
@@ -358,7 +359,7 @@ class _BrandAccountSettingsScreenState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const Icon(CupertinoIcons.chevron_right),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -371,7 +372,7 @@ class _BrandAccountSettingsScreenState
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
                     leading: const Icon(
-                      Icons.help_outline,
+                      CupertinoIcons.question_circle,
                       color: AppColors.primaryGreen,
                     ),
                     title: const Text(
@@ -381,7 +382,7 @@ class _BrandAccountSettingsScreenState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const Icon(CupertinoIcons.chevron_right),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -394,7 +395,7 @@ class _BrandAccountSettingsScreenState
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
                     leading: const Icon(
-                      Icons.info_outline,
+                      CupertinoIcons.info_circle,
                       color: AppColors.primaryGreen,
                     ),
                     title: const Text(
@@ -404,7 +405,7 @@ class _BrandAccountSettingsScreenState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const Icon(CupertinoIcons.chevron_right),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -416,7 +417,7 @@ class _BrandAccountSettingsScreenState
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.redAccent),
+                    leading: const Icon(CupertinoIcons.square_arrow_right, color: Colors.redAccent),
                     title: const Text(
                       'Logout',
                       style: TextStyle(
@@ -426,7 +427,7 @@ class _BrandAccountSettingsScreenState
                       ),
                     ),
                     trailing: const Icon(
-                      Icons.chevron_right,
+                      CupertinoIcons.chevron_right,
                       color: Colors.redAccent,
                     ),
                     onTap: _showLogoutConfirmation,

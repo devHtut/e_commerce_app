@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -573,7 +574,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                         height: 72,
                         color: Colors.grey.shade200,
                         alignment: Alignment.center,
-                        child: const Icon(Icons.storefront_outlined, size: 34),
+                        child: const Icon(CupertinoIcons.bag, size: 34),
                       )
                     : Image.network(
                         shop.logoUrl,
@@ -620,13 +621,13 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
             children: [
               if (shop.phone.isNotEmpty)
                 _ShopActionChip(
-                  icon: Icons.call_outlined,
+                  icon: CupertinoIcons.phone,
                   label: shop.phone,
                   onTap: () => _launch(Uri(scheme: 'tel', path: shop.phone)),
                 ),
               if (shop.address.isNotEmpty || shop.addressUrl.isNotEmpty)
                 _ShopActionChip(
-                  icon: Icons.location_on_outlined,
+                  icon: CupertinoIcons.location,
                   label: shop.address.isEmpty ? 'Address' : shop.address,
                   onTap: shop.addressUrl.isEmpty
                       ? null
@@ -634,19 +635,19 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                 ),
               if (shop.facebookUrl.isNotEmpty)
                 _ShopActionChip(
-                  icon: Icons.facebook,
+                  icon: CupertinoIcons.f_cursive,
                   label: 'Facebook',
                   onTap: () => _launch(_externalUri(shop.facebookUrl)),
                 ),
               if (shop.instagramUrl.isNotEmpty)
                 _ShopActionChip(
-                  icon: Icons.camera_alt_outlined,
+                  icon: CupertinoIcons.camera,
                   label: 'Instagram',
                   onTap: () => _launch(_externalUri(shop.instagramUrl)),
                 ),
               if (shop.tiktokUrl.isNotEmpty)
                 _ShopActionChip(
-                  icon: Icons.music_note_outlined,
+                  icon: CupertinoIcons.music_note,
                   label: 'TikTok',
                   onTap: () => _launch(_externalUri(shop.tiktokUrl)),
                 ),
@@ -655,7 +656,7 @@ class _ShopProfileScreenState extends State<ShopProfileScreen> {
                   shop.ownerId.isNotEmpty &&
                   shop.ownerId != Supabase.instance.client.auth.currentUser?.id)
                 _ShopActionChip(
-                  icon: Icons.chat_bubble_outline_rounded,
+                  icon: CupertinoIcons.chat_bubble,
                   label: 'Send Message',
                   onTap: () => _openShopChat(shop),
                 ),
@@ -797,7 +798,7 @@ class _ShopBottomControls extends StatelessWidget {
           children: [
             TextButton.icon(
               onPressed: onSort,
-              icon: const Icon(Icons.swap_vert_rounded),
+              icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
               label: Text(sortLabel),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.darkText,
@@ -811,7 +812,7 @@ class _ShopBottomControls extends StatelessWidget {
             TextButton.icon(
               onPressed: onFilter,
               icon: Icon(
-                filterActive ? Icons.tune : Icons.tune_outlined,
+                filterActive ? CupertinoIcons.slider_horizontal_3 : CupertinoIcons.slider_horizontal_3,
                 color: filterActive ? AppColors.primaryGreen : null,
               ),
               label: Text(filterActive ? 'Filter On' : 'Filter'),
@@ -934,7 +935,7 @@ class _ShopSheetOptionTile extends StatelessWidget {
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
       leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_off,
+        selected ? CupertinoIcons.largecircle_fill_circle : CupertinoIcons.circle,
         color: AppColors.primaryGreen,
       ),
       title: Text(

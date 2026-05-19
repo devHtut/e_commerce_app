@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../cart/checkout_screen.dart';
@@ -427,12 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openNotifications() async {
     if (!_isLoggedIn) {
-      await showCustomPopup(
-        context,
-        title: 'Sign in required',
-        message: 'Please sign in to view notifications.',
-        type: PopupType.error,
-      );
+      await GuestAuthGatePanel.show(context);
       return;
     }
 
@@ -625,7 +619,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ? IconButton(
               onPressed: _clearSearch,
               tooltip: 'Clear search',
-              icon: const Icon(Icons.close, color: AppColors.darkText),
+              icon: const Icon(
+                CupertinoIcons.xmark,
+                color: AppColors.darkText,
+              ),
             )
           : null,
     );
@@ -655,7 +652,10 @@ class _HomeScreenState extends State<HomeScreen> {
               IconButton(
                 onPressed: _clearRecentSearches,
                 tooltip: 'Clear recent searches',
-                icon: const Icon(Icons.close, color: AppColors.darkText),
+                icon: const Icon(
+                  CupertinoIcons.xmark,
+                  color: AppColors.darkText,
+                ),
               ),
             ],
           ),
@@ -696,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           if (results.isEmpty)
             const _HomeEmptyState(
-              icon: Icons.search_off_rounded,
+              icon: CupertinoIcons.search,
               title: 'No products found',
               message:
                   'Try searching by product name, brand, category, or audience.',
@@ -729,7 +729,10 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton(
               onPressed: () => _removeRecentSearch(query),
               tooltip: 'Remove search',
-              icon: const Icon(Icons.close, color: AppColors.darkText),
+              icon: const Icon(
+                CupertinoIcons.xmark,
+                color: AppColors.darkText,
+              ),
             ),
           ],
         ),
@@ -880,7 +883,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.grey.shade200,
                       alignment: Alignment.center,
                       child: const Icon(
-                        Icons.storefront_outlined,
+                        CupertinoIcons.bag,
                         size: 28,
                         color: AppColors.primaryGreen,
                       ),
@@ -895,7 +898,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     alignment: Alignment.center,
                     child: const Icon(
-                      Icons.storefront_outlined,
+                      CupertinoIcons.bag,
                       size: 28,
                       color: AppColors.primaryGreen,
                     ),
@@ -993,7 +996,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: AppColors.primaryGreen,
-                  child: Icon(Icons.check, color: Colors.white, size: 18),
+                  child: Icon(
+                    CupertinoIcons.check_mark,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text(
@@ -1137,7 +1144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               height: 118,
                               color: Colors.grey.shade300,
                               alignment: Alignment.center,
-                              child: const Icon(Icons.image_not_supported),
+                              child: const Icon(CupertinoIcons.photo),
                             ),
                           ),
                         ),
@@ -1168,15 +1175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                formatKyat(current.price),
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  color: AppColors.primaryGreen,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: AppFonts.primary,
-                                ),
-                              ),
+                              _buildVariantPriceBlock(current),
                               const SizedBox(height: 12),
                               Container(
                                 height: 42,
@@ -1199,7 +1198,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                               });
                                             }
                                           : null,
-                                      icon: const Icon(Icons.remove, size: 20),
+                                      icon: const Icon(
+                                        CupertinoIcons.minus,
+                                        size: 20,
+                                      ),
                                     ),
                                     SizedBox(
                                       width: 26,
@@ -1223,7 +1225,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                               });
                                             }
                                           : null,
-                                      icon: const Icon(Icons.add, size: 20),
+                                      icon: const Icon(
+                                        CupertinoIcons.plus,
+                                        size: 20,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1373,7 +1378,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     child: isSelected
                                         ? Icon(
-                                            Icons.check,
+                                            CupertinoIcons.check_mark,
                                             size: 18,
                                             color:
                                                 swatchColor.computeLuminance() >
@@ -1496,6 +1501,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final base = (product?['base_price'] as num?)?.toDouble() ?? 0;
       final adjustment = (row['price_adjustment'] as num?)?.toDouble() ?? 0;
       final promo = (row['promo_price'] as num?)?.toDouble();
+      final regular = base + adjustment;
+      final effectivePromo = promo != null && promo > 0 && promo < regular
+          ? promo
+          : null;
       return _CartVariantOption(
         id: row['id'].toString(),
         size: row['size']?.toString() ?? 'Default',
@@ -1503,9 +1512,61 @@ class _HomeScreenState extends State<HomeScreen> {
         colorValue: _nullableColorValue(row['color_value']),
         stock: (row['stock_quantity'] as num?)?.toInt() ?? 0,
         imageUrl: row['image_url']?.toString() ?? '',
-        price: promo ?? (base + adjustment),
+        price: effectivePromo ?? regular,
+        regularPrice: regular,
+        promoPrice: effectivePromo,
       );
     }).toList();
+  }
+
+  Widget _buildVariantPriceBlock(_CartVariantOption variant) {
+    final hasPromo = variant.hasPromo;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            formatKyat(variant.price),
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 22,
+              color: hasPromo ? AppColors.errorRed : AppColors.primaryGreen,
+              fontWeight: FontWeight.w700,
+              fontFamily: AppFonts.primary,
+            ),
+          ),
+        ),
+        if (hasPromo) ...[
+          const SizedBox(height: 3),
+          Text(
+            formatKyat(variant.regularPrice),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.subtleText,
+              fontWeight: FontWeight.w600,
+              fontFamily: AppFonts.primary,
+              decoration: TextDecoration.lineThrough,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${variant.promotionPercent}% OFF',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.errorRed,
+              fontWeight: FontWeight.w700,
+              fontFamily: AppFonts.primary,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   Future<void> _confirmAndRemoveCartItem(CartItem item) async {
@@ -1584,7 +1645,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: AppColors.primaryGreen,
-                  child: Icon(Icons.check, color: Colors.white, size: 18),
+                  child: Icon(
+                    CupertinoIcons.check_mark,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text(
@@ -1661,7 +1726,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 height: 138,
                                 color: Colors.grey.shade300,
                                 alignment: Alignment.center,
-                                child: const Icon(Icons.image_not_supported),
+                                child: const Icon(CupertinoIcons.photo),
                               ),
                             ),
                           ),
@@ -1688,7 +1753,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 child: item.isSelected
                                     ? const Icon(
-                                        Icons.check,
+                                        CupertinoIcons.check_mark,
                                         size: 16,
                                         color: Colors.white,
                                       )
@@ -1999,7 +2064,7 @@ class _HomeScreenState extends State<HomeScreen> {
             CircleAvatar(
               radius: 22,
               backgroundColor: AppColors.primaryGreen,
-              child: Icon(Icons.check, color: Colors.white),
+              child: Icon(CupertinoIcons.check_mark, color: Colors.white),
             ),
             SizedBox(width: 12),
             Text(
@@ -2163,7 +2228,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Row(
                                 children: [
                                   const Icon(
-                                    Icons.calendar_today_outlined,
+                                    CupertinoIcons.calendar,
                                     size: 16,
                                     color: AppColors.primaryGreen,
                                   ),
@@ -2238,7 +2303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(
-                                                Icons.cancel_outlined,
+                                                CupertinoIcons.xmark_circle,
                                                 color: Color(0xFFCF5F5F),
                                                 size: 20,
                                               ),
@@ -2564,7 +2629,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     ListTile(
                       leading: const Icon(
-                        Icons.location_on_outlined,
+                        CupertinoIcons.location,
                         color: AppColors.primaryGreen,
                       ),
                       title: const Text(
@@ -2574,7 +2639,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(CupertinoIcons.chevron_right),
                       onTap: _openChooseDeliveryAddress,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
@@ -2590,7 +2655,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(CupertinoIcons.chevron_right),
                       onTap: _openProfileEdit,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
@@ -2606,7 +2671,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(CupertinoIcons.chevron_right),
                       onTap: _openHelpSupport,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
@@ -2622,13 +2687,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(CupertinoIcons.chevron_right),
                       onTap: _openContactAbout,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: const Icon(
-                        Icons.logout,
+                        CupertinoIcons.square_arrow_right,
                         color: Colors.redAccent,
                       ),
                       title: const Text(
@@ -2640,7 +2705,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       trailing: const Icon(
-                        Icons.chevron_right,
+                        CupertinoIcons.chevron_right,
                         color: Colors.redAccent,
                       ),
                       onTap: _showLogoutConfirmation,
@@ -3021,6 +3086,16 @@ class _CartVariantOption {
   final int stock;
   final String imageUrl;
   final double price;
+  final double regularPrice;
+  final double? promoPrice;
+
+  bool get hasPromo =>
+      promoPrice != null && promoPrice! > 0 && promoPrice! < regularPrice;
+
+  int get promotionPercent {
+    if (!hasPromo || regularPrice <= 0) return 0;
+    return (((regularPrice - promoPrice!) / regularPrice) * 100).round();
+  }
 
   const _CartVariantOption({
     required this.id,
@@ -3030,6 +3105,8 @@ class _CartVariantOption {
     required this.stock,
     required this.imageUrl,
     required this.price,
+    required this.regularPrice,
+    required this.promoPrice,
   });
 }
 
@@ -3078,7 +3155,7 @@ class _BrandComingSoonTile extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: const Icon(
-            Icons.storefront_outlined,
+            Icons.storefront,
             size: 24,
             color: AppColors.subtleText,
           ),
