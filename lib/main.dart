@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/auth_user_service.dart';
 import 'customer/home_screen.dart';
 import 'notification/push_notification_service.dart';
+import 'pwa/pwa_install_prompt.dart';
 import 'vendor/vendor_business_info_screen.dart';
 import 'vendor/vendor_dashboard.dart';
 import 'vendor/vendor_info_screen.dart';
@@ -26,6 +28,8 @@ Future<void> main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  static const double _webMaxAppWidth = 430;
 
   Future<Widget> _resolveStartScreen() async {
     final client = Supabase.instance.client;
@@ -59,6 +63,39 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        if (!kIsWeb || child == null) {
+          return child ?? const SizedBox.shrink();
+        }
+
+        return PwaInstallPromptGate(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth <= _webMaxAppWidth) {
+                return child;
+              }
+
+              final mediaQuery = MediaQuery.of(context);
+              return ColoredBox(
+                color: AppColors.lightGrey,
+                child: Center(
+                  child: SizedBox(
+                    width: _webMaxAppWidth,
+                    height: constraints.maxHeight,
+                    child: MediaQuery(
+                      data: mediaQuery.copyWith(
+                        size: Size(_webMaxAppWidth, mediaQuery.size.height),
+                      ),
+                      child: child,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+      navigatorObservers: [PwaInstallNavigationObserver()],
       theme: ThemeData(
         primaryColor: AppColors.primaryGreen,
         colorScheme: ColorScheme.fromSeed(
