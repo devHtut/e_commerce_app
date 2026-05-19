@@ -29,7 +29,7 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  static const double _webMaxAppWidth = 430;
+  static const double _webMaxAppWidth = 390;
 
   Future<Widget> _resolveStartScreen() async {
     final client = Supabase.instance.client;

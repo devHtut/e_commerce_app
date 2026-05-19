@@ -64,26 +64,26 @@ class PushNotificationService {
   }
 
   Future<void> registerCurrentDevice() async {
-    await initialize();
-    if (!_firebaseAvailable) return;
-
-    final user = _client.auth.currentUser;
-    if (user == null) return;
-
-    final messaging = FirebaseMessaging.instance;
-    final settings = await messaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
-
-    if (settings.authorizationStatus == AuthorizationStatus.denied) return;
-
     try {
+      await initialize();
+      if (!_firebaseAvailable) return;
+
+      final user = _client.auth.currentUser;
+      if (user == null) return;
+
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.denied) return;
+
       final token = await messaging.getToken();
       if (token == null || token.isEmpty) return;
       await _saveToken(user.id, token);

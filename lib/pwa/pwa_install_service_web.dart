@@ -108,7 +108,7 @@ class PwaInstallService {
   }
 
   bool _isMobileViewport() {
-    final width = html.window.innerWidth;
+    final width = html.window.innerWidth ?? 0;
     final userAgent = html.window.navigator.userAgent.toLowerCase();
     final mobileUserAgent = userAgent.contains('android') ||
         userAgent.contains('iphone') ||

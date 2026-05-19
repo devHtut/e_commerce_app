@@ -103,11 +103,15 @@ class _SignInScreenState extends State<SignInScreen> {
                 ? const ProfileInfoScreen()
                 : const HomeScreen());
 
-      await NotificationService.instance.createWelcomeNotification(
-        isVendor: isVendor,
-        userId: user.id,
-      );
-      await PushNotificationService.instance.registerCurrentDevice();
+      try {
+        await NotificationService.instance.createWelcomeNotification(
+          isVendor: isVendor,
+          userId: user.id,
+        );
+        await PushNotificationService.instance.registerCurrentDevice();
+      } catch (notificationError) {
+        debugPrint('Post-login notification setup failed: $notificationError');
+      }
 
       if (!mounted) return;
       await showCustomPopup(
