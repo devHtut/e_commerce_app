@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -60,6 +62,7 @@ class ChatMessage {
   final String type;
   final String text;
   final String? imagePath;
+  final Uint8List? imageBytes;
   final DateTime createdAt;
   final DateTime? editedAt;
   final bool isDeleted;
@@ -73,6 +76,7 @@ class ChatMessage {
     required this.text,
     required this.createdAt,
     this.imagePath,
+    this.imageBytes,
     this.editedAt,
     this.isDeleted = false,
     this.reactions = const <ChatReactionSummary>[],
@@ -82,6 +86,8 @@ class ChatMessage {
 
   factory ChatMessage.fromRow(
     Map<String, dynamic> row, {
+    String? textOverride,
+    Uint8List? imageBytes,
     List<ChatReactionSummary> reactions = const <ChatReactionSummary>[],
   }) {
     final createdAtText = row['created_at']?.toString();
@@ -91,8 +97,9 @@ class ChatMessage {
       chatId: row['chat_id']?.toString() ?? '',
       senderId: row['sender_id']?.toString() ?? '',
       type: row['type']?.toString() ?? 'text',
-      text: row['text']?.toString() ?? '',
+      text: textOverride ?? row['text']?.toString() ?? '',
       imagePath: row['image_path']?.toString(),
+      imageBytes: imageBytes,
       createdAt: createdAtText != null
           ? DateTime.parse(createdAtText).toLocal()
           : DateTime.now(),
@@ -135,11 +142,16 @@ class ChatService {
   ChatService._();
 
   static final ChatService instance = ChatService._();
+  static const int _chatEncryptionVersion = 1;
+  static const String _encryptedPreview = 'Encrypted message';
+  static const String _chatEncryptionSalt =
+      'burma-brands-chat-encryption-v1';
 
   final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
   RealtimeChannel? _unreadCountChannel;
   Timer? _unreadCountPollTimer;
   Set<String>? _unreadChatIds;
+  final Cipher _textCipher = AesGcm.with256bits();
 
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -433,7 +445,7 @@ class ChatService {
     final rows = await _client
         .from('messages')
         .select(
-          'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at',
+          'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at,encryption_version,encrypted_payload,encryption_nonce,encrypted_image_path,image_encryption_nonce',
         )
         .eq('chat_id', chatId)
         .order('created_at', ascending: true);
@@ -445,16 +457,25 @@ class ChatService {
         .toList();
     final reactionsByMessage = await _loadReactionSummaries(messageIds);
 
-    return messageRows
-        .map(
-          (row) => ChatMessage.fromRow(
-            row,
-            reactions:
-                reactionsByMessage[row['id']?.toString()] ??
-                const <ChatReactionSummary>[],
-          ),
-        )
-        .toList();
+    final membersByChat = await _loadMembersByChat([chatId]);
+    final memberIds =
+        membersByChat[chatId]?.map((member) => member.userId).toList() ??
+        const <String>[];
+    final messages = <ChatMessage>[];
+
+    for (final row in messageRows) {
+      messages.add(
+        ChatMessage.fromRow(
+          row,
+          textOverride: await _messageTextFromRow(row, memberIds),
+          imageBytes: await _messageImageBytesFromRow(row, memberIds),
+          reactions:
+              reactionsByMessage[row['id']?.toString()] ??
+              const <ChatReactionSummary>[],
+        ),
+      );
+    }
+    return messages;
   }
 
   Future<void> toggleReaction({
@@ -553,29 +574,42 @@ class ChatService {
     final cleanText = text.trim();
     if (user == null || chatId.isEmpty || cleanText.isEmpty) return null;
 
+    final membersByChat = await _loadMembersByChat([chatId]);
+    final memberIds =
+        membersByChat[chatId]?.map((member) => member.userId).toList() ??
+        <String>[user.id];
+    final encrypted = await _encryptText(
+      chatId: chatId,
+      memberIds: memberIds,
+      text: cleanText,
+    );
+
     final inserted = await _client
         .from('messages')
         .insert({
           'chat_id': chatId,
           'sender_id': user.id,
           'type': 'text',
-          'text': cleanText,
+          'text': '',
+          'encryption_version': _chatEncryptionVersion,
+          'encrypted_payload': encrypted.payload,
+          'encryption_nonce': encrypted.nonce,
         })
         .select(
-          'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at',
+          'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at,encryption_version,encrypted_payload,encryption_nonce',
         )
         .single();
 
     await _client
         .from('chats')
         .update({
-          'last_message_text': cleanText,
+          'last_message_text': _encryptedPreview,
           'last_message_type': 'text',
           'last_message_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('id', chatId);
 
-    return ChatMessage.fromRow(inserted);
+    return ChatMessage.fromRow(inserted, textOverride: cleanText);
   }
 
   Future<ChatMessage?> sendImageMessage({
@@ -587,15 +621,27 @@ class ChatService {
     final user = _client.auth.currentUser;
     if (user == null || chatId.isEmpty || bytes.isEmpty) return null;
 
+    final membersByChat = await _loadMembersByChat([chatId]);
+    final memberIds =
+        membersByChat[chatId]?.map((member) => member.userId).toList() ??
+        <String>[user.id];
+    final encrypted = await _encryptBytes(
+      chatId: chatId,
+      memberIds: memberIds,
+      bytes: bytes,
+    );
     final extension = _safeFileExtension(fileName, contentType);
     final path =
-        'chat images/$chatId/${DateTime.now().millisecondsSinceEpoch}_${user.id}.$extension';
+        'encrypted chat images/$chatId/${DateTime.now().millisecondsSinceEpoch}_${user.id}.$extension.enc';
     await _client.storage
         .from('media')
         .uploadBinary(
           path,
-          bytes,
-          fileOptions: FileOptions(upsert: false, contentType: contentType),
+          encrypted.bytes,
+          fileOptions: const FileOptions(
+            upsert: false,
+            contentType: 'application/octet-stream',
+          ),
         );
 
     late final Map<String, dynamic> inserted;
@@ -607,10 +653,13 @@ class ChatService {
             'sender_id': user.id,
             'type': 'image',
             'text': '',
-            'image_path': path,
+            'image_path': null,
+            'encryption_version': _chatEncryptionVersion,
+            'encrypted_image_path': path,
+            'image_encryption_nonce': encrypted.nonce,
           })
           .select(
-            'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at',
+            'id,chat_id,sender_id,type,text,image_path,is_deleted,created_at,edited_at,encryption_version,encrypted_payload,encryption_nonce,encrypted_image_path,image_encryption_nonce',
           )
           .single();
     } catch (_) {
@@ -627,7 +676,7 @@ class ChatService {
         })
         .eq('id', chatId);
 
-    return ChatMessage.fromRow(inserted);
+    return ChatMessage.fromRow(inserted, imageBytes: bytes);
   }
 
   String? messageImageUrl(String? imagePath) {
@@ -663,10 +712,23 @@ class ChatService {
       return;
     }
 
+    final membersByChat = await _loadMembersByChat([chatId]);
+    final memberIds =
+        membersByChat[chatId]?.map((member) => member.userId).toList() ??
+        <String>[user.id];
+    final encrypted = await _encryptText(
+      chatId: chatId,
+      memberIds: memberIds,
+      text: cleanText,
+    );
+
     await _client
         .from('messages')
         .update({
-          'text': cleanText,
+          'text': '',
+          'encryption_version': _chatEncryptionVersion,
+          'encrypted_payload': encrypted.payload,
+          'encryption_nonce': encrypted.nonce,
           'edited_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('id', messageId)
@@ -684,7 +746,7 @@ class ChatService {
 
     final messageRow = await _client
         .from('messages')
-        .select('type,image_path')
+        .select('type,image_path,encrypted_image_path')
         .eq('id', messageId)
         .eq('sender_id', user.id)
         .maybeSingle();
@@ -696,6 +758,9 @@ class ChatService {
         .eq('sender_id', user.id);
 
     final imagePath = messageRow?['image_path']?.toString().trim();
+    final encryptedImagePath = messageRow?['encrypted_image_path']
+        ?.toString()
+        .trim();
     if (messageRow?['type']?.toString() == 'image' &&
         imagePath != null &&
         imagePath.isNotEmpty &&
@@ -704,6 +769,15 @@ class ChatService {
         await _client.storage.from('media').remove([imagePath]);
       } catch (e) {
         debugPrint('Unable to delete chat image: $e');
+      }
+    }
+    if (messageRow?['type']?.toString() == 'image' &&
+        encryptedImagePath != null &&
+        encryptedImagePath.isNotEmpty) {
+      try {
+        await _client.storage.from('media').remove([encryptedImagePath]);
+      } catch (e) {
+        debugPrint('Unable to delete encrypted chat image: $e');
       }
     }
 
@@ -752,7 +826,7 @@ class ChatService {
   Future<void> _refreshChatLastMessage(String chatId) async {
     final row = await _client
         .from('messages')
-        .select('text,type,is_deleted,created_at')
+        .select('text,type,is_deleted,created_at,encryption_version')
         .eq('chat_id', chatId)
         .order('created_at', ascending: false)
         .limit(1)
@@ -762,8 +836,11 @@ class ChatService {
 
     final isDeleted = row['is_deleted'] as bool? ?? false;
     final type = row['type']?.toString() ?? 'text';
+    final encryptionVersion = (row['encryption_version'] as num?)?.toInt() ?? 0;
     final text = isDeleted
         ? 'This message was deleted'
+        : encryptionVersion > 0
+        ? _encryptedPreview
         : _lastMessagePreview(row['text']?.toString(), type);
 
     await _client
@@ -975,6 +1052,141 @@ class ChatService {
     return DateTime.tryParse(text)?.toLocal();
   }
 
+  Future<_EncryptedText> _encryptText({
+    required String chatId,
+    required List<String> memberIds,
+    required String text,
+  }) async {
+    final secretKey = await _chatSecretKey(chatId, memberIds);
+    final secretBox = await _textCipher.encrypt(
+      utf8.encode(text),
+      secretKey: secretKey,
+    );
+
+    return _EncryptedText(
+      payload: jsonEncode({
+        'cipherText': base64Encode(secretBox.cipherText),
+        'mac': base64Encode(secretBox.mac.bytes),
+      }),
+      nonce: base64Encode(secretBox.nonce),
+    );
+  }
+
+  Future<_EncryptedBytes> _encryptBytes({
+    required String chatId,
+    required List<String> memberIds,
+    required Uint8List bytes,
+  }) async {
+    final secretKey = await _chatSecretKey(chatId, memberIds);
+    final secretBox = await _textCipher.encrypt(bytes, secretKey: secretKey);
+
+    return _EncryptedBytes(
+      bytes: Uint8List.fromList(secretBox.cipherText),
+      nonce: jsonEncode({
+        'nonce': base64Encode(secretBox.nonce),
+        'mac': base64Encode(secretBox.mac.bytes),
+      }),
+    );
+  }
+
+  Future<String> _messageTextFromRow(
+    Map<String, dynamic> row,
+    List<String> memberIds,
+  ) async {
+    final encryptionVersion = (row['encryption_version'] as num?)?.toInt() ?? 0;
+    if (encryptionVersion <= 0) return row['text']?.toString() ?? '';
+
+    try {
+      final payload = jsonDecode(row['encrypted_payload']?.toString() ?? '');
+      if (payload is! Map<String, dynamic>) return _encryptedPreview;
+
+      final nonceText = row['encryption_nonce']?.toString();
+      final cipherText = payload['cipherText']?.toString();
+      final macText = payload['mac']?.toString();
+      if (nonceText == null || cipherText == null || macText == null) {
+        return _encryptedPreview;
+      }
+
+      final secretKey = await _chatSecretKey(
+        row['chat_id']?.toString() ?? '',
+        memberIds,
+      );
+      final clearBytes = await _textCipher.decrypt(
+        SecretBox(
+          base64Decode(cipherText),
+          nonce: base64Decode(nonceText),
+          mac: Mac(base64Decode(macText)),
+        ),
+        secretKey: secretKey,
+      );
+      return utf8.decode(clearBytes);
+    } catch (error) {
+      debugPrint('Unable to decrypt chat message: $error');
+      return _encryptedPreview;
+    }
+  }
+
+  Future<Uint8List?> _messageImageBytesFromRow(
+    Map<String, dynamic> row,
+    List<String> memberIds,
+  ) async {
+    final encryptionVersion = (row['encryption_version'] as num?)?.toInt() ?? 0;
+    if (encryptionVersion <= 0 || row['type']?.toString() != 'image') {
+      return null;
+    }
+
+    try {
+      final encryptedImagePath = row['encrypted_image_path']?.toString().trim();
+      if (encryptedImagePath == null || encryptedImagePath.isEmpty) {
+        return null;
+      }
+
+      final noncePayload = jsonDecode(
+        row['image_encryption_nonce']?.toString() ?? '',
+      );
+      if (noncePayload is! Map<String, dynamic>) return null;
+
+      final nonceText = noncePayload['nonce']?.toString();
+      final macText = noncePayload['mac']?.toString();
+      if (nonceText == null || macText == null) return null;
+
+      final cipherBytes = await _client.storage
+          .from('media')
+          .download(encryptedImagePath);
+      final secretKey = await _chatSecretKey(
+        row['chat_id']?.toString() ?? '',
+        memberIds,
+      );
+      final clearBytes = await _textCipher.decrypt(
+        SecretBox(
+          cipherBytes,
+          nonce: base64Decode(nonceText),
+          mac: Mac(base64Decode(macText)),
+        ),
+        secretKey: secretKey,
+      );
+      return Uint8List.fromList(clearBytes);
+    } catch (error) {
+      debugPrint('Unable to decrypt chat image: $error');
+      return null;
+    }
+  }
+
+  Future<SecretKey> _chatSecretKey(String chatId, List<String> memberIds) async {
+    final normalizedMembers = memberIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList()
+      ..sort();
+    final material = [
+      _chatEncryptionSalt,
+      chatId,
+      ...normalizedMembers,
+    ].join('|');
+    final hash = await Sha256().hash(utf8.encode(material));
+    return SecretKey(hash.bytes);
+  }
+
   String _safeFileExtension(String fileName, String? contentType) {
     final rawExtension = fileName.split('.').last.toLowerCase();
     switch (rawExtension) {
@@ -1004,6 +1216,20 @@ class _ChatProfile {
   final String? avatarUrl;
 
   const _ChatProfile({this.name, this.avatarUrl});
+}
+
+class _EncryptedText {
+  final String payload;
+  final String nonce;
+
+  const _EncryptedText({required this.payload, required this.nonce});
+}
+
+class _EncryptedBytes {
+  final Uint8List bytes;
+  final String nonce;
+
+  const _EncryptedBytes({required this.bytes, required this.nonce});
 }
 
 class _ChatMemberInfo {

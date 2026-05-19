@@ -1335,7 +1335,10 @@ class _MessageBubble extends StatelessWidget {
     final imageUrl = !message.isDeleted && message.type == 'image'
         ? ChatService.instance.messageImageUrl(message.imagePath)
         : null;
-    final bubbleChild = imageUrl == null
+    final imageBytes = !message.isDeleted && message.type == 'image'
+        ? message.imageBytes
+        : null;
+    final bubbleChild = imageUrl == null && imageBytes == null
         ? Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             child: Text(
@@ -1353,28 +1356,34 @@ class _MessageBubble extends StatelessWidget {
           )
         : ClipRRect(
             borderRadius: BorderRadius.circular(13),
-            child: Image.network(
-              imageUrl,
-              width: MediaQuery.sizeOf(context).width * 0.62,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
+            child: imageBytes != null
+                ? Image.memory(
+                    imageBytes,
+                    width: MediaQuery.sizeOf(context).width * 0.62,
+                    fit: BoxFit.cover,
+                  )
+                : Image.network(
+                    imageUrl!,
+                    width: MediaQuery.sizeOf(context).width * 0.62,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 11,
+                        ),
+                        child: Text(
+                          'Unable to load photo',
+                          style: TextStyle(
+                            color: textColor,
+                            fontFamily: AppFonts.primary,
+                            fontSize: 14,
+                            height: 1.25,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  child: Text(
-                    'Unable to load photo',
-                    style: TextStyle(
-                      color: textColor,
-                      fontFamily: AppFonts.primary,
-                      fontSize: 14,
-                      height: 1.25,
-                    ),
-                  ),
-                );
-              },
-            ),
           );
 
     return Padding(

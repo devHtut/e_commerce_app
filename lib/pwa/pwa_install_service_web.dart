@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:html' as html;
-import 'dart:js_util' as js_util;
 
 import 'package:flutter/foundation.dart';
 
@@ -72,16 +71,12 @@ class PwaInstallService {
     final event = _installPromptEvent;
     if (event == null) return false;
 
-    js_util.callMethod<void>(event, 'prompt', const <Object?>[]);
-    final choicePromise = js_util.getProperty<Object>(event, 'userChoice');
-    final choice = await js_util.promiseToFuture<Object?>(
-      choicePromise,
-    );
+    final dynamic promptEvent = event;
+    promptEvent.prompt();
+    final dynamic choice = await promptEvent.userChoice;
     _installPromptEvent = null;
 
-    final outcome = choice == null
-        ? null
-        : js_util.getProperty<Object?>(choice, 'outcome')?.toString();
+    final outcome = choice == null ? null : choice.outcome?.toString();
     final accepted = outcome == 'accepted';
     if (accepted) {
       html.window.localStorage[_installedKey] = 'true';
@@ -101,9 +96,13 @@ class PwaInstallService {
     final displayModeStandalone = html.window
         .matchMedia('(display-mode: standalone)')
         .matches;
-    final navigatorStandalone =
-        js_util.getProperty<Object?>(html.window.navigator, 'standalone') ==
-            true;
+    var navigatorStandalone = false;
+    try {
+      final dynamic navigator = html.window.navigator;
+      navigatorStandalone = navigator.standalone == true;
+    } catch (_) {
+      navigatorStandalone = false;
+    }
     return displayModeStandalone || navigatorStandalone;
   }
 

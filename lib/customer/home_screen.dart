@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../cart/cart_item.dart';
 import '../cart/checkout_screen.dart';
@@ -2578,7 +2580,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: const Icon(
-                        Icons.person_outline,
+                        CupertinoIcons.person_circle,
                         color: AppColors.primaryGreen,
                       ),
                       title: const Text(
@@ -2594,7 +2596,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: const Icon(
-                        Icons.help_outline,
+                        CupertinoIcons.question_circle,
                         color: AppColors.primaryGreen,
                       ),
                       title: const Text(
@@ -2610,7 +2612,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: const Icon(
-                        Icons.info_outline,
+                        CupertinoIcons.info,
                         color: AppColors.primaryGreen,
                       ),
                       title: const Text(
@@ -2666,7 +2668,7 @@ class _HomeScreenState extends State<HomeScreen> {
             clipBehavior: Clip.none,
             children: [
               const Icon(
-                Icons.notifications_none_rounded,
+                CupertinoIcons.bell,
                 color: AppColors.darkText,
               ),
               if (visibleUnreadCount > 0)
@@ -2706,7 +2708,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: _openChat,
           tooltip: 'Chat',
           icon: _appBarIconWithBadge(
-            icon: Icons.chat_bubble_outline,
+            icon: CupertinoIcons.chat_bubble_text,
             count: unreadCount,
           ),
         );
@@ -2756,7 +2758,7 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _cartActionIconButton(
-            icon: Icons.edit_outlined,
+            icon: CupertinoIcons.pen,
             iconColor: AppColors.primaryGreen,
             splashColor: AppColors.primaryGreen.withValues(alpha: 0.10),
             tooltip: 'Edit',
@@ -2764,7 +2766,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Container(width: 26, height: 1, color: const Color(0xFFE5E8E1)),
           _cartActionIconButton(
-            icon: Icons.delete_outline,
+            icon: CupertinoIcons.delete,
             iconColor: const Color(0xFFC76F6F),
             splashColor: const Color(0xFFC76F6F).withValues(alpha: 0.10),
             tooltip: 'Remove',
@@ -2952,46 +2954,46 @@ class _HomeScreenState extends State<HomeScreen> {
                               onTap: _handleTabTap,
                               items: [
                                 const BottomNavigationBarItem(
-                                  icon: Icon(Icons.home_outlined),
-                                  activeIcon: Icon(Icons.home),
+                                  icon: Icon(CupertinoIcons.house),
+                                  activeIcon: Icon(CupertinoIcons.house_fill),
                                   label: 'Home',
                                 ),
                                 BottomNavigationBarItem(
                                   icon: _bottomNavIconWithBadge(
-                                    icon: Icons.favorite_border,
+                                    icon: CupertinoIcons.heart,
                                     count: visibleWishlistCount,
                                   ),
                                   activeIcon: _bottomNavIconWithBadge(
-                                    icon: Icons.favorite,
+                                    icon: CupertinoIcons.heart_fill,
                                     count: visibleWishlistCount,
                                   ),
                                   label: 'Wishlist',
                                 ),
                                 BottomNavigationBarItem(
                                   icon: _bottomNavIconWithBadge(
-                                    icon: Icons.shopping_cart_outlined,
+                                    icon: CupertinoIcons.cart,
                                     count: visibleCartCount,
                                   ),
                                   activeIcon: _bottomNavIconWithBadge(
-                                    icon: Icons.shopping_cart,
+                                    icon: CupertinoIcons.cart_fill,
                                     count: visibleCartCount,
                                   ),
                                   label: 'Cart',
                                 ),
                                 BottomNavigationBarItem(
                                   icon: _bottomNavIconWithBadge(
-                                    icon: Icons.receipt_long_outlined,
+                                    icon: CupertinoIcons.cube_box,
                                     count: visibleOrderCount,
                                   ),
                                   activeIcon: _bottomNavIconWithBadge(
-                                    icon: Icons.receipt_long,
+                                    icon: CupertinoIcons.cube_box_fill,
                                     count: visibleOrderCount,
                                   ),
                                   label: 'My Orders',
                                 ),
                                 const BottomNavigationBarItem(
-                                  icon: Icon(Icons.account_circle_outlined),
-                                  activeIcon: Icon(Icons.account_circle),
+                                  icon: Icon(CupertinoIcons.person_circle),
+                                  activeIcon: Icon(CupertinoIcons.person_circle_fill),
                                   label: 'Account',
                                 ),
                               ],
