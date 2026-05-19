@@ -13,6 +13,7 @@ import '../auth/auth_user_service.dart';
 import '../auth/profile_info_screen.dart';
 import '../notification/notification_screen.dart';
 import '../notification/notification_service.dart';
+import '../notification/push_notification_service.dart';
 import '../product/product_detail_screen.dart';
 import '../product/product_model.dart';
 import '../product/product_sales_service.dart';
@@ -917,6 +918,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
+    await PushNotificationService.instance.unregisterCurrentDevice();
     await Supabase.instance.client.auth.signOut();
     WishlistService.instance.clear();
     CartService.instance.clear();

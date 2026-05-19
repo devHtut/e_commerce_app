@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/auth_user_service.dart';
 import 'customer/home_screen.dart';
+import 'notification/push_notification_service.dart';
 import 'vendor/vendor_business_info_screen.dart';
 import 'vendor/vendor_dashboard.dart';
 import 'vendor/vendor_info_screen.dart';
@@ -17,6 +18,8 @@ Future<void> main() async {
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrZnZ6cnF5bHpwdmhydmh0ZW56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDU4NjQsImV4cCI6MjA5Mzg4MTg2NH0.NAgFZrAFOswIoPXP7ksWrqeAyI9Yc_aO8pGR2pG29I0',
   );
+
+  await PushNotificationService.instance.initialize();
 
   runApp(const MyApp());
 }

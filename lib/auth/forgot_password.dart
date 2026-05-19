@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../notification/push_notification_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
@@ -153,6 +154,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       await Supabase.instance.client.auth.updateUser(
         UserAttributes(password: _passwordController.text),
       );
+      await PushNotificationService.instance.unregisterCurrentDevice();
       await Supabase.instance.client.auth.signOut();
 
       if (!mounted) return;

@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/vendor_access.dart';
 import '../theme_config.dart';
+import '../utils/image_upload_optimizer.dart';
 import '../widgets/custom_buttom.dart';
 import '../widgets/custom_input.dart';
 import '../widgets/custom_loading_state.dart';

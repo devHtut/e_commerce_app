@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../customer/home_screen.dart';
 import '../notification/notification_service.dart';
+import '../notification/push_notification_service.dart';
 import '../theme_config.dart';
 import '../vendor/vendor_business_info_screen.dart';
 import '../vendor/vendor_dashboard.dart';
@@ -106,6 +107,7 @@ class _SignInScreenState extends State<SignInScreen> {
         isVendor: isVendor,
         userId: user.id,
       );
+      await PushNotificationService.instance.registerCurrentDevice();
 
       if (!mounted) return;
       await showCustomPopup(

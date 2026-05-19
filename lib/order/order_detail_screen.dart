@@ -313,9 +313,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(height: 14),
           _buildCustomerStatusActions(),
         ],
-        const SizedBox(height: 16),
-        _buildGenerateReceiptButton(),
-        const SizedBox(height: 8),
+        if (_order.status != OrderStatus.pending) ...[
+          const SizedBox(height: 16),
+          _buildGenerateReceiptButton(),
+          const SizedBox(height: 8),
+        ],
       ],
     );
   }

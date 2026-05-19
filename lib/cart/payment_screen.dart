@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_user_service.dart';
+import '../notification/notification_service.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_loading_state.dart';
@@ -485,6 +486,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       for (final item in widget.items) {
         await CartService.instance.removeItem(item.id);
+      }
+
+      await NotificationService.instance.notifyOrderPaymentSubmitted(orderId);
+      try {
+        await Supabase.instance.client.functions.invoke(
+          'send-order-payment-push',
+          body: {'orderId': orderId},
+        );
+      } catch (pushError) {
+        debugPrint('Unable to send order payment push: $pushError');
       }
 
       _updatePaymentProgress(1, 'Payment submitted.');

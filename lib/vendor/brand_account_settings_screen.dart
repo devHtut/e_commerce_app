@@ -6,6 +6,7 @@ import '../auth/signin_screen.dart';
 import '../auth/vendor_access.dart';
 import '../contact_about_screen.dart';
 import '../notification/notification_service.dart';
+import '../notification/push_notification_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
@@ -54,6 +55,7 @@ class _BrandAccountSettingsScreenState
   }
 
   Future<void> _logout() async {
+    await PushNotificationService.instance.unregisterCurrentDevice();
     await Supabase.instance.client.auth.signOut();
     NotificationService.instance.clearUnreadCount();
     if (!mounted) return;

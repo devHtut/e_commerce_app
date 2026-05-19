@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../cart/cart_service.dart';
 import '../notification/notification_service.dart';
+import '../notification/push_notification_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_pop_up.dart';
 import 'account_deletion_service.dart';
@@ -42,6 +43,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
     setState(() => _isDeleting = true);
     try {
+      await PushNotificationService.instance.unregisterCurrentDevice();
       final message = await AccountDeletionService.instance.deleteAccount();
       CartService.instance.clear();
       NotificationService.instance.clearUnreadCount();

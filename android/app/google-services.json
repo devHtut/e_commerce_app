@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "701850273720",
+    "project_id": "burma-brands",
+    "storage_bucket": "burma-brands.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:701850273720:android:a009972615dbbe9386f14d",
+        "android_client_info": {
+          "package_name": "com.burmabrands.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBgdwdRL82rPQzrI6ni_kD8EtYbRzInRW4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

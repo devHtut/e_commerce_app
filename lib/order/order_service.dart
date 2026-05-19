@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../cart/cart_item.dart';
+import '../notification/notification_service.dart';
 import '../product/product_model.dart';
 
 enum OrderStatus { pending, confirmed, inDelivery, completed, canceled, refund }
@@ -379,10 +380,11 @@ class OrderService {
   Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
     final previousStatus = await _loadOrderStatus(orderId);
     final changedAt = DateTime.now();
+    final statusValue = _statusToDatabaseValue(status);
 
     await Supabase.instance.client
         .from('orders')
-        .update({'status': _statusToDatabaseValue(status)})
+        .update({'status': statusValue})
         .eq('id', orderId);
 
     await _recordStatusHistory(orderId, status, changedAt);
@@ -410,6 +412,21 @@ class OrderService {
         )
         .toList();
     ordersNotifier.value = orders;
+
+    if (previousStatus != status) {
+      await NotificationService.instance.notifyOrderStatusChanged(
+        orderId,
+        statusValue,
+      );
+      try {
+        await Supabase.instance.client.functions.invoke(
+          'send-order-status-push',
+          body: {'orderId': orderId, 'status': statusValue},
+        );
+      } catch (pushError) {
+        debugPrint('Unable to send order status push: $pushError');
+      }
+    }
   }
 
   Future<void> _recordStatusHistory(
