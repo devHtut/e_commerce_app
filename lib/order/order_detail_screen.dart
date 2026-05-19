@@ -1079,7 +1079,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       case OrderStatus.confirmed:
         return CupertinoIcons.checkmark_seal;
       case OrderStatus.inDelivery:
-        return Icons.local_shipping;
+        return Icons.local_shipping_outlined;
       case OrderStatus.completed:
         return CupertinoIcons.hand_raised;
       case OrderStatus.canceled:
