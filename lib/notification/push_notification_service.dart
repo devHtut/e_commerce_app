@@ -21,6 +21,9 @@ class PushNotificationService {
   PushNotificationService._();
 
   static final PushNotificationService instance = PushNotificationService._();
+  static const String _webVapidKey = String.fromEnvironment(
+    'FIREBASE_WEB_VAPID_KEY',
+  );
   static const AndroidNotificationChannel _androidChannel =
       AndroidNotificationChannel(
         'burma_brands_push',
@@ -53,7 +56,9 @@ class PushNotificationService {
             badge: true,
             sound: true,
           );
-      await _initializeLocalNotifications();
+      if (!kIsWeb) {
+        await _initializeLocalNotifications();
+      }
       _listenForTokenRefresh();
       _listenForForegroundMessages();
       _firebaseAvailable = true;
@@ -84,7 +89,16 @@ class PushNotificationService {
 
       if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
-      final token = await messaging.getToken();
+      if (kIsWeb && _webVapidKey.isEmpty) {
+        debugPrint(
+          'Web push token registration needs FIREBASE_WEB_VAPID_KEY.',
+        );
+        return;
+      }
+
+      final token = await messaging.getToken(
+        vapidKey: kIsWeb ? _webVapidKey : null,
+      );
       if (token == null || token.isEmpty) return;
       await _saveToken(user.id, token);
     } catch (error) {
@@ -100,7 +114,9 @@ class PushNotificationService {
     if (user == null) return;
 
     try {
-      final token = await FirebaseMessaging.instance.getToken();
+      final token = await FirebaseMessaging.instance.getToken(
+        vapidKey: kIsWeb && _webVapidKey.isNotEmpty ? _webVapidKey : null,
+      );
       if (token == null || token.isEmpty) return;
       await _client
           .from('user_push_tokens')
@@ -133,6 +149,7 @@ class PushNotificationService {
     _foregroundMessageListening = true;
 
     FirebaseMessaging.onMessage.listen((message) {
+      if (kIsWeb) return;
       _showForegroundNotification(message);
     });
   }
