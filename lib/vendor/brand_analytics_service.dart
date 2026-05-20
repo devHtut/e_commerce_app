@@ -164,12 +164,28 @@ class BrandAnalyticsService {
     var productsSold = 0;
     var salesOrderCount = 0;
     var pendingOrderCount = 0;
+    var confirmedOrderCount = 0;
+    var inDeliveryOrderCount = 0;
+    var completedOrderCount = 0;
     var canceledOrderCount = 0;
+    var refundOrderCount = 0;
 
     for (final order in orders) {
       final status = order['status']?.toString() ?? '';
-      if (_isPendingStatus(status)) pendingOrderCount++;
-      if (_isCanceledStatus(status)) canceledOrderCount++;
+      switch (_normalizeStatus(status)) {
+        case 'pending':
+          pendingOrderCount++;
+        case 'confirmed':
+          confirmedOrderCount++;
+        case 'in-delivery':
+          inDeliveryOrderCount++;
+        case 'completed':
+          completedOrderCount++;
+        case 'canceled':
+          canceledOrderCount++;
+        case 'refund':
+          refundOrderCount++;
+      }
       if (!_isRevenueStatus(status)) continue;
 
       salesOrderCount++;
@@ -267,7 +283,11 @@ class BrandAnalyticsService {
       totalOrders: orders.length,
       salesOrderCount: salesOrderCount,
       pendingOrderCount: pendingOrderCount,
+      confirmedOrderCount: confirmedOrderCount,
+      inDeliveryOrderCount: inDeliveryOrderCount,
+      completedOrderCount: completedOrderCount,
       canceledOrderCount: canceledOrderCount,
+      refundOrderCount: refundOrderCount,
       productsSold: productsSold,
       productViews: totalProductViews,
       brandProfileVisits: profileVisits.length,
@@ -349,13 +369,32 @@ class BrandAnalyticsService {
         value == 'arrived';
   }
 
-  static bool _isPendingStatus(String status) {
-    return status.trim().toLowerCase() == 'pending';
-  }
-
-  static bool _isCanceledStatus(String status) {
-    final value = status.trim().toLowerCase();
-    return value == 'cancel' || value == 'canceled' || value == 'cancelled';
+  static String _normalizeStatus(String status) {
+    switch (status.trim().toLowerCase()) {
+      case 'pending':
+        return 'pending';
+      case 'confirm':
+      case 'confirmed':
+        return 'confirmed';
+      case 'indelivery':
+      case 'in_delivery':
+      case 'in-delivery':
+      case 'in delivery':
+        return 'in-delivery';
+      case 'completed':
+      case 'delivered':
+      case 'arrived':
+        return 'completed';
+      case 'cancel':
+      case 'canceled':
+      case 'cancelled':
+        return 'canceled';
+      case 'refund':
+      case 'refunded':
+        return 'refund';
+      default:
+        return '';
+    }
   }
 
   static DateTime? _parseDate(dynamic value) {
@@ -406,7 +445,11 @@ class BrandAnalyticsSnapshot {
   final int totalOrders;
   final int salesOrderCount;
   final int pendingOrderCount;
+  final int confirmedOrderCount;
+  final int inDeliveryOrderCount;
+  final int completedOrderCount;
   final int canceledOrderCount;
+  final int refundOrderCount;
   final int productsSold;
   final int productViews;
   final int brandProfileVisits;
@@ -423,7 +466,11 @@ class BrandAnalyticsSnapshot {
     required this.totalOrders,
     required this.salesOrderCount,
     required this.pendingOrderCount,
+    required this.confirmedOrderCount,
+    required this.inDeliveryOrderCount,
+    required this.completedOrderCount,
     required this.canceledOrderCount,
+    required this.refundOrderCount,
     required this.productsSold,
     required this.productViews,
     required this.brandProfileVisits,
@@ -442,7 +489,11 @@ class BrandAnalyticsSnapshot {
       totalOrders: 0,
       salesOrderCount: 0,
       pendingOrderCount: 0,
+      confirmedOrderCount: 0,
+      inDeliveryOrderCount: 0,
+      completedOrderCount: 0,
       canceledOrderCount: 0,
+      refundOrderCount: 0,
       productsSold: 0,
       productViews: 0,
       brandProfileVisits: 0,

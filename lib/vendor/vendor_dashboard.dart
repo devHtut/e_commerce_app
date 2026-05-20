@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -26,6 +28,150 @@ class VendorDashboard extends StatefulWidget {
 
   @override
   State<VendorDashboard> createState() => _VendorDashboardState();
+}
+
+class _StatusChartSegment {
+  final String label;
+  final int value;
+  final Color color;
+
+  const _StatusChartSegment({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+}
+
+class _OrderStatusDonutChart extends StatelessWidget {
+  final List<_StatusChartSegment> segments;
+  final int total;
+
+  const _OrderStatusDonutChart({required this.segments, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        CustomPaint(
+          size: const Size.square(156),
+          painter: _OrderStatusDonutPainter(
+            segments: segments.where((segment) => segment.value > 0).toList(),
+            total: total,
+          ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$total',
+              style: const TextStyle(
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const Text(
+              'orders',
+              style: TextStyle(
+                color: AppColors.subtleText,
+                fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _OrderStatusDonutPainter extends CustomPainter {
+  final List<_StatusChartSegment> segments;
+  final int total;
+
+  const _OrderStatusDonutPainter({required this.segments, required this.total});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final backgroundPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 22
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.grey.shade200;
+    canvas.drawArc(rect, 0, math.pi * 2, false, backgroundPaint);
+
+    var startAngle = -math.pi / 2;
+    for (final segment in segments) {
+      final sweep = (segment.value / total) * math.pi * 2;
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 22
+        ..strokeCap = StrokeCap.round
+        ..color = segment.color;
+      canvas.drawArc(rect, startAngle, sweep, false, paint);
+      startAngle += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrderStatusDonutPainter oldDelegate) {
+    return oldDelegate.segments != segments || oldDelegate.total != total;
+  }
+}
+
+class _StatusLegendRow extends StatelessWidget {
+  final _StatusChartSegment segment;
+  final int total;
+
+  const _StatusLegendRow({required this.segment, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = total == 0 ? 0 : (segment.value / total) * 100;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: segment.color,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              segment.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          Text(
+            '${segment.value} (${percent.toStringAsFixed(0)}%)',
+            style: TextStyle(
+              color: segment.color,
+              fontFamily: AppFonts.primary,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _VendorDashboardState extends State<VendorDashboard> {
@@ -137,25 +283,35 @@ class _VendorDashboardState extends State<VendorDashboard> {
     required String title,
     required String value,
     required String subtitle,
+    required Color color,
   }) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 8),
+              color: color.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: AppColors.primaryGreen, size: 28),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
             const SizedBox(height: 16),
             Text(
               value,
@@ -180,10 +336,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
               subtitle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: AppColors.subtleText,
+                color: color.withValues(alpha: 0.88),
                 fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -243,6 +400,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       title: 'Revenue',
                       value: formatKyat(analytics.totalRevenue),
                       subtitle: '${analytics.salesOrderCount} sales orders',
+                      color: AppColors.primaryGreen,
                     ),
                     const SizedBox(width: 12),
                     _buildOverviewCard(
@@ -250,6 +408,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       title: 'Orders',
                       value: '${analytics.totalOrders}',
                       subtitle: '${analytics.pendingOrderCount} pending',
+                      color: Colors.blue.shade700,
                     ),
                   ],
                 ),
@@ -261,6 +420,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       title: 'Products Sold',
                       value: '${analytics.productsSold}',
                       subtitle: '${analytics.lowStockItems.length} low stock',
+                      color: Colors.deepOrange.shade700,
                     ),
                     const SizedBox(width: 12),
                     _buildOverviewCard(
@@ -269,6 +429,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       value: '${analytics.productViews}',
                       subtitle:
                           '${analytics.conversionRate.toStringAsFixed(1)}% conversion',
+                      color: Colors.indigo.shade600,
                     ),
                   ],
                 ),
@@ -280,6 +441,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       title: 'Profile Visits',
                       value: '${analytics.brandProfileVisits}',
                       subtitle: '${analytics.uniqueProfileVisits} unique',
+                      color: Colors.purple.shade600,
                     ),
                     const SizedBox(width: 12),
                     _buildOverviewCard(
@@ -287,10 +449,13 @@ class _VendorDashboardState extends State<VendorDashboard> {
                       title: 'Canceled',
                       value: '${analytics.canceledOrderCount}',
                       subtitle: 'Excluded from revenue',
+                      color: AppColors.errorRed,
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
+                _buildOrderStatusPanel(analytics),
+                const SizedBox(height: 16),
                 _buildRevenuePanel(analytics),
                 const SizedBox(height: 16),
                 _buildBestSellingPanel(analytics.bestSellingProducts),
@@ -354,6 +519,80 @@ class _VendorDashboardState extends State<VendorDashboard> {
     );
   }
 
+  Widget _buildOrderStatusPanel(BrandAnalyticsSnapshot analytics) {
+    final segments = [
+      _StatusChartSegment(
+        label: 'Pending',
+        value: analytics.pendingOrderCount,
+        color: Colors.amber.shade800,
+      ),
+      _StatusChartSegment(
+        label: 'Confirmed',
+        value: analytics.confirmedOrderCount,
+        color: Colors.teal.shade700,
+      ),
+      _StatusChartSegment(
+        label: 'In Delivery',
+        value: analytics.inDeliveryOrderCount,
+        color: Colors.blue.shade700,
+      ),
+      _StatusChartSegment(
+        label: 'Completed',
+        value: analytics.completedOrderCount,
+        color: AppColors.primaryGreen,
+      ),
+      _StatusChartSegment(
+        label: 'Canceled',
+        value: analytics.canceledOrderCount,
+        color: AppColors.errorRed,
+      ),
+      _StatusChartSegment(
+        label: 'Refund',
+        value: analytics.refundOrderCount,
+        color: Colors.deepOrange.shade800,
+      ),
+    ];
+    final total = segments.fold<int>(0, (sum, item) => sum + item.value);
+
+    return _analyticsPanel(
+      title: 'Order Status',
+      trailing: '$total total',
+      child: total == 0
+          ? _emptyAnalyticsText('No order activity in this period yet.')
+          : Column(
+              children: [
+                SizedBox(
+                  height: 178,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: _OrderStatusDonutChart(
+                          segments: segments,
+                          total: total,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 4,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (final segment in segments.where(
+                              (item) => item.value > 0,
+                            ))
+                              _StatusLegendRow(segment: segment, total: total),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
   Widget _buildRevenuePanel(BrandAnalyticsSnapshot analytics) {
     final maxValue = analytics.revenueSeries.fold<double>(
       0,
@@ -367,9 +606,14 @@ class _VendorDashboardState extends State<VendorDashboard> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: analytics.revenueSeries.map((point) {
+          children: analytics.revenueSeries.asMap().entries.map((entry) {
+            final point = entry.value;
             final value = maxValue == 0 ? 0.06 : (point.value / maxValue);
-            return _buildChartBar(label: point.label, value: value);
+            return _buildChartBar(
+              label: point.label,
+              value: value,
+              color: _chartColor(entry.key),
+            );
           }).toList(),
         ),
       ),
@@ -493,6 +737,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
     required String subtitle,
     required String value,
     String? footnote,
+    Color color = AppColors.primaryGreen,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 9),
@@ -532,8 +777,8 @@ class _VendorDashboardState extends State<VendorDashboard> {
             children: [
               Text(
                 value,
-                style: const TextStyle(
-                  color: AppColors.primaryGreen,
+                style: TextStyle(
+                  color: color,
                   fontFamily: AppFonts.primary,
                   fontWeight: FontWeight.w800,
                 ),
@@ -563,7 +808,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
     );
   }
 
-  Widget _buildChartBar({required String label, required double value}) {
+  Widget _buildChartBar({
+    required String label,
+    required double value,
+    required Color color,
+  }) {
     final height = 140 * value.clamp(0.06, 1.0);
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -572,7 +821,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
           width: 20,
           height: height,
           decoration: BoxDecoration(
-            color: AppColors.primaryGreen,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [color, color.withValues(alpha: 0.48)],
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
         ),
@@ -586,6 +839,19 @@ class _VendorDashboardState extends State<VendorDashboard> {
         ),
       ],
     );
+  }
+
+  Color _chartColor(int index) {
+    final colors = [
+      AppColors.primaryGreen,
+      Colors.blue.shade700,
+      Colors.deepOrange.shade700,
+      Colors.indigo.shade600,
+      Colors.purple.shade600,
+      Colors.teal.shade700,
+      Colors.amber.shade800,
+    ];
+    return colors[index % colors.length];
   }
 
   Future<void> _refreshVendorOrders() async {
