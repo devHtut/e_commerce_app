@@ -48,3 +48,40 @@ $$;
 
 revoke all on function public.delete_chat_for_me(uuid) from public;
 grant execute on function public.delete_chat_for_me(uuid) to authenticated;
+
+create or replace function public.delete_message_for_everyone(
+  target_message_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_chat_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated' using errcode = '42501';
+  end if;
+
+  select chat_id
+  into target_chat_id
+  from public.messages
+  where id = target_message_id
+    and sender_id = auth.uid();
+
+  if target_chat_id is null then
+    raise exception 'Not allowed to delete this message' using errcode = '42501';
+  end if;
+
+  delete from public.message_reactions
+  where message_id = target_message_id;
+
+  delete from public.messages
+  where id = target_message_id;
+end;
+$$;
+
+revoke all on function public.delete_message_for_everyone(uuid) from public;
+grant execute on function public.delete_message_for_everyone(uuid)
+  to authenticated;

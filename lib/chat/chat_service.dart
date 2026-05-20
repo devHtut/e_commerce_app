@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ChatSummary {
@@ -144,8 +144,9 @@ class ChatService {
   static final ChatService instance = ChatService._();
   static const int _chatEncryptionVersion = 1;
   static const String _encryptedPreview = 'Encrypted message';
-  static const String _chatEncryptionSalt =
-      'burma-brands-chat-encryption-v1';
+  static const String _chatEncryptionSalt = 'burma-brands-chat-encryption-v1';
+  static const int _chatImageMaxDimension = 1600;
+  static const int _chatImageJpegQuality = 82;
 
   final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
   RealtimeChannel? _unreadCountChannel;
@@ -615,8 +616,6 @@ class ChatService {
   Future<ChatMessage?> sendImageMessage({
     required String chatId,
     required Uint8List bytes,
-    required String fileName,
-    String? contentType,
   }) async {
     final user = _client.auth.currentUser;
     if (user == null || chatId.isEmpty || bytes.isEmpty) return null;
@@ -625,14 +624,14 @@ class ChatService {
     final memberIds =
         membersByChat[chatId]?.map((member) => member.userId).toList() ??
         <String>[user.id];
+    final compressedBytes = _compressImageForChat(bytes) ?? bytes;
     final encrypted = await _encryptBytes(
       chatId: chatId,
       memberIds: memberIds,
-      bytes: bytes,
+      bytes: compressedBytes,
     );
-    final extension = _safeFileExtension(fileName, contentType);
     final path =
-        'encrypted chat images/$chatId/${DateTime.now().millisecondsSinceEpoch}_${user.id}.$extension.enc';
+        'encrypted chat images/$chatId/${DateTime.now().millisecondsSinceEpoch}_${user.id}.jpg.enc';
     await _client.storage
         .from('media')
         .uploadBinary(
@@ -676,7 +675,7 @@ class ChatService {
         })
         .eq('id', chatId);
 
-    return ChatMessage.fromRow(inserted, imageBytes: bytes);
+    return ChatMessage.fromRow(inserted, imageBytes: compressedBytes);
   }
 
   String? messageImageUrl(String? imagePath) {
@@ -751,35 +750,11 @@ class ChatService {
         .eq('sender_id', user.id)
         .maybeSingle();
 
-    await _client
-        .from('messages')
-        .update({'is_deleted': true})
-        .eq('id', messageId)
-        .eq('sender_id', user.id);
-
-    final imagePath = messageRow?['image_path']?.toString().trim();
-    final encryptedImagePath = messageRow?['encrypted_image_path']
-        ?.toString()
-        .trim();
-    if (messageRow?['type']?.toString() == 'image' &&
-        imagePath != null &&
-        imagePath.isNotEmpty &&
-        Uri.tryParse(imagePath)?.hasScheme != true) {
-      try {
-        await _client.storage.from('media').remove([imagePath]);
-      } catch (e) {
-        debugPrint('Unable to delete chat image: $e');
-      }
-    }
-    if (messageRow?['type']?.toString() == 'image' &&
-        encryptedImagePath != null &&
-        encryptedImagePath.isNotEmpty) {
-      try {
-        await _client.storage.from('media').remove([encryptedImagePath]);
-      } catch (e) {
-        debugPrint('Unable to delete encrypted chat image: $e');
-      }
-    }
+    await _deleteChatImageFiles([messageRow]);
+    await _client.rpc<void>(
+      'delete_message_for_everyone',
+      params: {'target_message_id': messageId},
+    );
 
     await _refreshChatLastMessage(chatId);
   }
@@ -788,38 +763,17 @@ class ChatService {
     final user = _client.auth.currentUser;
     if (user == null || chatId.isEmpty) return;
 
-    try {
-      await _client.rpc<void>(
-        'delete_chat_for_me',
-        params: {'target_chat_id': chatId},
-      );
-      await refreshUnreadCount();
-      return;
-    } catch (e) {
-      debugPrint('delete_chat_for_me RPC failed: $e');
-    }
-
     final messageRows = await _client
         .from('messages')
-        .select('id')
+        .select('image_path,encrypted_image_path')
         .eq('chat_id', chatId);
-    final messageIds = (messageRows as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map((row) => row['id']?.toString())
-        .whereType<String>()
-        .where((id) => id.isNotEmpty)
-        .toList();
-
-    if (messageIds.isNotEmpty) {
-      await _client
-          .from('message_reactions')
-          .delete()
-          .inFilter('message_id', messageIds);
-    }
-
-    await _client.from('messages').delete().eq('chat_id', chatId);
-    await _client.from('chat_members').delete().eq('chat_id', chatId);
-    await _client.from('chats').delete().eq('id', chatId);
+    await _deleteChatImageFiles(
+      (messageRows as List<dynamic>).cast<Map<String, dynamic>>(),
+    );
+    await _client.rpc<void>(
+      'delete_chat_for_everyone',
+      params: {'target_chat_id': chatId},
+    );
     await refreshUnreadCount();
   }
 
@@ -832,7 +786,17 @@ class ChatService {
         .limit(1)
         .maybeSingle();
 
-    if (row == null) return;
+    if (row == null) {
+      await _client
+          .from('chats')
+          .update({
+            'last_message_text': 'No messages yet',
+            'last_message_type': null,
+            'last_message_at': null,
+          })
+          .eq('id', chatId);
+      return;
+    }
 
     final isDeleted = row['is_deleted'] as bool? ?? false;
     final type = row['type']?.toString() ?? 'text';
@@ -1089,6 +1053,61 @@ class ChatService {
     );
   }
 
+  Uint8List? _compressImageForChat(Uint8List bytes) {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return null;
+
+      final longestSide = mathMax(decoded.width, decoded.height);
+      final resized = longestSide > _chatImageMaxDimension
+          ? img.copyResize(
+              decoded,
+              width: decoded.width >= decoded.height
+                  ? _chatImageMaxDimension
+                  : null,
+              height: decoded.height > decoded.width
+                  ? _chatImageMaxDimension
+                  : null,
+              interpolation: img.Interpolation.average,
+            )
+          : decoded;
+      return Uint8List.fromList(
+        img.encodeJpg(resized, quality: _chatImageJpegQuality),
+      );
+    } catch (error) {
+      debugPrint('Unable to compress chat image: $error');
+      return null;
+    }
+  }
+
+  int mathMax(int a, int b) => a > b ? a : b;
+
+  Future<void> _deleteChatImageFiles(List<Map<String, dynamic>?> rows) async {
+    final paths = <String>{};
+    for (final row in rows) {
+      final imagePath = row?['image_path']?.toString().trim();
+      if (imagePath != null &&
+          imagePath.isNotEmpty &&
+          Uri.tryParse(imagePath)?.hasScheme != true) {
+        paths.add(imagePath);
+      }
+
+      final encryptedImagePath = row?['encrypted_image_path']
+          ?.toString()
+          .trim();
+      if (encryptedImagePath != null && encryptedImagePath.isNotEmpty) {
+        paths.add(encryptedImagePath);
+      }
+    }
+
+    if (paths.isEmpty) return;
+    try {
+      await _client.storage.from('media').remove(paths.toList());
+    } catch (error) {
+      debugPrint('Unable to delete chat image files: $error');
+    }
+  }
+
   Future<String> _messageTextFromRow(
     Map<String, dynamic> row,
     List<String> memberIds,
@@ -1172,12 +1191,13 @@ class ChatService {
     }
   }
 
-  Future<SecretKey> _chatSecretKey(String chatId, List<String> memberIds) async {
-    final normalizedMembers = memberIds
-        .map((id) => id.trim())
-        .where((id) => id.isNotEmpty)
-        .toList()
-      ..sort();
+  Future<SecretKey> _chatSecretKey(
+    String chatId,
+    List<String> memberIds,
+  ) async {
+    final normalizedMembers =
+        memberIds.map((id) => id.trim()).where((id) => id.isNotEmpty).toList()
+          ..sort();
     final material = [
       _chatEncryptionSalt,
       chatId,
@@ -1185,29 +1205,6 @@ class ChatService {
     ].join('|');
     final hash = await Sha256().hash(utf8.encode(material));
     return SecretKey(hash.bytes);
-  }
-
-  String _safeFileExtension(String fileName, String? contentType) {
-    final rawExtension = fileName.split('.').last.toLowerCase();
-    switch (rawExtension) {
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'webp':
-      case 'gif':
-        return rawExtension == 'jpeg' ? 'jpg' : rawExtension;
-    }
-
-    switch (contentType) {
-      case 'image/png':
-        return 'png';
-      case 'image/webp':
-        return 'webp';
-      case 'image/gif':
-        return 'gif';
-      default:
-        return 'jpg';
-    }
   }
 }
 

@@ -769,7 +769,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final rows = await Supabase.instance.client
           .from('brands')
           .select('id, brand_name, logo_url')
-          .order('created_at', ascending: false)
+          .order('created_at', ascending: true)
           .limit(10);
       final brands = (rows as List<dynamic>)
           .cast<Map<String, dynamic>>()

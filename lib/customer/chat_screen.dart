@@ -262,8 +262,6 @@ class _ChatScreenState extends State<ChatScreen> {
       final sent = await ChatService.instance.sendImageMessage(
         chatId: chat.id,
         bytes: bytes,
-        fileName: file.name,
-        contentType: _imageContentType(file.extension),
       );
       if (!mounted) return;
       if (sent != null) {
@@ -511,7 +509,7 @@ class _ChatScreenState extends State<ChatScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Delete message?',
+                  'Delete message permanently?',
                   style: TextStyle(
                     color: AppColors.darkText,
                     fontFamily: AppFonts.primary,
@@ -521,7 +519,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'This will remove the message from this chat.',
+                  'This will permanently remove the message and any attached image. This cannot be undone.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.subtleText,
@@ -545,7 +543,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           backgroundColor: AppColors.errorRed,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('Delete'),
+                        child: const Text('Delete Forever'),
                       ),
                     ),
                   ],
@@ -594,7 +592,7 @@ class _ChatScreenState extends State<ChatScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Delete chat?',
+                  'Delete chat permanently?',
                   style: TextStyle(
                     color: AppColors.darkText,
                     fontFamily: AppFonts.primary,
@@ -604,7 +602,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'This will delete ${chat.title} for everyone.',
+                  'This will permanently delete ${chat.title}, all messages, reactions, and chat images for everyone. This cannot be undone.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.subtleText,
@@ -628,7 +626,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           backgroundColor: AppColors.errorRed,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('Delete'),
+                        child: const Text('Delete Forever'),
                       ),
                     ),
                   ],
@@ -658,7 +656,7 @@ class _ChatScreenState extends State<ChatScreen> {
       await showCustomPopup(
         context,
         title: 'Chat not deleted',
-        message: 'Please run the delete chat SQL function, then try again.',
+        message: 'Please try again in a moment.',
         type: PopupType.error,
       );
     }
@@ -1908,22 +1906,6 @@ String _timeLabel(DateTime? value) {
   if (difference.inDays == 1) return 'Yesterday';
   return '${local.day.toString().padLeft(2, '0')}/'
       '${local.month.toString().padLeft(2, '0')}/${local.year}';
-}
-
-String? _imageContentType(String? extension) {
-  switch (extension?.toLowerCase()) {
-    case 'png':
-      return 'image/png';
-    case 'jpg':
-    case 'jpeg':
-      return 'image/jpeg';
-    case 'webp':
-      return 'image/webp';
-    case 'gif':
-      return 'image/gif';
-    default:
-      return null;
-  }
 }
 
 String _messageTimeLabel(DateTime value) {
