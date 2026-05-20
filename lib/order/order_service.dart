@@ -429,6 +429,21 @@ class OrderService {
     }
   }
 
+  Future<OrderModel?> loadOrderById(String orderId) async {
+    if (orderId.isEmpty) return null;
+
+    final row = await Supabase.instance.client
+        .from('orders')
+        .select(_orderSelect)
+        .eq('id', orderId)
+        .maybeSingle();
+    if (row == null) return null;
+
+    final orders = await _buildOrders([row], includePaymentDetails: true);
+    if (orders.isEmpty) return null;
+    return orders.first;
+  }
+
   Future<void> _recordStatusHistory(
     String orderId,
     OrderStatus status,

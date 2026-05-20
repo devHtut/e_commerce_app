@@ -14,6 +14,8 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((message) => {
+  if (message.notification) return;
+
   const notification = message.notification || {};
   const title = notification.title || message.data?.title || 'Burma Brands';
   const options = {

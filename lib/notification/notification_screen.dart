@@ -196,9 +196,7 @@ class _NotificationTile extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: _notificationColor(
-                  notification.type,
-                ).withValues(alpha: 0.12),
+                color: _notificationBackgroundColor(notification.type),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -298,7 +296,7 @@ class _NotificationTile extends StatelessWidget {
     if (type.contains('delivery')) return Icons.local_shipping_outlined;
     if (type.contains('cancel')) return CupertinoIcons.xmark_circle;
     if (type.contains('refund')) return CupertinoIcons.doc_text_search;
-    if (type.contains('completed')) return CupertinoIcons.check_mark_circled;
+    if (type.contains('completed')) return CupertinoIcons.checkmark_circle_fill;
     if (type.contains('confirmed')) return CupertinoIcons.checkmark_seal;
     return CupertinoIcons.bell;
   }
@@ -308,8 +306,20 @@ class _NotificationTile extends StatelessWidget {
     if (type.contains('low_stock')) return AppColors.errorRed;
     if (type.contains('delivery')) return Colors.blue.shade700;
     if (type.contains('refund')) return Colors.deepOrange.shade800;
+    if (type.contains('confirmed')) return Colors.teal.shade700;
+    if (type.contains('completed')) return AppColors.primaryGreen;
     if (type.contains('payment')) return Colors.amber.shade900;
     return AppColors.primaryGreen;
+  }
+
+  Color _notificationBackgroundColor(String type) {
+    if (type.contains('confirmed')) {
+      return Colors.teal.shade50;
+    }
+    if (type.contains('completed')) {
+      return AppColors.primaryGreen.withValues(alpha: 0.14);
+    }
+    return _notificationColor(type).withValues(alpha: 0.12);
   }
 
   String _formatNotificationTime(DateTime createdAt) {

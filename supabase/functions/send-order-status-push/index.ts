@@ -53,6 +53,7 @@ function normalizeStatus(status: string): string {
   ) {
     return 'in-delivery';
   }
+  if (value === 'cancel' || value === 'cancelled') return 'canceled';
   if (value === 'refunded') return 'refund';
   return value;
 }
@@ -197,7 +198,7 @@ function statusCopy(
   status: string,
   readableId: string,
   itemSummary: string,
-): StatusCopy {
+): StatusCopy | null {
   const orderLabel = `#${readableId}`;
   switch (status) {
     case 'confirmed':
@@ -231,11 +232,7 @@ function statusCopy(
         type: 'order_refund',
       };
     default:
-      return {
-        title: 'Order updated',
-        body: `Order ${orderLabel} has a new update.`,
-        type: 'order_updated',
-      };
+      return null;
   }
 }
 
@@ -244,13 +241,37 @@ function vendorStatusCopy(
   readableId: string,
 ): StatusCopy | null {
   const orderLabel = `#${readableId}`;
-  if (status !== 'completed') return null;
+  switch (status) {
+    case 'completed':
+      return {
+        title: 'Order completed',
+        body: `Order ${orderLabel} has been marked arrived and completed.`,
+        type: 'order_completed',
+      };
+    case 'canceled':
+      return {
+        title: 'Order canceled',
+        body: `Order ${orderLabel} was canceled. Stock has been restored.`,
+        type: 'order_canceled',
+      };
+    case 'refund':
+      return {
+        title: 'Refund completed',
+        body: `Refund for order ${orderLabel} has been marked completed.`,
+        type: 'order_refund',
+      };
+    default:
+      return null;
+  }
+}
 
-  return {
-    title: 'Order completed',
-    body: `Order ${orderLabel} has been marked arrived and completed.`,
-    type: 'order_completed',
-  };
+function uniqueNonEmptyTokens(rows: PushTokenRow[] | null): string[] {
+  const tokens = new Set<string>();
+  for (const row of rows ?? []) {
+    const token = row.token?.trim();
+    if (token) tokens.add(token);
+  }
+  return [...tokens];
 }
 
 Deno.serve(async (req) => {
@@ -390,9 +411,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const customerTokens = (customerTokenRows ?? [])
-    .map((row) => row.token?.trim())
-    .filter((token): token is string => Boolean(token));
+  const customerTokens = uniqueNonEmptyTokens(customerTokenRows ?? []);
 
   const readableId = order.readable_id?.toString() || orderId;
   const copy = statusCopy(
@@ -400,10 +419,18 @@ Deno.serve(async (req) => {
     readableId,
     buildItemSummary(itemNames, itemCount),
   );
-  const pushes: RecipientPush[] = customerTokens.map((token) => ({
-    token,
-    copy,
-  }));
+  if (!copy) {
+    return json({ success: false, message: 'Unsupported order status.' }, 400);
+  }
+  const pushes: RecipientPush[] = [];
+  const queuedTokens = new Set<string>();
+  const addPush = (token: string, pushCopy: StatusCopy) => {
+    if (queuedTokens.has(token)) return;
+    queuedTokens.add(token);
+    pushes.push({ token, copy: pushCopy });
+  };
+
+  for (const token of customerTokens) addPush(token, copy);
   const vendorCopy = vendorStatusCopy(status, readableId);
 
   if (vendorCopy && vendorIds.size > 0) {
@@ -421,12 +448,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    pushes.push(
-      ...(vendorTokenRows ?? [])
-        .map((row) => row.token?.trim())
-        .filter((token): token is string => Boolean(token))
-        .map((token) => ({ token, copy: vendorCopy })),
-    );
+    for (const token of uniqueNonEmptyTokens(vendorTokenRows ?? [])) {
+      addPush(token, vendorCopy);
+    }
   }
 
   if (pushes.length === 0) {

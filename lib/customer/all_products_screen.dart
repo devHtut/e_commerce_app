@@ -389,7 +389,12 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Expanded(child: _buildContent()),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _loadProducts,
+                child: _buildContent(),
+              ),
+            ),
           ],
         ),
       ),
@@ -408,11 +413,12 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
       return const CustomLoadingCenter();
     }
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        children: [
+          SizedBox(height: MediaQuery.sizeOf(context).height * 0.24),
+          Column(
             children: [
               Text(
                 _error!,
@@ -423,25 +429,28 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
               TextButton(onPressed: _loadProducts, child: const Text('Retry')),
             ],
           ),
-        ),
+        ],
       );
     }
 
     final products = _visibleProducts;
     if (products.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        children: [
+          SizedBox(height: MediaQuery.sizeOf(context).height * 0.24),
+          const Text(
             'No products found.',
             style: AppTextStyles.body,
             textAlign: TextAlign.center,
           ),
-        ),
+        ],
       );
     }
 
     return GridView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 92),
       itemCount: products.length,
       gridDelegate: ProductCard.gridDelegate,
@@ -539,7 +548,9 @@ class _BottomControls extends StatelessWidget {
             TextButton.icon(
               onPressed: onFilter,
               icon: Icon(
-                filterActive ? CupertinoIcons.slider_horizontal_3 : CupertinoIcons.slider_horizontal_3,
+                filterActive
+                    ? CupertinoIcons.slider_horizontal_3
+                    : CupertinoIcons.slider_horizontal_3,
                 color: filterActive ? AppColors.primaryGreen : null,
               ),
               label: Text(filterActive ? 'Filter On' : 'Filter'),
@@ -629,7 +640,9 @@ class _SheetOptionTile extends StatelessWidget {
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
       leading: Icon(
-        selected ? CupertinoIcons.largecircle_fill_circle : CupertinoIcons.circle,
+        selected
+            ? CupertinoIcons.largecircle_fill_circle
+            : CupertinoIcons.circle,
         color: AppColors.primaryGreen,
       ),
       title: Text(

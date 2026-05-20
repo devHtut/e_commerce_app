@@ -40,6 +40,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     _order = widget.order;
   }
 
+  Future<void> _refreshOrder() async {
+    try {
+      final refreshed = await OrderService.instance.loadOrderById(_order.id);
+      if (!mounted || refreshed == null) return;
+      setState(() => _order = refreshed);
+      widget.onOrderUpdated?.call(refreshed);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Unable to refresh order.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,7 +104,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: _tabIndex == 0 ? _buildOrderDetails() : _buildTrackOrder(),
+            child: RefreshIndicator(
+              onRefresh: _refreshOrder,
+              child: _tabIndex == 0 ? _buildOrderDetails() : _buildTrackOrder(),
+            ),
           ),
         ],
       ),
@@ -138,6 +155,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         .join(', ');
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       children: [
         _detailSection(
@@ -261,9 +279,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               _summaryRow(
                 'Order ID',
                 _order.readableId,
-                trailing: CopyPillButton(
-                  onPressed: _copyReadableOrderId,
-                ),
+                trailing: CopyPillButton(onPressed: _copyReadableOrderId),
               ),
               if (brandNames.isNotEmpty) _summaryRow('Brand', brandNames),
               if (_order.shippingAddressRecipient.isNotEmpty)
@@ -328,10 +344,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: _openReceiptScreen,
-        icon: const Icon(
-          CupertinoIcons.doc_text,
-          color: AppColors.darkText,
-        ),
+        icon: const Icon(CupertinoIcons.doc_text, color: AppColors.darkText),
         label: const Text(
           'Generate Receipt',
           style: TextStyle(
@@ -365,9 +378,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildCustomerMessageButton() {
@@ -555,7 +566,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildStatusChip(OrderStatus status) {
     return Row(
       children: [
-        Icon(CupertinoIcons.info_circle, color: _orderStatusColor(status), size: 18),
+        Icon(
+          CupertinoIcons.info_circle,
+          color: _orderStatusColor(status),
+          size: 18,
+        ),
         const SizedBox(width: 8),
         Text(
           _orderStatusLabel(status),
@@ -668,11 +683,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Widget _buildStatusButtonChild(String label) {
     if (_savingStatus) {
-      return const SizedBox(
-        width: 72,
-        height: 36,
-        child: ButtonLoadingDots(),
-      );
+      return const SizedBox(width: 72, height: 36, child: ButtonLoadingDots());
     }
 
     return Text(
@@ -866,6 +877,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final progressStatuses = _trackProgressStatuses(history);
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       children: [
         Container(
@@ -1232,10 +1244,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: 8),
-            trailing,
-          ],
+          if (trailing != null) ...[const SizedBox(width: 8), trailing],
         ],
       ),
     );
@@ -1500,7 +1509,11 @@ class _TrackDot extends StatelessWidget {
         CircleAvatar(
           radius: 12,
           backgroundColor: active ? color : Colors.grey.shade300,
-          child: const Icon(CupertinoIcons.check_mark, size: 14, color: Colors.white),
+          child: const Icon(
+            CupertinoIcons.check_mark,
+            size: 14,
+            color: Colors.white,
+          ),
         ),
         if (showTail) ...[
           const SizedBox(width: 6),

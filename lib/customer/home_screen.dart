@@ -619,10 +619,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ? IconButton(
               onPressed: _clearSearch,
               tooltip: 'Clear search',
-              icon: const Icon(
-                CupertinoIcons.xmark,
-                color: AppColors.darkText,
-              ),
+              icon: const Icon(CupertinoIcons.xmark, color: AppColors.darkText),
             )
           : null,
     );
@@ -729,10 +726,7 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton(
               onPressed: () => _removeRecentSearch(query),
               tooltip: 'Remove search',
-              icon: const Icon(
-                CupertinoIcons.xmark,
-                color: AppColors.darkText,
-              ),
+              icon: const Icon(CupertinoIcons.xmark, color: AppColors.darkText),
             ),
           ],
         ),
@@ -802,6 +796,28 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _isLoadingBrands = false;
       });
+    }
+  }
+
+  Future<void> _refreshHomePage() async {
+    await Future.wait([
+      _loadProducts(),
+      _loadBrands(),
+      if (_isLoggedIn) _loadAccountInfo(),
+      if (_isLoggedIn)
+        NotificationService.instance.refreshUnreadCount(
+          audience: AppNotificationAudience.customer,
+        ),
+      if (_isLoggedIn) ChatService.instance.refreshUnreadCount(),
+    ]);
+  }
+
+  Future<void> _refreshOrdersPage() async {
+    await OrderService.instance.loadOrders();
+    if (_isLoggedIn) {
+      await NotificationService.instance.refreshUnreadCount(
+        audience: AppNotificationAudience.customer,
+      );
     }
   }
 
@@ -2198,230 +2214,253 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: showing.isEmpty
-                  ? const Center(
-                      child: Text('No orders yet.', style: AppTextStyles.body),
-                    )
-                  : filtered.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No orders match this order ID.',
-                        style: AppTextStyles.body,
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final order = filtered[index];
-                        final leadItem = order.items.first;
-                        final extraCount = order.items.length - 1;
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
+              child: RefreshIndicator(
+                onRefresh: _refreshOrdersPage,
+                child: showing.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(top: 120),
+                        children: const [
+                          Center(
+                            child: Text(
+                              'No orders yet.',
+                              style: AppTextStyles.body,
+                            ),
                           ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    CupertinoIcons.calendar,
-                                    size: 16,
-                                    color: AppColors.primaryGreen,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          order.readableId,
-                                          style: const TextStyle(
-                                            fontFamily: AppFonts.primary,
-                                            color: AppColors.darkText,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14,
-                                            letterSpacing: 0.3,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _formatOrderDate(order.createdAt),
-                                          style: TextStyle(
-                                            fontFamily: AppFonts.primary,
-                                            color: Colors.grey.shade700,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _orderStatusBackgroundColor(
-                                              order.status,
+                        ],
+                      )
+                    : filtered.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(top: 120),
+                        children: const [
+                          Center(
+                            child: Text(
+                              'No orders match this order ID.',
+                              style: AppTextStyles.body,
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        itemCount: filtered.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final order = filtered[index];
+                          final leadItem = order.items.first;
+                          final extraCount = order.items.length - 1;
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      CupertinoIcons.calendar,
+                                      size: 16,
+                                      color: AppColors.primaryGreen,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            order.readableId,
+                                            style: const TextStyle(
+                                              fontFamily: AppFonts.primary,
+                                              color: AppColors.darkText,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                              letterSpacing: 0.3,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              999,
-                                            ),
                                           ),
-                                          child: Text(
-                                            _orderStatusLabel(order.status),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _formatOrderDate(order.createdAt),
                                             style: TextStyle(
                                               fontFamily: AppFonts.primary,
-                                              color: _orderStatusColor(
-                                                order.status,
-                                              ),
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 11,
+                                              color: Colors.grey.shade700,
+                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (order.status == OrderStatus.pending)
-                                    PopupMenuButton<String>(
-                                      color: Colors.white,
-                                      elevation: 8,
-                                      offset: const Offset(0, 8),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      onSelected: (_) =>
-                                          _showCancelOrderDialog(order),
-                                      itemBuilder: (_) => const [
-                                        PopupMenuItem(
-                                          value: 'cancel',
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                CupertinoIcons.xmark_circle,
-                                                color: Color(0xFFCF5F5F),
-                                                size: 20,
-                                              ),
-                                              SizedBox(width: 10),
-                                              Text(
-                                                'Cancel Order',
-                                                style: TextStyle(
-                                                  color: Color(0xFFCF5F5F),
-                                                  fontFamily: AppFonts.primary,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                ],
-                              ),
-                              const Divider(),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      leadItem.imageUrl,
-                                      width: 96,
-                                      height: 110,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          leadItem.product.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontFamily: AppFonts.primary,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        if (extraCount > 0)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 2,
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  _orderStatusBackgroundColor(
+                                                    order.status,
+                                                  ),
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
                                             ),
                                             child: Text(
-                                              '+$extraCount other products',
+                                              _orderStatusLabel(order.status),
                                               style: TextStyle(
                                                 fontFamily: AppFonts.primary,
-                                                color: Colors.grey.shade600,
+                                                color: _orderStatusColor(
+                                                  order.status,
+                                                ),
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 11,
                                               ),
                                             ),
                                           ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Total Shopping',
-                                          style: TextStyle(
-                                            fontFamily: AppFonts.primary,
-                                            color: Colors.grey.shade600,
+                                        ],
+                                      ),
+                                    ),
+                                    if (order.status == OrderStatus.pending)
+                                      PopupMenuButton<String>(
+                                        color: Colors.white,
+                                        elevation: 8,
+                                        offset: const Offset(0, 8),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
                                           ),
                                         ),
-                                        Text(
-                                          formatKyat(order.total),
-                                          style: const TextStyle(
-                                            color: AppColors.primaryGreen,
-                                            fontFamily: AppFonts.primary,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 25,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        OutlinedButton(
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    OrderDetailScreen(
-                                                      order: order,
-                                                      onOrderUpdated: (_) {
-                                                        OrderService.instance
-                                                            .loadOrders();
-                                                      },
-                                                    ),
-                                              ),
-                                            );
-                                          },
-                                          style: OutlinedButton.styleFrom(
-                                            side: const BorderSide(
-                                              color: AppColors.primaryGreen,
+                                        onSelected: (_) =>
+                                            _showCancelOrderDialog(order),
+                                        itemBuilder: (_) => const [
+                                          PopupMenuItem(
+                                            value: 'cancel',
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  CupertinoIcons.xmark_circle,
+                                                  color: Color(0xFFCF5F5F),
+                                                  size: 20,
+                                                ),
+                                                SizedBox(width: 10),
+                                                Text(
+                                                  'Cancel Order',
+                                                  style: TextStyle(
+                                                    color: Color(0xFFCF5F5F),
+                                                    fontFamily:
+                                                        AppFonts.primary,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                          child: const Text(
-                                            'View Order',
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                                const Divider(),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        leadItem.imageUrl,
+                                        width: 96,
+                                        height: 110,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            leadItem.product.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontFamily: AppFonts.primary,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          if (extraCount > 0)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 2,
+                                              ),
+                                              child: Text(
+                                                '+$extraCount other products',
+                                                style: TextStyle(
+                                                  fontFamily: AppFonts.primary,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                            ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Total Shopping',
                                             style: TextStyle(
+                                              fontFamily: AppFonts.primary,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          Text(
+                                            formatKyat(order.total),
+                                            style: const TextStyle(
                                               color: AppColors.primaryGreen,
                                               fontFamily: AppFonts.primary,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 25,
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(height: 8),
+                                          OutlinedButton(
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      OrderDetailScreen(
+                                                        order: order,
+                                                        onOrderUpdated: (_) {
+                                                          OrderService.instance
+                                                              .loadOrders();
+                                                        },
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                            style: OutlinedButton.styleFrom(
+                                              side: const BorderSide(
+                                                color: AppColors.primaryGreen,
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'View Order',
+                                              style: TextStyle(
+                                                color: AppColors.primaryGreen,
+                                                fontFamily: AppFonts.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
           ],
         );
@@ -2450,50 +2489,54 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         }
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_isSearchMode)
-                _buildSearchModeContent()
-              else ...[
-                AutoBannerSlider(banners: _banners),
-                const SizedBox(height: 12),
-                _buildBrandsSection(),
-                const SizedBox(height: 12),
-                if (_promotionProducts.isNotEmpty) ...[
+        return RefreshIndicator(
+          onRefresh: _refreshHomePage,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_isSearchMode)
+                  _buildSearchModeContent()
+                else ...[
+                  AutoBannerSlider(banners: _banners),
+                  const SizedBox(height: 12),
+                  _buildBrandsSection(),
+                  const SizedBox(height: 12),
+                  if (_promotionProducts.isNotEmpty) ...[
+                    _buildHorizontalProductSection(
+                      title: 'Promotion',
+                      products: _promotionProducts,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   _buildHorizontalProductSection(
-                    title: 'Promotion',
-                    products: _promotionProducts,
+                    title: 'New Arrival',
+                    products: _newArrivalProducts,
                   ),
                   const SizedBox(height: 14),
-                ],
-                _buildHorizontalProductSection(
-                  title: 'New Arrival',
-                  products: _newArrivalProducts,
-                ),
-                const SizedBox(height: 14),
-                if (_bestSellingProducts.isNotEmpty) ...[
+                  if (_bestSellingProducts.isNotEmpty) ...[
+                    _buildHorizontalProductSection(
+                      title: 'Best Selling',
+                      products: _bestSellingProducts,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if (_mostViewedProducts.isNotEmpty) ...[
+                    _buildHorizontalProductSection(
+                      title: 'Most Viewed',
+                      products: _mostViewedProducts,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   _buildHorizontalProductSection(
-                    title: 'Best Selling',
-                    products: _bestSellingProducts,
+                    title: 'Hot Deals for this week',
+                    products: _hotDealProducts,
                   ),
-                  const SizedBox(height: 14),
                 ],
-                if (_mostViewedProducts.isNotEmpty) ...[
-                  _buildHorizontalProductSection(
-                    title: 'Most Viewed',
-                    products: _mostViewedProducts,
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                _buildHorizontalProductSection(
-                  title: 'Hot Deals for this week',
-                  products: _hotDealProducts,
-                ),
               ],
-            ],
+            ),
           ),
         );
       case 1:
@@ -2732,10 +2775,7 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Stack(
             clipBehavior: Clip.none,
             children: [
-              const Icon(
-                CupertinoIcons.bell,
-                color: AppColors.darkText,
-              ),
+              const Icon(CupertinoIcons.bell, color: AppColors.darkText),
               if (visibleUnreadCount > 0)
                 Positioned(
                   right: -2,
@@ -3058,7 +3098,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const BottomNavigationBarItem(
                                   icon: Icon(CupertinoIcons.person_circle),
-                                  activeIcon: Icon(CupertinoIcons.person_circle_fill),
+                                  activeIcon: Icon(
+                                    CupertinoIcons.person_circle_fill,
+                                  ),
                                   label: 'Account',
                                 ),
                               ],

@@ -54,6 +54,7 @@ class NotificationService {
   NotificationService._();
 
   static final NotificationService instance = NotificationService._();
+  static const Duration _lowStockNotificationCooldown = Duration(hours: 24);
 
   final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
 
@@ -128,13 +129,22 @@ class NotificationService {
     try {
       final existing = await _client
           .from('notifications')
-          .select('id')
+          .select('id,created_at')
           .eq('recipient_id', vendorId)
           .eq('audience', _audienceValue(AppNotificationAudience.vendor))
           .eq('type', 'low_stock')
-          .filter('read_at', 'is', null)
+          .order('created_at', ascending: false)
+          .limit(1)
           .maybeSingle();
-      if (existing != null) return;
+      final createdAtText = existing?['created_at']?.toString();
+      if (createdAtText != null) {
+        final createdAt = DateTime.tryParse(createdAtText);
+        if (createdAt != null &&
+            DateTime.now().toUtc().difference(createdAt.toUtc()) <
+                _lowStockNotificationCooldown) {
+          return;
+        }
+      }
     } catch (e) {
       debugPrint('Unable to check low stock notification: $e');
     }
@@ -144,8 +154,8 @@ class NotificationService {
     final itemSummary = previewItems.isEmpty
         ? '$lowStockCount variant${lowStockCount == 1 ? '' : 's'}'
         : extra > 0
-            ? '${previewItems.join(', ')} and $extra more'
-            : previewItems.join(', ');
+        ? '${previewItems.join(', ')} and $extra more'
+        : previewItems.join(', ');
 
     await _insertNotification(
       recipientId: vendorId,
@@ -252,6 +262,8 @@ class NotificationService {
     if (context == null) return;
 
     final copy = _statusNotificationCopy(status, context);
+    if (copy == null) return;
+
     await _notifyCustomerAndVendors(
       context: context,
       customerTitle: copy.customerTitle,
@@ -266,8 +278,8 @@ class NotificationService {
     required _OrderNotificationContext context,
     required String customerTitle,
     required String customerMessage,
-    required String vendorTitle,
-    required String vendorMessage,
+    required String? vendorTitle,
+    required String? vendorMessage,
     required String type,
   }) async {
     await _insertNotification(
@@ -279,51 +291,38 @@ class NotificationService {
       orderId: context.orderId,
     );
 
-    for (final vendorId in context.vendorOwnerIds) {
-      await _insertNotification(
-        recipientId: vendorId,
-        audience: AppNotificationAudience.vendor,
-        title: vendorTitle,
-        message: vendorMessage,
-        type: type,
-        orderId: context.orderId,
-      );
+    if (vendorTitle != null && vendorMessage != null) {
+      for (final vendorId in context.vendorOwnerIds) {
+        await _insertNotification(
+          recipientId: vendorId,
+          audience: AppNotificationAudience.vendor,
+          title: vendorTitle,
+          message: vendorMessage,
+          type: type,
+          orderId: context.orderId,
+        );
+      }
     }
   }
 
-  _StatusNotificationCopy _statusNotificationCopy(
+  _StatusNotificationCopy? _statusNotificationCopy(
     String status,
     _OrderNotificationContext context,
   ) {
-    switch (status) {
-      case 'pending':
-        return _StatusNotificationCopy(
-          customerTitle: 'Order is pending',
-          customerMessage:
-              'Order ${context.shortOrderId} is waiting for vendor confirmation.',
-          vendorTitle: 'Order is pending',
-          vendorMessage:
-              'Order ${context.shortOrderId} from ${context.customerName} is waiting for your review.',
-          type: 'order_pending',
-        );
+    switch (_normalizeOrderStatus(status)) {
       case 'confirmed':
         return _StatusNotificationCopy(
           customerTitle: 'Order confirmed',
           customerMessage:
               'Good news. The vendor confirmed order ${context.shortOrderId} for ${context.itemSummary}.',
-          vendorTitle: 'Order confirmed',
-          vendorMessage:
-              'You confirmed order ${context.shortOrderId}. Prepare ${context.itemSummary} for delivery.',
           type: 'order_confirmed',
         );
       case 'inDelivery':
+      case 'in-delivery':
         return _StatusNotificationCopy(
           customerTitle: 'Order is on the way',
           customerMessage:
               'Order ${context.shortOrderId} is now in delivery. Keep an eye out for ${context.itemSummary}.',
-          vendorTitle: 'Order sent to delivery',
-          vendorMessage:
-              'Order ${context.shortOrderId} for ${context.customerName} has moved to delivery.',
           type: 'order_in_delivery',
         );
       case 'completed':
@@ -358,14 +357,33 @@ class NotificationService {
         );
     }
 
-    return _StatusNotificationCopy(
-      customerTitle: 'Order updated',
-      customerMessage: 'Order ${context.shortOrderId} has a new update.',
-      vendorTitle: 'Order updated',
-      vendorMessage:
-          'Order ${context.shortOrderId} from ${context.customerName} has a new update.',
-      type: 'order_updated',
-    );
+    return null;
+  }
+
+  String _normalizeOrderStatus(String status) {
+    switch (status.trim().toLowerCase()) {
+      case 'confirm':
+      case 'confirmed':
+        return 'confirmed';
+      case 'indelivery':
+      case 'in_delivery':
+      case 'in-delivery':
+      case 'in delivery':
+        return 'in-delivery';
+      case 'arrived':
+      case 'delivered':
+      case 'completed':
+        return 'completed';
+      case 'cancel':
+      case 'canceled':
+      case 'cancelled':
+        return 'canceled';
+      case 'refunded':
+      case 'refund':
+        return 'refund';
+      default:
+        return '';
+    }
   }
 
   Future<_OrderNotificationContext?> _loadOrderNotificationContext(
@@ -516,15 +534,15 @@ class _OrderNotificationContext {
 class _StatusNotificationCopy {
   final String customerTitle;
   final String customerMessage;
-  final String vendorTitle;
-  final String vendorMessage;
+  final String? vendorTitle;
+  final String? vendorMessage;
   final String type;
 
   const _StatusNotificationCopy({
     required this.customerTitle,
     required this.customerMessage,
-    required this.vendorTitle,
-    required this.vendorMessage,
+    this.vendorTitle,
+    this.vendorMessage,
     required this.type,
   });
 }
