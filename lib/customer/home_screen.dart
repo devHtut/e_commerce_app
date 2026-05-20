@@ -2073,7 +2073,10 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(18),
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(30),
+            bottom: Radius.circular(30),
+          ),
         ),
         child: const Row(
           children: [

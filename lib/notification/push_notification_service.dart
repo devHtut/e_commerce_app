@@ -90,9 +90,7 @@ class PushNotificationService {
       if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
       if (kIsWeb && _webVapidKey.isEmpty) {
-        debugPrint(
-          'Web push token registration needs FIREBASE_WEB_VAPID_KEY.',
-        );
+        debugPrint('Web push token registration needs FIREBASE_WEB_VAPID_KEY.');
         return;
       }
 
@@ -100,7 +98,7 @@ class PushNotificationService {
         vapidKey: kIsWeb ? _webVapidKey : null,
       );
       if (token == null || token.isEmpty) return;
-      await _saveToken(user.id, token);
+      await _saveToken(token);
     } catch (error) {
       debugPrint('Unable to register push token: $error');
     }
@@ -137,7 +135,7 @@ class PushNotificationService {
       if (user == null || token.isEmpty) return;
 
       try {
-        await _saveToken(user.id, token);
+        await _saveToken(token);
       } catch (error) {
         debugPrint('Unable to refresh push token: $error');
       }
@@ -204,14 +202,12 @@ class PushNotificationService {
     );
   }
 
-  Future<void> _saveToken(String userId, String token) async {
-    await _client.from('user_push_tokens').upsert({
-      'user_id': userId,
-      'token': token,
-      'platform': _platformName(),
-      'is_active': true,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }, onConflict: 'user_id,token');
+  Future<void> _saveToken(String token) async {
+    final platform = _platformName();
+    await _client.rpc(
+      'claim_user_push_token',
+      params: {'p_token': token, 'p_platform': platform},
+    );
   }
 
   String _platformName() {

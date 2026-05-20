@@ -421,7 +421,7 @@ class OrderService {
       try {
         await Supabase.instance.client.functions.invoke(
           'send-order-status-push',
-          body: {'orderId': orderId, 'status': statusValue},
+          body: {'orderId': orderId, 'status': _statusToPushValue(status)},
         );
       } catch (pushError) {
         debugPrint('Unable to send order status push: $pushError');
@@ -573,6 +573,23 @@ class OrderService {
         return 'completed';
       case OrderStatus.canceled:
         return 'cancel';
+      case OrderStatus.refund:
+        return 'refund';
+    }
+  }
+
+  String _statusToPushValue(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'pending';
+      case OrderStatus.confirmed:
+        return 'confirmed';
+      case OrderStatus.inDelivery:
+        return 'in-delivery';
+      case OrderStatus.completed:
+        return 'completed';
+      case OrderStatus.canceled:
+        return 'canceled';
       case OrderStatus.refund:
         return 'refund';
     }

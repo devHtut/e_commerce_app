@@ -30,6 +30,8 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   static const double _webMaxAppWidth = 390;
+  static const double _tabletPortraitMinWidth = 600;
+  static const double _tabletPortraitMaxWidth = 1024;
 
   Future<Widget> _resolveStartScreen() async {
     final client = Supabase.instance.client;
@@ -38,6 +40,8 @@ class MyApp extends StatelessWidget {
     if (user == null) {
       return const HomeScreen();
     }
+
+    await PushNotificationService.instance.registerCurrentDevice();
 
     final userType = await AuthUserService.resolveUserType(
       userId: user.id,
@@ -71,7 +75,12 @@ class MyApp extends StatelessWidget {
         return PwaInstallPromptGate(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth <= _webMaxAppWidth) {
+              final isTabletPortrait =
+                  constraints.maxWidth >= _tabletPortraitMinWidth &&
+                  constraints.maxWidth <= _tabletPortraitMaxWidth &&
+                  constraints.maxHeight > constraints.maxWidth;
+
+              if (constraints.maxWidth <= _webMaxAppWidth || isTabletPortrait) {
                 return child;
               }
 

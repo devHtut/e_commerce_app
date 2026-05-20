@@ -718,9 +718,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
     );
   }
 
-  Widget _orderTabLabel({
-    required String label,
-  }) {
+  Widget _orderTabLabel({required String label}) {
     return Text(label);
   }
 
@@ -734,10 +732,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
           icon: Stack(
             clipBehavior: Clip.none,
             children: [
-              const Icon(
-                CupertinoIcons.bell,
-                color: AppColors.darkText,
-              ),
+              const Icon(CupertinoIcons.bell, color: AppColors.darkText),
               if (unreadCount > 0)
                 Positioned(
                   right: -2,
@@ -946,12 +941,9 @@ class _VendorDashboardState extends State<VendorDashboard> {
                 itemBuilder: (context, index) {
                   final tab = tabs[index];
                   final selected = displayedIndex == index;
-                  final hasUnviewed =
-                      _unviewedOrderCount(tab.$3, tab.$2) > 0;
+                  final hasUnviewed = _unviewedOrderCount(tab.$3, tab.$2) > 0;
                   return ChoiceChip(
-                    label: _orderTabLabel(
-                      label: tab.$1,
-                    ),
+                    label: _orderTabLabel(label: tab.$1),
                     selected: selected,
                     onSelected: (_) => setState(() {
                       _orderTabIndex = index;
