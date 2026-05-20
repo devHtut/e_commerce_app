@@ -127,6 +127,9 @@ class MyApp extends StatelessWidget {
         future: _resolveStartScreen(),
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
+            if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+              return const Scaffold(backgroundColor: Colors.white);
+            }
             return const _AppSplashScreen();
           }
           if (snapshot.hasError) {
