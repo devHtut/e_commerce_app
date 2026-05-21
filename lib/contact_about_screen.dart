@@ -51,7 +51,7 @@ class ContactAboutScreen extends StatelessWidget {
       icon: CupertinoIcons.question_circle,
       title: 'Contact Us',
       body:
-          'For help, questions, reports, or partnership inquiries, please contact the Burma Brands Team. Developed independently by Htut Khaung with a focus on modern UI and smooth user experience.',
+          'For help, questions, reports, or partnership inquiries, please contact the Burma Brands Team.',
       showContactActions: true,
     ),
   ];
