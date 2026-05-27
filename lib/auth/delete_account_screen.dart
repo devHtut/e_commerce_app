@@ -134,8 +134,8 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                   const SizedBox(height: 10),
                   Text(
                     _isVendor
-                        ? 'This will remove your vendor access, personal profile, payment setup, notifications, chats, and account data. Products will be stopped by setting stock to 0 where possible. Active orders must be completed, canceled, or refunded first.'
-                        : 'This will remove your profile, saved addresses, cart, wishlist, notifications, chats, and account data. Active orders must be completed, canceled, or refunded first.',
+                        ? 'This will remove your vendor access, personal profile, payment setup, notifications, chats, and account data. Products will be stopped by setting stock to 0 where possible. Pending, confirmed, and in-delivery orders must be completed or canceled first.'
+                        : 'This will remove your profile, saved addresses, cart, wishlist, notifications, chats, and account data. Pending, confirmed, and in-delivery orders must be completed or canceled first.',
                     style: const TextStyle(
                       color: AppColors.subtleText,
                       fontFamily: AppFonts.primary,

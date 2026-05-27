@@ -51,7 +51,7 @@ class ContactAboutScreen extends StatelessWidget {
       icon: CupertinoIcons.question_circle,
       title: 'Contact Us',
       body:
-          'For help, questions, reports, or partnership inquiries, please contact the Burma Brands Team. Developed independently by Htut Khaung with a focus on modern UI and smooth user experience.',
+          'For help, questions, reports, or partnership inquiries, please contact the Burma Brands Team.',
       showContactActions: true,
     ),
   ];
@@ -186,11 +186,7 @@ class _SectionCard extends StatelessWidget {
               color: AppColors.primaryGreen.withOpacity(0.08),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              section.icon,
-              color: AppColors.primaryGreen,
-              size: 22,
-            ),
+            child: Icon(section.icon, color: AppColors.primaryGreen, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -231,9 +227,7 @@ class _SectionCard extends StatelessWidget {
                         label: const Text('burmabrands@gmail.com'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primaryGreen,
-                          side: const BorderSide(
-                            color: AppColors.primaryGreen,
-                          ),
+                          side: const BorderSide(color: AppColors.primaryGreen),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(999),
                           ),
@@ -244,17 +238,13 @@ class _SectionCard extends StatelessWidget {
                         ),
                       ),
                       OutlinedButton.icon(
-                        onPressed: () => _openUri(
-                          context,
-                          Uri.parse('tel:+959772364896'),
-                        ),
+                        onPressed: () =>
+                            _openUri(context, Uri.parse('tel:+959772364896')),
                         icon: const Icon(CupertinoIcons.phone, size: 18),
                         label: const Text('+959772364896'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primaryGreen,
-                          side: const BorderSide(
-                            color: AppColors.primaryGreen,
-                          ),
+                          side: const BorderSide(color: AppColors.primaryGreen),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(999),
                           ),
@@ -281,10 +271,7 @@ class _Footer extends StatelessWidget {
 
   Future<void> _openDocument(BuildContext context, String path) async {
     final uri = Uri.parse('${ContactAboutScreen.legalDocumentsBaseUrl}/$path');
-    final opened = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open document link.')),
@@ -314,8 +301,7 @@ class _Footer extends StatelessWidget {
             spacing: 4,
             children: [
               TextButton(
-                onPressed: () =>
-                    _openDocument(context, 'privacy-policy.html'),
+                onPressed: () => _openDocument(context, 'privacy-policy.html'),
                 child: const Text(
                   'Privacy Policy',
                   style: TextStyle(

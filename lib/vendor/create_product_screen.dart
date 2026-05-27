@@ -16,6 +16,8 @@ import '../widgets/custom_input.dart';
 import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 import '../widgets/progress_percentage_overlay.dart';
+import 'plans_pricing_screen.dart';
+import 'vendor_plan_service.dart';
 
 class CreateProductScreen extends StatefulWidget {
   const CreateProductScreen({super.key});
@@ -251,12 +253,7 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
     for (final file in result.files) {
       if (target.length >= maxCount) break;
       if (file.bytes == null) continue;
-      target.add(
-        _PickedImage(
-          name: file.name,
-          bytes: file.bytes!,
-        ),
-      );
+      target.add(_PickedImage(name: file.name, bytes: file.bytes!));
     }
     if (!mounted) return;
     setState(() {});
@@ -362,6 +359,27 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
       final prices = variants.map((v) => v.price).toList()..sort();
       final basePrice = prices.first;
       final totalStock = variants.fold<int>(0, (sum, v) => sum + v.stock);
+      if (totalStock > 0) {
+        _updateSaveProgress(0.26, 'Checking product limit...');
+        final access = await VendorPlanService.instance
+            .loadAccessForCurrentVendor();
+        if (!access.canAddProduct) {
+          if (!mounted) return;
+          await showCustomPopup(
+            context,
+            title: 'Product limit reached',
+            message:
+                'Your current plan allows ${access.productLimit} in-stock products. Upgrade your plan to add more.',
+            type: PopupType.error,
+          );
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PlansPricingScreen()),
+          );
+          return;
+        }
+      }
       final uploadFolderId =
           '${currentUser.id}_${DateTime.now().microsecondsSinceEpoch}';
 
@@ -824,7 +842,10 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
               backgroundColor: Colors.transparent,
               leading: IconButton(
                 onPressed: _requestLeave,
-                icon: const Icon(CupertinoIcons.back, color: AppColors.darkText),
+                icon: const Icon(
+                  CupertinoIcons.back,
+                  color: AppColors.darkText,
+                ),
               ),
               title: const Text(
                 'Create Product',
@@ -1092,9 +1113,8 @@ class _CreateProductScreenState extends State<CreateProductScreen> {
                         enabled: !_isSaving,
                         textCapitalization: TextCapitalization.words,
                         maxLength: 32,
-                        validator: (_) => group.color.isEmpty
-                            ? 'Enter a color name'
-                            : null,
+                        validator: (_) =>
+                            group.color.isEmpty ? 'Enter a color name' : null,
                         decoration: const InputDecoration(
                           labelText: 'Color name',
                           hintText: 'e.g. Dusty Pink',
@@ -1404,10 +1424,7 @@ class _PickedImage {
   final String name;
   final Uint8List bytes;
 
-  const _PickedImage({
-    required this.name,
-    required this.bytes,
-  });
+  const _PickedImage({required this.name, required this.bytes});
 }
 
 class _ResolvedVariant {
@@ -1695,10 +1712,7 @@ class _ImageColorPickerDialogState extends State<_ImageColorPickerDialog> {
     final rgbaBytes = _rgbaBytes;
     if (image == null || rgbaBytes == null) return;
 
-    final sourceSize = Size(
-      image.width.toDouble(),
-      image.height.toDouble(),
-    );
+    final sourceSize = Size(image.width.toDouble(), image.height.toDouble());
     final outputSize = constraints.biggest;
     final fitted = applyBoxFit(BoxFit.contain, sourceSize, outputSize);
     final destination = Alignment.center.inscribe(

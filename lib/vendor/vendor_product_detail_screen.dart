@@ -31,17 +31,20 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
   String _selectedColor = 'Default';
   String _selectedSize = 'Default';
   int _selectedImage = 0;
+  bool _planLocked = false;
   final PageController _imageController = PageController();
 
   bool get _hasRealVariants => _variants.any(
-        (v) =>
-            v.color.toLowerCase() != 'default' || v.size.toLowerCase() != 'default',
-      );
+    (v) =>
+        v.color.toLowerCase() != 'default' || v.size.toLowerCase() != 'default',
+  );
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureVendorThenLoad());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _ensureVendorThenLoad(),
+    );
   }
 
   Future<void> _ensureVendorThenLoad() async {
@@ -93,7 +96,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
       final row = await Supabase.instance.client
           .from('products')
           .select(
-            'id,title,description,base_price,product_variants('
+            'id,title,description,base_price,plan_locked,product_variants('
             'size,color,color_value,stock_quantity,promo_price,price_adjustment,sku,image_url'
             ')',
           )
@@ -101,20 +104,24 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
           .single();
 
       final basePrice = (row['base_price'] as num?)?.toDouble() ?? 0;
-      final variants = (row['product_variants'] as List<dynamic>? ?? const <dynamic>[])
-          .cast<Map<String, dynamic>>()
-          .map((v) => _VariantView(
-                color: v['color']?.toString() ?? 'Default',
-                colorValue: _nullableColorValue(v['color_value']),
-                size: v['size']?.toString() ?? 'Default',
-                stock: (v['stock_quantity'] as num?)?.toInt() ?? 0,
-                sku: v['sku']?.toString(),
-                price:
-                    basePrice + ((v['price_adjustment'] as num?)?.toDouble() ?? 0),
-                promoPrice: (v['promo_price'] as num?)?.toDouble(),
-                imageUrl: v['image_url']?.toString(),
-              ))
-          .toList();
+      final variants =
+          (row['product_variants'] as List<dynamic>? ?? const <dynamic>[])
+              .cast<Map<String, dynamic>>()
+              .map(
+                (v) => _VariantView(
+                  color: v['color']?.toString() ?? 'Default',
+                  colorValue: _nullableColorValue(v['color_value']),
+                  size: v['size']?.toString() ?? 'Default',
+                  stock: (v['stock_quantity'] as num?)?.toInt() ?? 0,
+                  sku: v['sku']?.toString(),
+                  price:
+                      basePrice +
+                      ((v['price_adjustment'] as num?)?.toDouble() ?? 0),
+                  promoPrice: (v['promo_price'] as num?)?.toDouble(),
+                  imageUrl: v['image_url']?.toString(),
+                ),
+              )
+              .toList();
 
       final byColor = <String, List<String>>{};
       final colors = variants.map((v) => v.color).toSet().toList();
@@ -126,9 +133,13 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
             .list(path: 'product images/${widget.productId}/$folder');
         final urls = files
             .where((f) => f.name.isNotEmpty)
-            .map((f) => Supabase.instance.client.storage
-                .from('media')
-                .getPublicUrl('product images/${widget.productId}/$folder/${f.name}'))
+            .map(
+              (f) => Supabase.instance.client.storage
+                  .from('media')
+                  .getPublicUrl(
+                    'product images/${widget.productId}/$folder/${f.name}',
+                  ),
+            )
             .toList();
         if (urls.isNotEmpty) {
           byColor[color] = urls;
@@ -145,8 +156,11 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
 
       if (!mounted) return;
       final firstColor = byColor.keys.isEmpty ? 'Default' : byColor.keys.first;
-      final firstSizes =
-          variants.where((v) => v.color == firstColor).map((v) => v.size).toSet().toList();
+      final firstSizes = variants
+          .where((v) => v.color == firstColor)
+          .map((v) => v.size)
+          .toSet()
+          .toList();
       setState(() {
         _name = row['title']?.toString() ?? '';
         _description = row['description']?.toString() ?? '';
@@ -156,6 +170,7 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
         _selectedColor = firstColor;
         _selectedSize = firstSizes.isEmpty ? 'Default' : firstSizes.first;
         _selectedImage = 0;
+        _planLocked = row['plan_locked'] as bool? ?? false;
       });
     } catch (_) {
       if (!mounted) return;
@@ -166,6 +181,10 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
   }
 
   Future<void> _confirmDelete() async {
+    if (_planLocked) {
+      await _showPlanLockedMessage();
+      return;
+    }
     final yes = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -227,7 +246,8 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
         final paths = files
             .where((f) => f.name.isNotEmpty)
             .map(
-              (f) => 'product images/${widget.productId}/${folder.name}/${f.name}',
+              (f) =>
+                  'product images/${widget.productId}/${folder.name}/${f.name}',
             )
             .toList();
         if (paths.isNotEmpty) {
@@ -263,6 +283,10 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
   }
 
   Future<void> _edit() async {
+    if (_planLocked) {
+      await _showPlanLockedMessage();
+      return;
+    }
     final changed = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -272,6 +296,16 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
     if (changed == true) {
       await _load();
     }
+  }
+
+  Future<void> _showPlanLockedMessage() {
+    return showCustomPopup(
+      context,
+      title: 'Product locked',
+      message:
+          'This product is locked by your current plan. Upgrade your plan or choose it as one of your editable products.',
+      type: PopupType.error,
+    );
   }
 
   @override
@@ -288,7 +322,9 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
 
     final current = _currentVariant;
     final price = (current?.promoPrice ?? current?.price) ?? _price;
-    if (_selectedImage >= _images.length && _images.isNotEmpty) _selectedImage = 0;
+    if (_selectedImage >= _images.length && _images.isNotEmpty) {
+      _selectedImage = 0;
+    }
 
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
@@ -316,10 +352,8 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                               itemCount: _images.length,
                               onPageChanged: (i) =>
                                   setState(() => _selectedImage = i),
-                              itemBuilder: (_, i) => Image.network(
-                                _images[i],
-                                fit: BoxFit.cover,
-                              ),
+                              itemBuilder: (_, i) =>
+                                  Image.network(_images[i], fit: BoxFit.cover),
                             ),
                     ),
                   ),
@@ -351,9 +385,32 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                     ),
                   ],
                   const SizedBox(height: 16),
+                  if (_planLocked) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3CD),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFFFD966)),
+                      ),
+                      child: const Text(
+                        'Locked by your current plan. You can view this product, but editing is disabled.',
+                        style: TextStyle(
+                          color: Color(0xFF6F4A00),
+                          fontFamily: AppFonts.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Text(
                     _name,
-                    style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -366,14 +423,22 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                   ),
                   if (_hasRealVariants) ...[
                     const SizedBox(height: 20),
-                    const Text('Size', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                    const Text(
+                      'Size',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     Row(
                       children: List.generate(_sizes.length, (index) {
                         final size = _sizes[index];
                         final selected = _selectedSize == size;
                         return Padding(
-                          padding: EdgeInsets.only(right: index == _sizes.length - 1 ? 0 : 10),
+                          padding: EdgeInsets.only(
+                            right: index == _sizes.length - 1 ? 0 : 10,
+                          ),
                           child: InkWell(
                             onTap: () => setState(() => _selectedSize = size),
                             child: Container(
@@ -382,12 +447,16 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: selected ? AppColors.primaryGreen : Colors.white,
+                                color: selected
+                                    ? AppColors.primaryGreen
+                                    : Colors.white,
                               ),
                               child: Text(
                                 size,
                                 style: TextStyle(
-                                  color: selected ? Colors.white : AppColors.darkText,
+                                  color: selected
+                                      ? Colors.white
+                                      : AppColors.darkText,
                                 ),
                               ),
                             ),
@@ -396,7 +465,13 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                       }),
                     ),
                     const SizedBox(height: 20),
-                    const Text('Color', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                    const Text(
+                      'Color',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     SizedBox(
                       height: 60,
@@ -417,7 +492,9 @@ class _VendorProductDetailScreenState extends State<VendorProductDetailScreen> {
                                   .toList();
                               setState(() {
                                 _selectedColor = c;
-                                _selectedSize = sizes.isEmpty ? 'Default' : sizes.first;
+                                _selectedSize = sizes.isEmpty
+                                    ? 'Default'
+                                    : sizes.first;
                                 _selectedImage = 0;
                               });
                               _imageController.jumpToPage(0);
@@ -586,4 +663,3 @@ Color _colorFromName(String colorName) {
       return const Color(0xFF4A4A4A);
   }
 }
-

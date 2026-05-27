@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../admin/admin_dashboard.dart';
 import '../customer/home_screen.dart';
 import '../notification/notification_service.dart';
 import '../notification/push_notification_service.dart';
@@ -83,18 +84,22 @@ class _SignInScreenState extends State<SignInScreen> {
         email: user.email,
       );
 
-      final isVendor = userType.toLowerCase() == 'vendor';
+      final normalizedUserType = userType.toLowerCase();
+      final isAdmin = normalizedUserType == 'admin';
+      final isVendor = normalizedUserType == 'vendor';
       final vendorHasInfo = isVendor
           ? await AuthUserService.vendorHasBrandInfo(user.id)
           : false;
       final vendorHasBusinessInfo = isVendor
           ? await AuthUserService.vendorHasBusinessInfo(user.id)
           : false;
-      final isCustomer = !isVendor;
+      final isCustomer = !isVendor && !isAdmin;
       final customerNeedsProfile = isCustomer
           ? !(await AuthUserService.userHasProfile(user.id))
           : false;
-      final destination = isVendor
+      final destination = isAdmin
+          ? const AdminDashboard()
+          : isVendor
           ? (!vendorHasInfo
                 ? const VendorInfoScreen()
                 : (vendorHasBusinessInfo
@@ -118,7 +123,9 @@ class _SignInScreenState extends State<SignInScreen> {
       await showCustomPopup(
         context,
         title: 'Sign in success',
-        message: isVendor
+        message: isAdmin
+            ? 'Welcome to Admin Dashboard!'
+            : isVendor
             ? (!vendorHasInfo
                   ? 'Welcome! Please complete your vendor brand profile.'
                   : (vendorHasBusinessInfo

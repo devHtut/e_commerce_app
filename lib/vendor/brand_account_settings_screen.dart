@@ -13,6 +13,7 @@ import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
 import 'brand_business_info_screen.dart';
 import 'brand_profile_screen.dart';
+import 'plans_pricing_screen.dart';
 import 'vendor_faqs_screen.dart';
 import 'vendor_social_links_screen.dart';
 
@@ -372,6 +373,29 @@ class _BrandAccountSettingsScreenState
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
                     leading: const Icon(
+                      CupertinoIcons.creditcard,
+                      color: AppColors.primaryGreen,
+                    ),
+                    title: const Text(
+                      'Plans & Pricing',
+                      style: TextStyle(
+                        fontFamily: AppFonts.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    trailing: const Icon(CupertinoIcons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PlansPricingScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(
                       CupertinoIcons.question_circle,
                       color: AppColors.primaryGreen,
                     ),
@@ -417,7 +441,10 @@ class _BrandAccountSettingsScreenState
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
-                    leading: const Icon(CupertinoIcons.square_arrow_right, color: Colors.redAccent),
+                    leading: const Icon(
+                      CupertinoIcons.square_arrow_right,
+                      color: Colors.redAccent,
+                    ),
                     title: const Text(
                       'Logout',
                       style: TextStyle(

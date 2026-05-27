@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/auth_user_service.dart';
+import 'admin/admin_dashboard.dart';
 import 'customer/home_screen.dart';
 import 'notification/push_notification_service.dart';
 import 'pwa/pwa_install_prompt.dart';
@@ -48,7 +49,12 @@ class MyApp extends StatelessWidget {
       email: user.email,
     );
 
-    if (userType.toLowerCase() == 'vendor') {
+    final normalizedUserType = userType.toLowerCase();
+    if (normalizedUserType == 'admin') {
+      return const AdminDashboard();
+    }
+
+    if (normalizedUserType == 'vendor') {
       final hasVendorInfo = await AuthUserService.vendorHasBrandInfo(user.id);
       if (!hasVendorInfo) {
         return const VendorInfoScreen();

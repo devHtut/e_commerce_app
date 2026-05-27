@@ -13,7 +13,7 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 };
 
-const activeStatuses = ['pending', 'confirmed', 'in-delivery', 'refund'];
+const activeStatuses = ['pending', 'confirmed', 'in-delivery'];
 
 function json(body: JsonResponse, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -32,6 +32,17 @@ async function ignoreCleanupError(
 ) {
   const { error } = await operation;
   if (error) console.warn(`Account deletion cleanup skipped: ${label}`, error);
+}
+
+async function updateOrDeleteByUser(
+  label: string,
+  updateOperation: PromiseLike<{ error: unknown }>,
+  deleteOperation: PromiseLike<{ error: unknown }>,
+) {
+  const { error: updateError } = await updateOperation;
+  if (!updateError) return;
+  console.warn(`Account deletion anonymize skipped: ${label}`, updateError);
+  await ignoreCleanupError(`${label} delete fallback`, deleteOperation);
 }
 
 Deno.serve(async (req) => {
@@ -144,7 +155,7 @@ Deno.serve(async (req) => {
           success: false,
           status: 'blocked',
           message:
-            'Please complete, cancel, or resolve your active orders before deleting your account.',
+            'Please complete or cancel your active orders before deleting your account.',
           activeOrderCount: customerActiveOrders ?? 0,
         },
         409,
@@ -176,7 +187,7 @@ Deno.serve(async (req) => {
             success: false,
             status: 'blocked',
             message:
-              'Please complete, cancel, or refund active brand orders before deleting your account.',
+              'Please complete or cancel active brand orders before deleting your account.',
             activeOrderCount: vendorActiveOrders ?? 0,
           },
           409,
@@ -212,39 +223,49 @@ Deno.serve(async (req) => {
       'profiles',
       admin.from('profiles').delete().eq('id', userId),
     );
-
     await ignoreCleanupError(
+      'user_push_tokens',
+      admin.from('user_push_tokens').delete().eq('user_id', userId),
+    );
+
+    await updateOrDeleteByUser(
       'messages',
       admin
         .from('messages')
         .update({
+          sender_id: null,
           is_deleted: true,
           text: 'This message was removed because the account was deleted.',
           image_path: null,
           edited_at: deletionTimestamp,
         })
         .eq('sender_id', userId),
+      admin.from('messages').delete().eq('sender_id', userId),
     );
 
-    await ignoreCleanupError(
+    await updateOrDeleteByUser(
       'product_reviews',
       admin
         .from('product_reviews')
         .update({
+          customer_id: null,
           review_text: null,
           updated_at: deletionTimestamp,
         })
         .eq('customer_id', userId),
+      admin.from('product_reviews').delete().eq('customer_id', userId),
     );
 
-    await ignoreCleanupError(
-      'orders shipping address',
+    await updateOrDeleteByUser(
+      'orders customer link',
       admin
         .from('orders')
         .update({
+          customer_id: null,
           shipping_address_id: null,
         })
         .eq('customer_id', userId),
+      admin.from('orders').delete().eq('customer_id', userId),
     );
 
     if (brandIds.length > 0) {
@@ -305,12 +326,12 @@ Deno.serve(async (req) => {
     const { error: deleteUserError } = await admin.auth.admin.deleteUser(userId);
     if (deleteUserError) {
       await finishRequest('failed', deleteUserError.message);
+      console.error('Supabase auth user deletion failed:', deleteUserError);
       return json(
         {
           success: false,
           status: 'failed',
-          message:
-            'Your personal app data was removed, but the auth account could not be fully deleted. Please contact Burma Brands Team.',
+          message: `Your personal app data was removed, but the auth account could not be fully deleted. Reason: ${deleteUserError.message}`,
         },
         500,
       );

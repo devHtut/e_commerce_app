@@ -14,13 +14,17 @@ import '../order/order_detail_screen.dart';
 import '../order/order_service.dart';
 import '../theme_config.dart';
 import '../widgets/custom_loading_state.dart';
+import '../widgets/custom_pop_up.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
 import '../widgets/order_readable_id_search.dart';
 import '../widgets/price_formatter.dart';
 import 'brand_account_settings_screen.dart';
 import 'brand_analytics_service.dart';
+import 'plans_pricing_screen.dart';
 import 'shop_profile_screen.dart';
 import 'vendor_inventory_service.dart';
+import 'vendor_plan_service.dart';
+import 'vendor_product_selection_screen.dart';
 import 'vendor_products_screen.dart';
 
 class VendorDashboard extends StatefulWidget {
@@ -184,6 +188,7 @@ class _VendorDashboardState extends State<VendorDashboard> {
   String _vendorBrandOrderPrefix = '';
   bool _vendorAccessGranted = false;
   int _activeVendorOrderCount = 0;
+  VendorPlanAccess? _planAccess;
   final Map<OrderStatus, int> _viewedVendorOrderCounts = {};
   BrandAnalyticsRange _analyticsRange = BrandAnalyticsRange.week;
   late Future<BrandAnalyticsSnapshot> _brandAnalyticsFuture;
@@ -202,13 +207,39 @@ class _VendorDashboardState extends State<VendorDashboard> {
       _analyticsRange,
     );
     _loadVendorBrandOrderPrefix();
+    final planAccess = await VendorPlanService.instance
+        .loadAccessForCurrentVendor();
     NotificationService.instance.refreshUnreadCount(
       audience: AppNotificationAudience.vendor,
     );
     VendorInventoryService.instance.refreshLowStockCount();
     ChatService.instance.startUnreadCountSubscription();
     ChatService.instance.refreshUnreadCount();
-    setState(() => _vendorAccessGranted = true);
+    setState(() {
+      _planAccess = planAccess;
+      _vendorAccessGranted = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showTrialPopupIfNeeded();
+    });
+  }
+
+  Future<void> _showTrialPopupIfNeeded() async {
+    final shouldShow = await VendorPlanService.instance.shouldShowTrialPopup();
+    if (!mounted || !shouldShow) return;
+    final access =
+        _planAccess ??
+        await VendorPlanService.instance.loadAccessForCurrentVendor();
+    if (!mounted) return;
+    await showCustomPopup(
+      context,
+      title: '90 days Starter trial',
+      message:
+          'Your Starter trial is active with 20 in-stock products and analytics access. ${access.trialDaysRemaining ?? VendorPlanService.trialDays} days remaining.',
+      type: PopupType.success,
+    );
+    await VendorPlanService.instance.markTrialPopupShown(access.vendorId);
   }
 
   Future<void> _loadVendorBrandOrderPrefix() async {
@@ -350,6 +381,10 @@ class _VendorDashboardState extends State<VendorDashboard> {
   }
 
   Widget _buildOverviewPage() {
+    final access = _planAccess;
+    if (access != null && !access.analyticsEnabled) {
+      return _buildAnalyticsLockedPage(access);
+    }
     return FutureBuilder<BrandAnalyticsSnapshot>(
       future: _brandAnalyticsFuture,
       builder: (context, snapshot) {
@@ -468,6 +503,101 @@ class _VendorDashboardState extends State<VendorDashboard> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAnalyticsLockedPage(VendorPlanAccess access) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                CupertinoIcons.lock_fill,
+                color: AppColors.primaryGreen,
+                size: 34,
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Analytics is a paid feature',
+                style: TextStyle(
+                  color: AppColors.darkText,
+                  fontFamily: AppFonts.primary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Upgrade to unlock revenue trends, product performance, order insights, profile visits, and low-stock analytics.',
+                style: AppTextStyles.body,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '${access.inStockProductCount} in-stock products on ${access.planName}',
+                style: const TextStyle(
+                  color: AppColors.subtleText,
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PlansPricingScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('View Plans', style: AppTextStyles.button),
+                ),
+              ),
+              if (access.needsProductSelection) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      final limit = access.productLimit;
+                      if (limit == null) return;
+                      final changed = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              VendorProductSelectionScreen(productLimit: limit),
+                        ),
+                      );
+                      if (changed == true && mounted) {
+                        final updated = await VendorPlanService.instance
+                            .loadAccessForCurrentVendor();
+                        if (mounted) setState(() => _planAccess = updated);
+                      }
+                    },
+                    child: const Text('Choose Editable Products'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
