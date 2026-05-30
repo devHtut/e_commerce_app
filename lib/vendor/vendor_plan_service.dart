@@ -78,6 +78,13 @@ class VendorPlanAccess {
     return (remaining.inHours / 24).ceil();
   }
 
+  int? get paidDaysRemaining {
+    if (!isPaid || paidPlanExpiresAt == null) return null;
+    final remaining = paidPlanExpiresAt!.difference(DateTime.now());
+    if (remaining.isNegative) return 0;
+    return (remaining.inHours / 24).ceil();
+  }
+
   int? get availableProductSlots {
     if (productLimit == null) return null;
     final slots = productLimit! - inStockProductCount;
@@ -90,6 +97,7 @@ class VendorPlanService {
 
   static final VendorPlanService instance = VendorPlanService._();
   static const int trialDays = 90;
+  static const int paidPlanDays = 30;
   static const String freePlanCode = 'free';
   static const String trialPlanCode = 'starter';
 

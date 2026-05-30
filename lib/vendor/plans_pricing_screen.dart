@@ -132,6 +132,13 @@ class _PlansPricingScreenState extends State<PlansPricingScreen> {
               style: const TextStyle(color: Colors.white70),
             ),
           ],
+          if (access.paidDaysRemaining != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              '${access.paidDaysRemaining} paid plan days remaining',
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ],
           if (access.needsProductSelection) ...[
             const SizedBox(height: 14),
             ElevatedButton.icon(
@@ -163,6 +170,11 @@ class _PlansPricingScreenState extends State<PlansPricingScreen> {
     final limit = plan.productLimit == null
         ? 'Unlimited products'
         : '${plan.productLimit} in-stock products';
+    final duration = plan.isPaid
+        ? '${VendorPlanService.paidPlanDays} days access'
+        : plan.code == VendorPlanService.trialPlanCode
+        ? '${VendorPlanService.trialDays} days access'
+        : 'Free plan';
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
@@ -223,6 +235,8 @@ class _PlansPricingScreenState extends State<PlansPricingScreen> {
           ),
           const SizedBox(height: 8),
           Text(limit, style: AppTextStyles.body),
+          const SizedBox(height: 6),
+          Text(duration, style: AppTextStyles.body),
           const SizedBox(height: 12),
           ...plan.features
               .take(5)

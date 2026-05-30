@@ -1,7 +1,4 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,7 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_user_service.dart';
 import '../auth/signin_screen.dart';
 import '../customer/home_screen.dart';
+import '../product/product_review_service.dart';
 import '../theme_config.dart';
+import '../utils/payment_assets.dart';
 import '../widgets/app_bottom_navigation_bar.dart';
 import '../widgets/custom_loading_state.dart';
 import '../widgets/custom_pop_up.dart';
@@ -35,6 +34,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   List<_AdminReport> _reports = const <_AdminReport>[];
   List<_AdminPaymentMethod> _paymentMethods = const <_AdminPaymentMethod>[];
   List<_AdminPlan> _plans = const <_AdminPlan>[];
+  List<String> _paymentTypes = const <String>[];
 
   static const List<String> _titles = [
     'Admin Overview',
@@ -91,6 +91,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _loadPaymentMethods(),
         _loadPlans(),
         _loadStats(),
+        _loadPaymentTypes(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -100,6 +101,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _paymentMethods = results[3] as List<_AdminPaymentMethod>;
         _plans = results[4] as List<_AdminPlan>;
         _stats = results[5] as _AdminStats;
+        _paymentTypes = results[6] as List<String>;
       });
     } catch (error) {
       if (!mounted) return;
@@ -244,10 +246,184 @@ class _AdminDashboardState extends State<AdminDashboard> {
           'id,reporter_id,report_type,product_id,chat_id,reason,details,status,created_at,updated_at',
         )
         .order('created_at', ascending: false);
-    return (rows as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map(_AdminReport.fromRow)
+    final reports = <_AdminReport>[];
+    for (final row in (rows as List<dynamic>).cast<Map<String, dynamic>>()) {
+      final reporter = await _loadReportReporter(
+        row['reporter_id']?.toString(),
+      );
+      final target = await _loadReportTarget(row);
+      reports.add(
+        _AdminReport.fromRow(row, reporter: reporter, target: target),
+      );
+    }
+    return reports;
+  }
+
+  Future<_ReportContext> _loadReportReporter(String? reporterId) async {
+    final id = reporterId?.trim() ?? '';
+    if (id.isEmpty) {
+      return const _ReportContext(label: 'Unknown reporter');
+    }
+
+    Map<String, dynamic>? profile;
+    Map<String, dynamic>? user;
+    try {
+      profile = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name,username')
+          .eq('id', id)
+          .maybeSingle();
+    } catch (_) {}
+    try {
+      user = await Supabase.instance.client
+          .from('users')
+          .select('email,user_type')
+          .eq('id', id)
+          .maybeSingle();
+    } catch (_) {}
+
+    final fullName = profile?['full_name']?.toString().trim() ?? '';
+    final username = profile?['username']?.toString().trim() ?? '';
+    final email = user?['email']?.toString().trim() ?? '';
+    final userType = user?['user_type']?.toString().trim() ?? '';
+    final label = fullName.isNotEmpty
+        ? fullName
+        : username.isNotEmpty
+        ? '@$username'
+        : email.isNotEmpty
+        ? email
+        : 'User ${_shortId(id)}';
+    final meta = [
+      if (username.isNotEmpty && !label.contains(username)) '@$username',
+      if (email.isNotEmpty && email != label) email,
+      if (userType.isNotEmpty) userType,
+      'ID ${_shortId(id)}',
+    ].join(' • ');
+    return _ReportContext(label: label, meta: meta);
+  }
+
+  Future<_ReportContext> _loadReportTarget(Map<String, dynamic> row) async {
+    final type = row['report_type']?.toString() ?? '';
+    if (type == 'product') {
+      final productId = row['product_id']?.toString() ?? '';
+      if (productId.isEmpty) {
+        return const _ReportContext(label: 'Missing product');
+      }
+      try {
+        final product = await Supabase.instance.client
+            .from('products')
+            .select('title,brands(brand_name)')
+            .eq('id', productId)
+            .maybeSingle();
+        final title = product?['title']?.toString().trim() ?? '';
+        final brand =
+            ((product?['brands'] as Map?)?['brand_name']?.toString() ?? '')
+                .trim();
+        return _ReportContext(
+          label: title.isEmpty ? 'Product ${_shortId(productId)}' : title,
+          meta: [
+            if (brand.isNotEmpty) brand,
+            'Product ID ${_shortId(productId)}',
+          ].join(' • '),
+        );
+      } catch (_) {
+        return _ReportContext(
+          label: 'Product ${_shortId(productId)}',
+          meta: productId,
+        );
+      }
+    }
+
+    final chatId = row['chat_id']?.toString() ?? '';
+    if (chatId.isEmpty) {
+      return const _ReportContext(label: 'Missing chat');
+    }
+    try {
+      final chat = await Supabase.instance.client
+          .from('chats')
+          .select('type,name,last_message_text,last_message_at')
+          .eq('id', chatId)
+          .maybeSingle();
+      final members = await Supabase.instance.client
+          .from('chat_members')
+          .select('user_id')
+          .eq('chat_id', chatId);
+      final memberIds = (members as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((member) => member['user_id']?.toString())
+          .whereType<String>()
+          .toList();
+      final memberLabels = await _loadReportMemberLabels(memberIds);
+      final name = chat?['name']?.toString().trim() ?? '';
+      final typeLabel = chat?['type']?.toString().trim() ?? 'chat';
+      final label = name.isNotEmpty
+          ? name
+          : memberLabels.isEmpty
+          ? 'Chat ${_shortId(chatId)}'
+          : memberLabels.take(3).join(', ');
+      final lastMessage = chat?['last_message_text']?.toString().trim() ?? '';
+      return _ReportContext(
+        label: label,
+        meta: [
+          typeLabel,
+          '${memberIds.length} members',
+          if (lastMessage.isNotEmpty) 'Last: $lastMessage',
+          'Chat ID ${_shortId(chatId)}',
+        ].join(' • '),
+      );
+    } catch (_) {
+      return _ReportContext(label: 'Chat ${_shortId(chatId)}', meta: chatId);
+    }
+  }
+
+  Future<List<String>> _loadReportMemberLabels(List<String> memberIds) async {
+    if (memberIds.isEmpty) return const <String>[];
+    final profilesById = <String, String>{};
+    final brandsByOwner = <String, String>{};
+    try {
+      final profiles = await Supabase.instance.client
+          .from('profiles')
+          .select('id,full_name,username')
+          .inFilter('id', memberIds);
+      for (final row
+          in (profiles as List<dynamic>).cast<Map<String, dynamic>>()) {
+        final id = row['id']?.toString();
+        if (id == null) continue;
+        final fullName = row['full_name']?.toString().trim() ?? '';
+        final username = row['username']?.toString().trim() ?? '';
+        profilesById[id] = fullName.isNotEmpty
+            ? fullName
+            : username.isNotEmpty
+            ? '@$username'
+            : 'User ${_shortId(id)}';
+      }
+    } catch (_) {}
+    try {
+      final brands = await Supabase.instance.client
+          .from('brands')
+          .select('owner_id,brand_name')
+          .inFilter('owner_id', memberIds);
+      for (final row
+          in (brands as List<dynamic>).cast<Map<String, dynamic>>()) {
+        final ownerId = row['owner_id']?.toString();
+        final brandName = row['brand_name']?.toString().trim() ?? '';
+        if (ownerId != null && brandName.isNotEmpty) {
+          brandsByOwner[ownerId] = brandName;
+        }
+      }
+    } catch (_) {}
+    return memberIds
+        .map(
+          (id) =>
+              brandsByOwner[id] ?? profilesById[id] ?? 'User ${_shortId(id)}',
+        )
         .toList();
+  }
+
+  static String _shortId(String id) {
+    final clean = id.trim();
+    if (clean.length <= 8) return clean;
+    return clean.substring(0, 8);
   }
 
   Future<List<_AdminPaymentMethod>> _loadPaymentMethods() async {
@@ -273,6 +449,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .map(_AdminPlan.fromRow)
+        .toList();
+  }
+
+  Future<List<String>> _loadPaymentTypes() async {
+    final rows = await AuthUserService.getPaymentTypes();
+    return rows
+        .map((row) => row['name']?.toString() ?? '')
+        .where((name) => name.isNotEmpty)
         .toList();
   }
 
@@ -450,18 +634,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _showPaymentMethodSheet({_AdminPaymentMethod? method}) async {
-    final nameController = TextEditingController(text: method?.name ?? '');
     final accountNameController = TextEditingController(
       text: method?.accountName ?? '',
     );
     final accountNumberController = TextEditingController(
       text: method?.accountNumber ?? '',
     );
-    final instructionsController = TextEditingController(
-      text: method?.instructions ?? '',
-    );
-    PlatformFile? selectedQr;
-    Uint8List? qrPreview;
+    final paymentTypes = <String>{
+      ..._paymentTypes,
+      if (method?.name.trim().isNotEmpty == true) method!.name,
+    }.toList();
+    String? selectedPaymentType = method?.name;
+    if (selectedPaymentType != null &&
+        !paymentTypes.contains(selectedPaymentType)) {
+      selectedPaymentType = null;
+    }
 
     await showModalBottomSheet<void>(
       context: context,
@@ -470,40 +657,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            Future<void> pickQr() async {
-              final result = await FilePicker.pickFiles(
-                type: FileType.image,
-                allowMultiple: false,
-                withData: true,
-              );
-              if (result == null || result.files.isEmpty) return;
-              setSheetState(() {
-                selectedQr = result.files.first;
-                qrPreview = result.files.first.bytes;
-              });
-            }
-
             Future<void> save() async {
-              final name = nameController.text.trim();
+              final name = selectedPaymentType?.trim() ?? '';
               if (name.isEmpty) return;
-              String qrUrl = method?.qrImageUrl ?? '';
-              final qr = selectedQr;
-              if (qr != null && qr.bytes != null) {
-                final path =
-                    'admin-payment-methods/${DateTime.now().millisecondsSinceEpoch}_${qr.name}';
-                await Supabase.instance.client.storage
-                    .from('payments')
-                    .uploadBinary(path, qr.bytes!);
-                qrUrl = Supabase.instance.client.storage
-                    .from('payments')
-                    .getPublicUrl(path);
-              }
               final payload = {
                 'name': name,
                 'account_name': accountNameController.text.trim(),
                 'account_number': accountNumberController.text.trim(),
-                'instructions': instructionsController.text.trim(),
-                'qr_image_url': qrUrl,
                 'is_active': true,
               };
               if (method == null) {
@@ -524,36 +684,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
               title: method == null ? 'Add Payment Method' : 'Edit Payment',
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sheetField(nameController, 'Payment name'),
+                  _paymentTypeDropdown(
+                    paymentTypes,
+                    selectedPaymentType,
+                    (value) => setSheetState(() => selectedPaymentType = value),
+                  ),
+                  const SizedBox(height: 12),
                   _sheetField(accountNameController, 'Account name'),
                   _sheetField(accountNumberController, 'Account number'),
-                  _sheetField(
-                    instructionsController,
-                    'Instructions',
-                    maxLines: 3,
-                  ),
                   const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: pickQr,
-                    child: Container(
-                      height: 118,
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.lightGrey,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: qrPreview == null
-                          ? Text(
-                              method?.qrImageUrl.isNotEmpty == true
-                                  ? 'Tap to replace QR image'
-                                  : 'Tap to upload QR image',
-                            )
-                          : Image.memory(qrPreview!, fit: BoxFit.contain),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   _sheetSaveButton(save, 'Save Payment Method'),
                 ],
               ),
@@ -563,10 +704,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       },
     );
 
-    nameController.dispose();
     accountNameController.dispose();
     accountNumberController.dispose();
-    instructionsController.dispose();
     await _load();
   }
 
@@ -672,6 +811,66 @@ class _AdminDashboardState extends State<AdminDashboard> {
     limitController.dispose();
     featuresController.dispose();
     await _load();
+  }
+
+  Widget _paymentIconWidget(String type) {
+    final asset = paymentTypeAsset(type);
+    if (asset != null) {
+      return Image.asset(asset, fit: BoxFit.contain);
+    }
+    return const Icon(
+      CupertinoIcons.creditcard,
+      color: AppColors.primaryGreen,
+      size: 24,
+    );
+  }
+
+  Widget _paymentTypeDropdown(
+    List<String> paymentTypes,
+    String? value,
+    ValueChanged<String?> onChanged,
+  ) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: AppColors.lightGrey,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
+        ),
+      ),
+      hint: const Text('Select payment type'),
+      items: paymentTypes.map((type) {
+        return DropdownMenuItem(
+          value: type,
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: _paymentIconWidget(type),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(type),
+            ],
+          ),
+        );
+      }).toList(),
+      onChanged: onChanged,
+    );
   }
 
   Widget _sheetField(
@@ -831,7 +1030,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         const SizedBox(height: 14),
         Row(
           children: [
-            _metricCard('Users', '${_stats.totalUsers}', 'All app accounts'),
+            _metricCard(
+              'Users',
+              '${_stats.totalUsers}',
+              'Customers and vendors',
+            ),
             const SizedBox(width: 10),
             _metricCard('Brands', '${_stats.totalBrands}', 'Vendor shops'),
           ],
@@ -1055,8 +1258,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) =>
-                    _AdminBrandDetailPlaceholderScreen(brand: brand),
+                builder: (_) => _AdminBrandDetailScreen(brand: brand),
               ),
             );
           },
@@ -1170,11 +1372,42 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(report.reason, style: AppTextStyles.body),
+          _reportDetailRow(
+            icon: CupertinoIcons.person,
+            label: 'Reported by',
+            value: report.reporterLabel,
+            detail: report.reporterMeta,
+          ),
+          const SizedBox(height: 8),
+          _reportDetailRow(
+            icon: report.reportType == 'chat'
+                ? CupertinoIcons.chat_bubble_2
+                : CupertinoIcons.cube_box,
+            label: 'Target',
+            value: report.targetLabel,
+            detail: report.targetMeta,
+          ),
+          const SizedBox(height: 8),
+          _reportDetailRow(
+            icon: CupertinoIcons.exclamationmark_circle,
+            label: 'Reason',
+            value: report.reason.isEmpty ? 'No reason provided' : report.reason,
+          ),
           if (report.details.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(report.details),
+            const SizedBox(height: 8),
+            _reportDetailRow(
+              icon: CupertinoIcons.text_alignleft,
+              label: 'Details',
+              value: report.details,
+            ),
           ],
+          const SizedBox(height: 8),
+          _reportDetailRow(
+            icon: CupertinoIcons.calendar,
+            label: 'Submitted',
+            value: report.createdAtLabel,
+            detail: 'Report ID ${_shortId(report.id)}',
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -1187,6 +1420,57 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _reportDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    String detail = '',
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppColors.subtleText),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.subtleText,
+                  fontFamily: AppFonts.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.darkText,
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (detail.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  style: const TextStyle(
+                    color: AppColors.subtleText,
+                    fontFamily: AppFonts.primary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1222,11 +1506,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: method.qrImageUrl.isEmpty
-                ? null
-                : () => _showImage(method.qrImageUrl),
-            child: _imageAvatar(method.qrImageUrl, method.name),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.lightGrey,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: _paymentIconWidget(method.name),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1622,51 +1913,857 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 }
 
-class _AdminBrandDetailPlaceholderScreen extends StatelessWidget {
+class _AdminBrandDetailScreen extends StatefulWidget {
   final _AdminBrand brand;
 
-  const _AdminBrandDetailPlaceholderScreen({required this.brand});
+  const _AdminBrandDetailScreen({required this.brand});
+
+  @override
+  State<_AdminBrandDetailScreen> createState() =>
+      _AdminBrandDetailScreenState();
+}
+
+class _AdminBrandDetailScreenState extends State<_AdminBrandDetailScreen> {
+  late Future<_AdminBrandDetailSnapshot> _detailFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _detailFuture = _loadDetail();
+  }
+
+  Future<void> _refresh() async {
+    final future = _loadDetail();
+    setState(() => _detailFuture = future);
+    await future;
+  }
+
+  Future<_AdminBrandDetailSnapshot> _loadDetail() async {
+    final client = Supabase.instance.client;
+    final brandId = widget.brand.id;
+
+    final productRows = await client
+        .from('products')
+        .select(
+          'id,title,description,base_price,created_at,plan_locked,'
+          'categories(name),audiences(name),'
+          'product_variants(id,size,color,stock_quantity,price_adjustment,'
+          'promo_price,image_url,sku)',
+        )
+        .eq('brand_id', brandId)
+        .order('created_at', ascending: false);
+
+    final products = <String, _AdminBrandProductInfo>{};
+    for (final row
+        in (productRows as List<dynamic>).cast<Map<String, dynamic>>()) {
+      final product = _AdminBrandProductInfo.fromProductRow(row);
+      products[product.id] = product;
+    }
+
+    List<Map<String, dynamic>> orderItemRows = const <Map<String, dynamic>>[];
+    try {
+      final rows = await client
+          .from('order_items')
+          .select(
+            'quantity,price_at_purchase,brand_id,'
+            'orders!inner(id,status,total_price,created_at),'
+            'product_variants(id,products!inner(id,title))',
+          )
+          .eq('brand_id', brandId)
+          .order('created_at', referencedTable: 'orders', ascending: false);
+      orderItemRows = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    } catch (_) {}
+
+    List<Map<String, dynamic>> viewRows = const <Map<String, dynamic>>[];
+    try {
+      final rows = await client
+          .from('product_views')
+          .select('product_id,viewer_id,session_id')
+          .eq('brand_id', brandId);
+      viewRows = (rows as List<dynamic>).cast<Map<String, dynamic>>();
+    } catch (_) {}
+
+    final reviewSummaries = await ProductReviewService.instance
+        .loadSummariesForProducts(products.keys.toList());
+
+    final orderStatusCounts = <String, int>{};
+    var totalOrders = 0;
+    var salesOrders = 0;
+    var productsSold = 0;
+    var totalRevenue = 0.0;
+
+    final brandOrderIds = <String>{};
+    for (final item in orderItemRows) {
+      final order = item['orders'] as Map<String, dynamic>?;
+      if (order == null) continue;
+      final orderId = order['id']?.toString() ?? '';
+      final isNewOrder = orderId.isNotEmpty && brandOrderIds.add(orderId);
+      final status = order['status']?.toString() ?? 'pending';
+      final normalized = _normalizeOrderStatus(status);
+      final countsRevenue = _isRevenueStatus(status);
+      if (isNewOrder) {
+        totalOrders++;
+        orderStatusCounts[normalized] =
+            (orderStatusCounts[normalized] ?? 0) + 1;
+        if (countsRevenue) salesOrders++;
+      }
+
+      if (item['brand_id']?.toString() != brandId) continue;
+      final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
+      final price = (item['price_at_purchase'] as num?)?.toDouble() ?? 0;
+      final revenue = countsRevenue ? quantity * price : 0.0;
+      final variant = item['product_variants'] as Map<String, dynamic>?;
+      final productRow = variant?['products'] as Map<String, dynamic>?;
+      final productId = productRow?['id']?.toString();
+      if (productId == null || productId.isEmpty) continue;
+
+      final product = products.putIfAbsent(
+        productId,
+        () => _AdminBrandProductInfo.placeholder(
+          id: productId,
+          title: productRow?['title']?.toString() ?? 'Product',
+        ),
+      );
+      product.orderCountIds.add(orderId);
+      product.quantityOrdered += quantity;
+      product.grossRevenue += revenue;
+      productsSold += countsRevenue ? quantity : 0;
+      totalRevenue += revenue;
+    }
+
+    for (final row in viewRows) {
+      final productId = row['product_id']?.toString();
+      if (productId == null || productId.isEmpty) continue;
+      final product = products[productId];
+      if (product == null) continue;
+      product.views++;
+      final viewerId = row['viewer_id']?.toString();
+      final sessionId = row['session_id']?.toString();
+      if (viewerId != null && viewerId.isNotEmpty) {
+        product.uniqueViewKeys.add(viewerId);
+      } else if (sessionId != null && sessionId.isNotEmpty) {
+        product.uniqueViewKeys.add(sessionId);
+      }
+    }
+
+    for (final entry in reviewSummaries.entries) {
+      final product = products[entry.key];
+      if (product == null) continue;
+      product.reviewCount = entry.value.reviewCount;
+      product.averageRating = entry.value.averageRating;
+    }
+
+    final productList = products.values.toList()
+      ..sort((a, b) {
+        final orderedCompare = b.quantityOrdered.compareTo(a.quantityOrdered);
+        if (orderedCompare != 0) return orderedCompare;
+        final revenueCompare = b.grossRevenue.compareTo(a.grossRevenue);
+        if (revenueCompare != 0) return revenueCompare;
+        final viewCompare = b.views.compareTo(a.views);
+        if (viewCompare != 0) return viewCompare;
+        return a.title.compareTo(b.title);
+      });
+
+    final lowStock =
+        productList
+            .where((product) => product.lowStockVariantCount > 0)
+            .toList()
+          ..sort((a, b) => a.totalStock.compareTo(b.totalStock));
+
+    return _AdminBrandDetailSnapshot(
+      products: productList,
+      lowStockProducts: lowStock,
+      totalOrders: totalOrders,
+      salesOrders: salesOrders,
+      productsSold: productsSold,
+      totalRevenue: totalRevenue,
+      productViews: viewRows.length,
+      orderStatusCounts: orderStatusCounts,
+    );
+  }
+
+  static bool _isRevenueStatus(String status) {
+    final value = status.trim().toLowerCase();
+    return value == 'confirmed' ||
+        value == 'confirm' ||
+        value == 'in-delivery' ||
+        value == 'in_delivery' ||
+        value == 'in delivery' ||
+        value == 'completed' ||
+        value == 'delivered' ||
+        value == 'arrived';
+  }
+
+  static String _normalizeOrderStatus(String status) {
+    switch (status.trim().toLowerCase()) {
+      case 'confirmed':
+      case 'confirm':
+        return 'confirmed';
+      case 'in-delivery':
+      case 'in_delivery':
+      case 'in delivery':
+        return 'in-delivery';
+      case 'completed':
+      case 'delivered':
+      case 'arrived':
+        return 'completed';
+      case 'cancel':
+      case 'canceled':
+      case 'cancelled':
+        return 'canceled';
+      case 'refund':
+      case 'refunded':
+        return 'refund';
+      default:
+        return 'pending';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.lightGrey,
-      appBar: AppBar(title: Text(brand.name, style: AppTextStyles.appBarTitle)),
+      appBar: AppBar(
+        title: Text(widget.brand.name, style: AppTextStyles.appBarTitle),
+      ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: FutureBuilder<_AdminBrandDetailSnapshot>(
+          future: _detailFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const CustomLoadingCenter();
+            }
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Unable to load brand product details.',
+                        style: AppTextStyles.body,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: _refresh,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final detail = snapshot.data ?? _AdminBrandDetailSnapshot.empty();
+            final topProduct = detail.products.isEmpty
+                ? null
+                : detail.products.first;
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
                 children: [
-                  Text(
-                    brand.name,
-                    style: const TextStyle(
-                      color: AppColors.darkText,
-                      fontFamily: AppFonts.primary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('${brand.planLabel} • ${brand.productCount} products'),
+                  _brandHeader(),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Brand detail tools will be added in the next step.',
-                    style: AppTextStyles.body,
+                  Row(
+                    children: [
+                      _detailMetric(
+                        'Products',
+                        '${detail.products.length}',
+                        'Listed items',
+                      ),
+                      const SizedBox(width: 10),
+                      _detailMetric(
+                        'Orders',
+                        '${detail.totalOrders}',
+                        '${detail.salesOrders} sales',
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _detailMetric(
+                        'Sold',
+                        '${detail.productsSold}',
+                        'Units ordered',
+                      ),
+                      const SizedBox(width: 10),
+                      _detailMetric(
+                        'Revenue',
+                        formatKyat(detail.totalRevenue),
+                        'Confirmed + delivered',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _detailMetric(
+                        'Views',
+                        '${detail.productViews}',
+                        'Product opens',
+                      ),
+                      const SizedBox(width: 10),
+                      _detailMetric(
+                        'Low Stock',
+                        '${detail.lowStockProducts.length}',
+                        'Needs attention',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _topProductPanel(topProduct),
+                  const SizedBox(height: 16),
+                  _orderStatusPanel(detail.orderStatusCounts),
+                  const SizedBox(height: 16),
+                  _productPerformancePanel(detail.products),
+                  const SizedBox(height: 16),
+                  _lowStockPanel(detail.lowStockProducts),
                 ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _brandHeader() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _brandAvatar(),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.brand.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${widget.brand.planLabel} • ${widget.brand.phone}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.body,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _brandAvatar() {
+    final initial = widget.brand.name.trim().isEmpty
+        ? 'B'
+        : widget.brand.name.trim()[0].toUpperCase();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: widget.brand.logoUrl.isEmpty
+          ? Container(
+              width: 68,
+              height: 68,
+              color: AppColors.lightGrey,
+              alignment: Alignment.center,
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: AppColors.primaryGreen,
+                  fontFamily: AppFonts.primary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            )
+          : Image.network(
+              widget.brand.logoUrl,
+              width: 68,
+              height: 68,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                width: 68,
+                height: 68,
+                color: AppColors.lightGrey,
+                alignment: Alignment.center,
+                child: Text(initial),
+              ),
+            ),
+    );
+  }
+
+  Widget _detailMetric(String title, String value, String subtitle) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              style: const TextStyle(
+                color: AppColors.darkText,
+                fontFamily: AppFonts.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.subtleText,
+                fontFamily: AppFonts.primary,
+                fontSize: 12,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _topProductPanel(_AdminBrandProductInfo? product) {
+    return _detailPanel(
+      title: 'Most Ordered Item',
+      child: product == null || product.quantityOrdered == 0
+          ? const Text('No ordered products yet.', style: AppTextStyles.body)
+          : _productRow(product, showRank: false),
+    );
+  }
+
+  Widget _orderStatusPanel(Map<String, int> counts) {
+    final statuses = [
+      'pending',
+      'confirmed',
+      'in-delivery',
+      'completed',
+      'canceled',
+      'refund',
+    ];
+    return _detailPanel(
+      title: 'Order Status',
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: statuses
+            .map((status) => _statusChip(status, counts[status] ?? 0))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _productPerformancePanel(List<_AdminBrandProductInfo> products) {
+    return _detailPanel(
+      title: 'Product Performance',
+      child: products.isEmpty
+          ? const Text(
+              'No products found for this brand.',
+              style: AppTextStyles.body,
+            )
+          : Column(
+              children: products
+                  .asMap()
+                  .entries
+                  .map((entry) => _productRow(entry.value, rank: entry.key + 1))
+                  .toList(),
+            ),
+    );
+  }
+
+  Widget _lowStockPanel(List<_AdminBrandProductInfo> products) {
+    return _detailPanel(
+      title: 'Low Stock Products',
+      child: products.isEmpty
+          ? const Text('No low-stock products.', style: AppTextStyles.body)
+          : Column(
+              children: products
+                  .take(8)
+                  .map((product) => _productRow(product, showSales: false))
+                  .toList(),
+            ),
+    );
+  }
+
+  Widget _detailPanel({required String title, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.darkText,
+              fontFamily: AppFonts.primary,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _statusChip(String label, int value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.lightGrey,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(
+          color: AppColors.darkText,
+          fontFamily: AppFonts.primary,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _productRow(
+    _AdminBrandProductInfo product, {
+    int? rank,
+    bool showRank = true,
+    bool showSales = true,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showRank && rank != null) ...[
+            Container(
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$rank',
+                style: const TextStyle(
+                  color: AppColors.primaryGreen,
+                  fontFamily: AppFonts.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: product.imageUrl.isEmpty
+                ? Container(
+                    width: 58,
+                    height: 58,
+                    color: AppColors.lightGrey,
+                    child: const Icon(
+                      CupertinoIcons.cube_box,
+                      color: AppColors.subtleText,
+                    ),
+                  )
+                : Image.network(
+                    product.imageUrl,
+                    width: 58,
+                    height: 58,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      width: 58,
+                      height: 58,
+                      color: AppColors.lightGrey,
+                      child: const Icon(CupertinoIcons.cube_box),
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.darkText,
+                    fontFamily: AppFonts.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  product.categoryLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.subtleText,
+                    fontFamily: AppFonts.primary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    _miniStat('${product.totalStock} stock'),
+                    _miniStat('${product.variantCount} variants'),
+                    _miniStat('${product.views} views'),
+                    _miniStat(
+                      '${product.averageRating.toStringAsFixed(1)} stars',
+                    ),
+                  ],
+                ),
+                if (showSales) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '${product.quantityOrdered} sold • '
+                    '${product.orderCount} orders • '
+                    '${formatKyat(product.grossRevenue)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryGreen,
+                      fontFamily: AppFonts.primary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniStat(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.lightGrey,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.subtleText,
+          fontFamily: AppFonts.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminBrandDetailSnapshot {
+  final List<_AdminBrandProductInfo> products;
+  final List<_AdminBrandProductInfo> lowStockProducts;
+  final int totalOrders;
+  final int salesOrders;
+  final int productsSold;
+  final double totalRevenue;
+  final int productViews;
+  final Map<String, int> orderStatusCounts;
+
+  const _AdminBrandDetailSnapshot({
+    required this.products,
+    required this.lowStockProducts,
+    required this.totalOrders,
+    required this.salesOrders,
+    required this.productsSold,
+    required this.totalRevenue,
+    required this.productViews,
+    required this.orderStatusCounts,
+  });
+
+  factory _AdminBrandDetailSnapshot.empty() {
+    return const _AdminBrandDetailSnapshot(
+      products: <_AdminBrandProductInfo>[],
+      lowStockProducts: <_AdminBrandProductInfo>[],
+      totalOrders: 0,
+      salesOrders: 0,
+      productsSold: 0,
+      totalRevenue: 0,
+      productViews: 0,
+      orderStatusCounts: <String, int>{},
+    );
+  }
+}
+
+class _AdminBrandProductInfo {
+  static const int lowStockThreshold = 10;
+
+  final String id;
+  final String title;
+  final String description;
+  final String imageUrl;
+  final String category;
+  final String audience;
+  final double minPrice;
+  final double maxPrice;
+  final int variantCount;
+  final int totalStock;
+  final int lowStockVariantCount;
+  final bool planLocked;
+  final DateTime? createdAt;
+  final Set<String> orderCountIds = {};
+  final Set<String> uniqueViewKeys = {};
+
+  int quantityOrdered = 0;
+  double grossRevenue = 0;
+  int views = 0;
+  int reviewCount = 0;
+  double averageRating = 0;
+
+  _AdminBrandProductInfo({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.imageUrl,
+    required this.category,
+    required this.audience,
+    required this.minPrice,
+    required this.maxPrice,
+    required this.variantCount,
+    required this.totalStock,
+    required this.lowStockVariantCount,
+    required this.planLocked,
+    required this.createdAt,
+  });
+
+  int get orderCount => orderCountIds.length;
+
+  String get categoryLabel {
+    final parts = [
+      if (category.isNotEmpty) category,
+      if (audience.isNotEmpty) audience,
+      if (planLocked) 'Plan locked',
+    ];
+    return parts.isEmpty ? 'Uncategorized' : parts.join(' • ');
+  }
+
+  factory _AdminBrandProductInfo.placeholder({
+    required String id,
+    required String title,
+  }) {
+    return _AdminBrandProductInfo(
+      id: id,
+      title: title,
+      description: '',
+      imageUrl: '',
+      category: '',
+      audience: '',
+      minPrice: 0,
+      maxPrice: 0,
+      variantCount: 0,
+      totalStock: 0,
+      lowStockVariantCount: 0,
+      planLocked: false,
+      createdAt: null,
+    );
+  }
+
+  factory _AdminBrandProductInfo.fromProductRow(Map<String, dynamic> row) {
+    final basePrice = (row['base_price'] as num?)?.toDouble() ?? 0;
+    final variants =
+        (row['product_variants'] as List<dynamic>? ?? const <dynamic>[])
+            .cast<Map<String, dynamic>>();
+    final prices = <double>[];
+    var totalStock = 0;
+    var lowStockCount = 0;
+    var imageUrl = '';
+
+    for (final variant in variants) {
+      final adjustment = (variant['price_adjustment'] as num?)?.toDouble() ?? 0;
+      final regularPrice = basePrice + adjustment;
+      final promoPrice = (variant['promo_price'] as num?)?.toDouble();
+      final price = promoPrice != null && promoPrice > 0
+          ? promoPrice
+          : regularPrice;
+      prices.add(price);
+
+      final stock = (variant['stock_quantity'] as num?)?.toInt() ?? 0;
+      totalStock += stock;
+      if (stock <= lowStockThreshold) lowStockCount++;
+
+      final candidateImage = variant['image_url']?.toString() ?? '';
+      if (imageUrl.isEmpty && candidateImage.isNotEmpty) {
+        imageUrl = candidateImage;
+      }
+    }
+
+    final category = ((row['categories'] as Map?)?['name']?.toString() ?? '')
+        .trim();
+    final audience = ((row['audiences'] as Map?)?['name']?.toString() ?? '')
+        .trim();
+    final createdAtText = row['created_at']?.toString();
+
+    return _AdminBrandProductInfo(
+      id: row['id']?.toString() ?? '',
+      title: row['title']?.toString() ?? 'Untitled Product',
+      description: row['description']?.toString() ?? '',
+      imageUrl: imageUrl,
+      category: category,
+      audience: audience,
+      minPrice: prices.isEmpty ? basePrice : prices.reduce(math.min),
+      maxPrice: prices.isEmpty ? basePrice : prices.reduce(math.max),
+      variantCount: variants.length,
+      totalStock: totalStock,
+      lowStockVariantCount: lowStockCount,
+      planLocked: row['plan_locked'] as bool? ?? false,
+      createdAt: createdAtText == null || createdAtText.isEmpty
+          ? null
+          : DateTime.tryParse(createdAtText)?.toLocal(),
     );
   }
 }
@@ -1916,7 +3013,7 @@ class _AdminStats {
   }) {
     final customers = users.where((u) => u['user_type'] == 'customer').length;
     final vendorUsers = users.where((u) => u['user_type'] == 'vendor').length;
-    final admins = users.where((u) => u['user_type'] == 'admin').length;
+    final activeUsers = customers + vendorUsers;
     final approvedPlanOrders = planOrders
         .where((order) => order['status'] == 'approved')
         .toList();
@@ -1946,7 +3043,7 @@ class _AdminStats {
     }
 
     return _AdminStats(
-      totalUsers: users.length,
+      totalUsers: activeUsers,
       totalBrands: brands.length,
       activeVendors: vendors
           .where((v) => v['subscription_status'] == 'active')
@@ -1963,7 +3060,6 @@ class _AdminStats {
       userSegments: [
         _ChartSegment('Customers', customers, Colors.blue.shade700),
         _ChartSegment('Vendors', vendorUsers, AppColors.primaryGreen),
-        _ChartSegment('Admins', admins, Colors.deepOrange.shade700),
       ],
       revenueBars: revenueByPlan.entries
           .map(
@@ -2080,27 +3176,89 @@ class _AdminBrand {
 class _AdminReport {
   final String id;
   final String reportType;
+  final String reporterId;
+  final String reporterLabel;
+  final String reporterMeta;
+  final String targetId;
+  final String targetLabel;
+  final String targetMeta;
   final String reason;
   final String details;
   final String status;
+  final DateTime? createdAt;
 
   const _AdminReport({
     required this.id,
     required this.reportType,
+    required this.reporterId,
+    required this.reporterLabel,
+    required this.reporterMeta,
+    required this.targetId,
+    required this.targetLabel,
+    required this.targetMeta,
     required this.reason,
     required this.details,
     required this.status,
+    required this.createdAt,
   });
 
-  factory _AdminReport.fromRow(Map<String, dynamic> row) {
+  String get createdAtLabel {
+    final date = createdAt;
+    if (date == null) return 'Unknown date';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final suffix = date.hour >= 12 ? 'PM' : 'AM';
+    return '${months[date.month - 1]} ${date.day}, ${date.year} • $hour:$minute $suffix';
+  }
+
+  factory _AdminReport.fromRow(
+    Map<String, dynamic> row, {
+    required _ReportContext reporter,
+    required _ReportContext target,
+  }) {
+    final reportType = row['report_type']?.toString() ?? 'report';
+    final targetId = reportType == 'chat'
+        ? row['chat_id']?.toString() ?? ''
+        : row['product_id']?.toString() ?? '';
+    final createdAtText = row['created_at']?.toString();
     return _AdminReport(
       id: row['id']?.toString() ?? '',
-      reportType: row['report_type']?.toString() ?? 'report',
+      reportType: reportType,
+      reporterId: row['reporter_id']?.toString() ?? '',
+      reporterLabel: reporter.label,
+      reporterMeta: reporter.meta,
+      targetId: targetId,
+      targetLabel: target.label,
+      targetMeta: target.meta,
       reason: row['reason']?.toString() ?? '',
       details: row['details']?.toString() ?? '',
       status: row['status']?.toString() ?? 'open',
+      createdAt: createdAtText == null || createdAtText.isEmpty
+          ? null
+          : DateTime.tryParse(createdAtText)?.toLocal(),
     );
   }
+}
+
+class _ReportContext {
+  final String label;
+  final String meta;
+
+  const _ReportContext({required this.label, this.meta = ''});
 }
 
 class _AdminPaymentMethod {

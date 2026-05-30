@@ -214,6 +214,11 @@ class _VendorPlanPaymentScreenState extends State<VendorPlanPaymentScreen> {
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${VendorPlanService.paidPlanDays} days access after admin approval',
+                                style: AppTextStyles.body,
+                              ),
                             ],
                           ),
                         ),

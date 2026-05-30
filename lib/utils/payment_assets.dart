@@ -1,21 +1,30 @@
 const Map<String, String> _paymentTypeAssets = {
-  'a+ wallet': 'assets/images/A+Wallet.png',
-  'aya banking': 'assets/images/AYABanking.png',
-  'aya pay': 'assets/images/AYAPay.png',
-  'cb banking': 'assets/images/CBBanking.jpg',
-  'cb pay': 'assets/images/CBPay.png',
-  'kbz banking': 'assets/images/KBZBanking.png',
-  'kbz pay': 'assets/images/KBZPay.png',
-  'mab banking': 'assets/images/MABBanking.jpg',
+  'a+wallet': 'assets/images/A+Wallet.png',
+  'apluswallet': 'assets/images/A+Wallet.png',
+  'ayabanking': 'assets/images/AYABanking.png',
+  'ayapay': 'assets/images/AYAPay.png',
+  'cbbanking': 'assets/images/CBBanking.jpg',
+  'cbpay': 'assets/images/CBPay.png',
+  'kbzbanking': 'assets/images/KBZBanking.png',
+  'kbzpay': 'assets/images/KBZPay.png',
+  'mabbanking': 'assets/images/MABBanking.jpg',
+  'ok': 'assets/images/OK\$.png',
   'ok\$': 'assets/images/OK\$.png',
-  'one pay': 'assets/images/OnePay.png',
-  'trusty pay': 'assets/images/TrustyPay.jpg',
-  'uab banking': 'assets/images/UABBanking.jpg',
-  'uab pay': 'assets/images/UABPay.png',
-  'wave pay': 'assets/images/WavePay.png',
-  'yoma banking': 'assets/images/YomaBanking.png',
+  'onepay': 'assets/images/OnePay.png',
+  'trustypay': 'assets/images/TrustyPay.jpg',
+  'uabbanking': 'assets/images/UABBanking.jpg',
+  'uabpay': 'assets/images/UABPay.png',
+  'wavepay': 'assets/images/WavePay.png',
+  'yomabanking': 'assets/images/YomaBanking.png',
 };
 
 String? paymentTypeAsset(String paymentType) {
-  return _paymentTypeAssets[paymentType.trim().toLowerCase()];
+  return _paymentTypeAssets[_paymentTypeKey(paymentType)];
+}
+
+String _paymentTypeKey(String paymentType) {
+  return paymentType.trim().toLowerCase().replaceAll(
+    RegExp(r'[^a-z0-9+$]'),
+    '',
+  );
 }
